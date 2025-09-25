@@ -16,6 +16,8 @@ from .models import CoinConfig, AppConfig, MarketSnapshot, Decision
 from .fetcher import PriceFetcher
 from .notifier import Notifier
 from .decision import compute_rsi, compute_ma, compute_confidence, recommend_action
+from .liquidity import estimate_slippage
+from .executor import PaperExecutor
 
 # Set up console
 console = Console()
@@ -37,9 +39,18 @@ class CryptoTracker:
         self.price_history: Dict[str, deque] = {}
         # Decision settings (safe defaults)
         self.suggestion_threshold: float = 0.5
+        self.auto_threshold: float = 0.8
         self.rsi_period: int = 14
         self.short_ma_window: int = 20
         self.long_ma_window: int = 50
+        # Phase 3 settings
+        self.ttl_seconds: int = 15
+        self.auto_trade_enable: bool = False
+        self.paper_place_orders: bool = False
+        self.trade_default_size_usd: float = 50.0
+        self.spread_bps_default: int = 10
+        # Paper executor (safe; only used if flags allow)
+        self.paper = PaperExecutor()
         self._load_optional_settings()
         self.setup_schedules()
     
@@ -103,11 +114,26 @@ class CryptoTracker:
             decision = (cfg.get('decision') or {})
             thresholds = (decision.get('confidence_thresholds') or {})
             self.suggestion_threshold = float(thresholds.get('suggestion', 0.5))
+            self.auto_threshold = float(thresholds.get('auto', 0.8))
             # basic indicator windows (future-proof if added to config later)
             indicators = (cfg.get('indicators') or {})
             self.rsi_period = int(indicators.get('rsi_period', 14))
             self.short_ma_window = int(indicators.get('short_ma_window', 20))
             self.long_ma_window = int(indicators.get('long_ma_window', 50))
+            # TTL
+            price_cfg = (cfg.get('price') or {})
+            self.ttl_seconds = int(price_cfg.get('ttl_seconds', 15))
+            # paper + auto trade
+            auto_trade = (cfg.get('auto_trade') or {})
+            self.auto_trade_enable = bool(auto_trade.get('enable', False))
+            paper_cfg = (cfg.get('paper') or {})
+            self.paper_place_orders = bool(paper_cfg.get('place_orders', False))
+            # trade sizing
+            trade_cfg = (cfg.get('trade') or {})
+            self.trade_default_size_usd = float(trade_cfg.get('default_size_usd', 50.0))
+            # liquidity
+            liq_cfg = (cfg.get('liquidity') or {})
+            self.spread_bps_default = int(liq_cfg.get('spread_bps_default', 10))
         except Exception:
             # Keep defaults on any error
             pass
@@ -184,6 +210,7 @@ class CryptoTracker:
         table.add_column("Last Checked (UTC)", justify="left")
         table.add_column("Signal", justify="left")
         table.add_column("Confidence", justify="right")
+        table.add_column("Exp. Slip (%)", justify="right")
         table.add_column("Action Rec.", justify="left")
         table.add_column("Action Taken", justify="left")
 
@@ -195,6 +222,7 @@ class CryptoTracker:
                     "—",
                     f"${coin_config.threshold:,.2f}",
                     "[blue]Disabled",
+                    "—",
                     "—",
                     "—",
                     "—",
@@ -214,6 +242,7 @@ class CryptoTracker:
                     "CMC",
                     datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                     "threshold_check",
+                    "—",
                     "—",
                     "Hold",
                     "None",
@@ -244,6 +273,18 @@ class CryptoTracker:
             confidence = compute_confidence(float(current_price), coin_config.threshold, rsi_val, sma_short, sma_long)
             signal, action_rec, reason = recommend_action(float(current_price), coin_config.threshold, rsi_val, confidence, self.suggestion_threshold)
 
+            # Estimate slippage for default size
+            exp_slip_pct = estimate_slippage(self.trade_default_size_usd, spread_bps_default=self.spread_bps_default)
+
+            # TTL check (currently last_checked is 'now' as we fetch fresh; structure in place for future provider timestamps)
+            last_checked = datetime.now(timezone.utc)
+            is_stale = False
+            if self.ttl_seconds > 0:
+                is_stale = (datetime.now(timezone.utc) - last_checked).total_seconds() > self.ttl_seconds
+                if is_stale:
+                    # downgrade action to Manual/Hold if stale
+                    action_rec = "Manual"
+
             status = "[yellow]Equal" if is_equal else ("[red]Below" if below else "[green]Above")
             table.add_row(
                 f"{coin_config.name} ({coin_config.symbol.upper()})",
@@ -251,11 +292,12 @@ class CryptoTracker:
                 f"${coin_config.threshold:,.2f}",
                 status,
                 "CMC",
-                datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                last_checked.strftime("%Y-%m-%d %H:%M:%S"),
                 signal,
                 f"{confidence:.2f}",
+                f"{exp_slip_pct:.2f}",
                 action_rec,
-                "None",
+                ("None"),
             )
 
         console.print(table)
@@ -324,13 +366,13 @@ class CryptoTracker:
     def run(self):
         """Run the tracker main loop."""
         try:
-            console.print("\nStarting script. Press Ctrl+C to exit.\n")
+            console.print("\n[green]Starting script. Press Ctrl+C to exit.\n[/]")
             self.check_all_prices()
             while True:
                 schedule.run_pending()
                 time.sleep(1)
         except KeyboardInterrupt:
-            console.print("\nShutting down gracefully...\n")
+            console.print("\n[blue]Shutting down gracefully...\n[/]")
             sys.exit(0)
 
 if __name__ == "__main__":

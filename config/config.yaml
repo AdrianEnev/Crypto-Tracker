@@ -157,3 +157,15 @@ decision:
 
 price:
   ttl_seconds: 15   # consider data stale if older than this (display-only in Phase 1)
+
+# Paper trading settings (Phase 3)
+paper:
+  place_orders: false  # when true and auto_trade.enable is true, simulate orders
+
+# Default trade sizing for estimates (Phase 3)
+trade:
+  default_size_usd: 50.0  # small canary size used for slippage estimation / paper orders
+
+# Liquidity defaults (Phase 3)
+liquidity:
+  spread_bps_default: 10  # 10 basis points = 0.10% assumed spread when unknown
