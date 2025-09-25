@@ -23,7 +23,7 @@ class PriceAggregator:
         # enabled_sources can be a subset of {"cmc","coingecko"}
         self.enabled_sources = set((enabled_sources or ["cmc", "coingecko"]))
 
-    def aggregate_prices(self, id_to_symbol: Dict[str, str]) -> Dict[str, Dict[str, Optional[object]]]:
+    def aggregate_prices(self, id_to_symbol: Dict[str, str], cg_ids: Optional[Dict[str, str]] = None) -> Dict[str, Dict[str, Optional[object]]]:
         """Return a mapping coin_id -> {
             'price': float|None,            # aggregated price
             'providers': List[str],         # providers that returned a price
@@ -41,7 +41,17 @@ class PriceAggregator:
             cmc_prices = {cid: None for cid in id_to_symbol.keys()}
         if "coingecko" in self.enabled_sources:
             try:
-                cg_prices = self.cg.get_prices_by_ids(list(id_to_symbol.keys()))
+                # If a mapping is provided, translate our coin_ids to CoinGecko ids
+                ids = list(id_to_symbol.keys())
+                if cg_ids:
+                    cg_query_ids = [cg_ids.get(cid, cid) for cid in ids]
+                    cg_raw = self.cg.get_prices_by_ids(cg_query_ids)
+                    # Map back to our coin_ids
+                    cg_prices = {}
+                    for cid, qid in zip(ids, cg_query_ids):
+                        cg_prices[cid] = cg_raw.get(qid)
+                else:
+                    cg_prices = self.cg.get_prices_by_ids(ids)
             except Exception:
                 cg_prices = {cid: None for cid in id_to_symbol.keys()}
         else:

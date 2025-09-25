@@ -161,6 +161,7 @@ price:
 # Paper trading settings (Phase 3)
 paper:
   place_orders: false  # when true and auto_trade.enable is true, simulate orders
+  exits_enable: false  # when true, allow paper SL/TP auto-closing
 
 # Default trade sizing for estimates (Phase 3)
 trade:

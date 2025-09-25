@@ -202,7 +202,18 @@ class CryptoTracker:
         enabled_map = {cid: cfg.symbol for cid, cfg in self.config.tracked_coins.items() if not cfg.disabled}
         if not enabled_map:
             return
-        aggregated = self.aggregator.aggregate_prices(enabled_map)
+        # Build optional CoinGecko ID mapping from config if provided per coin
+        cg_ids = {}
+        try:
+            with open(self.config_path, 'r') as f:
+                cfg_all = yaml.safe_load(f) or {}
+            for cid, data in (cfg_all.get('tracked_coins') or {}).items():
+                cg_id = (data or {}).get('coingecko_id')
+                if cg_id:
+                    cg_ids[cid] = str(cg_id)
+        except Exception:
+            pass
+        aggregated = self.aggregator.aggregate_prices(enabled_map, cg_ids=cg_ids or None)
 
         # Build and print a single table for this batch
         table = Table(show_header=True, header_style="bold magenta")
@@ -257,7 +268,7 @@ class CryptoTracker:
                     "N/A",
                     f"${coin_config.threshold:,.2f}",
                     "[yellow]Error",
-                    "CMC",
+                    "—",
                     datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                     "threshold_check",
                     "—",
@@ -374,17 +385,67 @@ class CryptoTracker:
                         pos_units_display = f"{pos.units:.6f}" if pos else "—"
                         entry_display = (f"${pos.entry_price:,.4f}" if pos else "—")
                         pnl_display = (f"{pos.pnl_pct(float(current_price)):.2f}" if pos else "—")
+                    # Paper exits: SL/TP
+                    if self.paper_exits_enable and pos is not None:
+                        # SL/TP based on entry (compute from entry and risk)
+                        sl_from_entry, tp_from_entry = compute_stop_levels(float(pos.entry_price), self.risk)
+                        if float(current_price) <= sl_from_entry:
+                            closed = self.portfolio.close(symbol_key)
+                            log_event("paper_exit", {
+                                "symbol": symbol_key,
+                                "reason": "stop_loss",
+                                "entry": float(closed.entry_price) if closed else None,
+                                "exit_price": float(current_price),
+                                "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
+                            })
+                            action_taken = "SL"
+                            pos = None
+                            pos_units_display = "—"
+                            entry_display = "—"
+                            pnl_display = "—"
+                        elif float(current_price) >= tp_from_entry:
+                            closed = self.portfolio.close(symbol_key)
+                            log_event("paper_exit", {
+                                "symbol": symbol_key,
+                                "reason": "take_profit",
+                                "entry": float(closed.entry_price) if closed else None,
+                                "exit_price": float(current_price),
+                                "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
+                            })
+                            action_taken = "TP"
+                            pos = None
+                            pos_units_display = "—"
+                            entry_display = "—"
+                            pnl_display = "—"
             except Exception as ex:
                 log_event("paper_error", {"symbol": symbol_key, "error": str(ex)})
                 action_taken = "Error"
 
             status = "[yellow]Equal" if is_equal else ("[red]Below" if below else "[green]Above")
+
+            # Emit decision log (JSON) for auditability
+            try:
+                log_event("decision", {
+                    "coin_id": coin_id,
+                    "symbol": coin_config.symbol.upper(),
+                    "price": float(current_price),
+                    "threshold": float(coin_config.threshold),
+                    "status": ("equal" if is_equal else ("below" if below else "above")),
+                    "signal": signal,
+                    "confidence": confidence,
+                    "agreement_pct": agreement_pct,
+                    "providers": providers_str,
+                    "stale": is_stale,
+                    "action_recommended": action_rec,
+                })
+            except Exception:
+                pass
             table.add_row(
                 f"{coin_config.name} ({coin_config.symbol.upper()})",
                 f"${current_price:,.2f}",
                 f"${coin_config.threshold:,.2f}",
                 status,
-                "CMC",
+                "Agg",
                 last_checked.strftime("%Y-%m-%d %H:%M:%S"),
                 signal,
                 f"{confidence:.2f}",
@@ -466,7 +527,15 @@ class CryptoTracker:
     def run(self):
         """Run the tracker main loop."""
         try:
-            console.print("\n[green]Starting script. Press Ctrl+C to exit.\n[/]")
+            # Startup banner with active providers and thresholds
+            providers_active = ",".join(sorted(list(getattr(self.aggregator, 'enabled_sources', {"cmc"}))))
+            console.print("\n[green]Starting script. Press Ctrl+C to exit.[/]")
+            console.print(
+                f"[blue]Providers:[/] {providers_active} | "
+                f"[blue]TTL(s):[/] {self.ttl_seconds} | "
+                f"[blue]Agreement max diff(%):[/] {self.agreement_max_diff_pct} | "
+                f"[blue]Confidence thresholds (suggest/auto):[/] {self.suggestion_threshold}/{self.auto_threshold}"
+            )
             self.check_all_prices()
             while True:
                 schedule.run_pending()
