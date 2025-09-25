@@ -19,6 +19,10 @@ from .decision import compute_rsi, compute_ma, compute_confidence, recommend_act
 from .liquidity import estimate_slippage
 from .executor import PaperExecutor
 from .risk import RiskParams, compute_stop_levels
+from .fetcher_coingecko import CoingeckoFetcher
+from .aggregator import PriceAggregator
+from .logger import log_event
+from .portfolio import Portfolio
 
 # Set up console
 console = Console()
@@ -34,6 +38,10 @@ class CryptoTracker:
             base_url=self.config.api_base_url,
             timeout=self.config.api_timeout
         )
+        # Additional provider (Coingecko) and aggregator (Phase 5)
+        self.cg_fetcher = CoingeckoFetcher()
+        self.agreement_max_diff_pct: float = 0.5
+        self.aggregator = PriceAggregator(self.fetcher, self.cg_fetcher, agreement_max_diff_pct=self.agreement_max_diff_pct)
         self.notifier = Notifier()
         self.global_interval_override = self._get_global_interval_override()
         # In-memory price history for indicators
@@ -54,6 +62,8 @@ class CryptoTracker:
         self.paper = PaperExecutor()
         # Risk defaults
         self.risk = RiskParams()
+        # Paper portfolio (in-memory)
+        self.portfolio = Portfolio()
         self._load_optional_settings()
         self.setup_schedules()
     
@@ -117,22 +127,6 @@ class CryptoTracker:
             decision = (cfg.get('decision') or {})
             thresholds = (decision.get('confidence_thresholds') or {})
             self.suggestion_threshold = float(thresholds.get('suggestion', 0.5))
-            self.auto_threshold = float(thresholds.get('auto', 0.8))
-            # basic indicator windows (future-proof if added to config later)
-            indicators = (cfg.get('indicators') or {})
-            self.rsi_period = int(indicators.get('rsi_period', 14))
-            self.short_ma_window = int(indicators.get('short_ma_window', 20))
-            self.long_ma_window = int(indicators.get('long_ma_window', 50))
-            # TTL
-            price_cfg = (cfg.get('price') or {})
-            self.ttl_seconds = int(price_cfg.get('ttl_seconds', 15))
-            # paper + auto trade
-            auto_trade = (cfg.get('auto_trade') or {})
-            self.auto_trade_enable = bool(auto_trade.get('enable', False))
-            paper_cfg = (cfg.get('paper') or {})
-            self.paper_place_orders = bool(paper_cfg.get('place_orders', False))
-            # trade sizing
-            trade_cfg = (cfg.get('trade') or {})
             self.trade_default_size_usd = float(trade_cfg.get('default_size_usd', 50.0))
             # liquidity
             liq_cfg = (cfg.get('liquidity') or {})
@@ -208,7 +202,7 @@ class CryptoTracker:
         enabled_map = {cid: cfg.symbol for cid, cfg in self.config.tracked_coins.items() if not cfg.disabled}
         if not enabled_map:
             return
-        prices = self.fetcher.get_prices_by_symbols(enabled_map)
+        aggregated = self.aggregator.aggregate_prices(enabled_map)
 
         # Build and print a single table for this batch
         table = Table(show_header=True, header_style="bold magenta")
@@ -221,8 +215,13 @@ class CryptoTracker:
         table.add_column("Signal", justify="left")
         table.add_column("Confidence", justify="right")
         table.add_column("Exp. Slip (%)", justify="right")
+        table.add_column("Agreement (%)", justify="right")
+        table.add_column("Providers", justify="left")
         table.add_column("SL", justify="right")
         table.add_column("TP", justify="right")
+        table.add_column("Position", justify="right")
+        table.add_column("Entry", justify="right")
+        table.add_column("P&L%", justify="right")
         table.add_column("Action Rec.", justify="left")
         table.add_column("Action Taken", justify="left")
 
@@ -242,12 +241,17 @@ class CryptoTracker:
                     "—",
                     "—",
                     "—",
+                    "—",
+                    "—",
+                    "—",
+                    "—",
+                    "—",
                     "None",
                 )
                 continue
 
-            current_price = prices.get(coin_id)
-            if current_price is None:
+            price_data = aggregated.get(coin_id)
+            if price_data is None:
                 table.add_row(
                     f"{coin_config.name} ({coin_config.symbol.upper()})",
                     "N/A",
@@ -264,6 +268,25 @@ class CryptoTracker:
                     "None",
                 )
                 # Maintain notifier state silently on errors as no price is available
+                continue
+
+            current_price = price_data.get('price')
+            if current_price is None:
+                table.add_row(
+                    f"{coin_config.name} ({coin_config.symbol.upper()})",
+                    "N/A",
+                    f"${coin_config.threshold:,.2f}",
+                    "[yellow]Error",
+                    "CMC", # Assuming CMC is the default for error rows
+                    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                    "threshold_check",
+                    "—",
+                    "—",
+                    "—",
+                    "—",
+                    "Hold",
+                    "None",
+                )
                 continue
 
             # Determine status and update notifier silently (no panels)
@@ -301,8 +324,59 @@ class CryptoTracker:
                     # downgrade action to Manual/Hold if stale
                     action_rec = "Manual"
 
+            # Agreement check
+            agreement_pct = None
+            providers_str = ""
+            if isinstance(price_data, dict):
+                agreement_pct = price_data.get('agreement_diff_pct')
+                providers = price_data.get('providers') or []
+                providers_str = ",".join(providers)
+                if agreement_pct is not None and agreement_pct > self.agreement_max_diff_pct:
+                    action_rec = "Manual"  # disagreement -> require manual
+
             # Display-only stop levels relative to current price (for preview)
             sl_level, tp_level = compute_stop_levels(float(current_price), self.risk)
+
+            # Portfolio state for display
+            symbol_key = coin_config.symbol.upper()
+            pos = self.portfolio.get(symbol_key)
+            pos_units_display = f"{pos.units:.6f}" if pos else "—"
+            entry_display = (f"${pos.entry_price:,.4f}" if pos else "—")
+            pnl_display = (f"{pos.pnl_pct(float(current_price)):.2f}" if pos else "—")
+
+            # Conditional paper execution (guarded)
+            action_taken = "None"
+            can_place = (
+                self.auto_trade_enable and
+                self.paper_place_orders and
+                (not is_stale) and
+                (agreement_pct is None or agreement_pct <= self.agreement_max_diff_pct)
+            )
+            try:
+                if can_place:
+                    # Simple buy rule for demo: recommend Buy and no existing position
+                    if action_rec == "Buy" and pos is None and confidence >= self.auto_threshold:
+                        order = self.paper.place_order(symbol=symbol_key, side="buy", size_usd=self.trade_default_size_usd, order_type="limit")
+                        self.portfolio.open(symbol=symbol_key, usd_size=self.trade_default_size_usd, price=float(current_price))
+                        action_taken = order.status
+                        log_event("paper_order", {
+                            "symbol": symbol_key,
+                            "side": "buy",
+                            "size_usd": self.trade_default_size_usd,
+                            "price": float(current_price),
+                            "confidence": confidence,
+                            "signal": signal,
+                            "agreement_pct": agreement_pct,
+                            "status": order.status,
+                        })
+                        # refresh position display
+                        pos = self.portfolio.get(symbol_key)
+                        pos_units_display = f"{pos.units:.6f}" if pos else "—"
+                        entry_display = (f"${pos.entry_price:,.4f}" if pos else "—")
+                        pnl_display = (f"{pos.pnl_pct(float(current_price)):.2f}" if pos else "—")
+            except Exception as ex:
+                log_event("paper_error", {"symbol": symbol_key, "error": str(ex)})
+                action_taken = "Error"
 
             status = "[yellow]Equal" if is_equal else ("[red]Below" if below else "[green]Above")
             table.add_row(
@@ -315,10 +389,15 @@ class CryptoTracker:
                 signal,
                 f"{confidence:.2f}",
                 f"{exp_slip_pct:.2f}",
+                (f"{agreement_pct:.2f}" if agreement_pct is not None else "—"),
+                (providers_str or "—"),
                 f"${sl_level:,.4f}",
                 f"${tp_level:,.4f}",
+                pos_units_display,
+                entry_display,
+                pnl_display,
                 action_rec,
-                ("None"),
+                action_taken,
             )
 
         console.print(table)

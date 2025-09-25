@@ -175,3 +175,8 @@ risk:
   stop_loss_pct: 0.03      # 3% below entry
   take_profit_pct: 0.06    # 6% above entry
   trailing_stop_pct: 0.04  # 4% trail from peak after entry
+
+# Price providers and agreement (Phase 5)
+providers:
+  sources: ["cmc", "coingecko"]  # order does not matter
+  agreement_max_diff_pct: 0.5      # require providers within 0.5% for auto actions
