@@ -169,3 +169,9 @@ trade:
 # Liquidity defaults (Phase 3)
 liquidity:
   spread_bps_default: 10  # 10 basis points = 0.10% assumed spread when unknown
+
+# Risk policy defaults (Phase 4)
+risk:
+  stop_loss_pct: 0.03      # 3% below entry
+  take_profit_pct: 0.06    # 6% above entry
+  trailing_stop_pct: 0.04  # 4% trail from peak after entry

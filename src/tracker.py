@@ -18,6 +18,7 @@ from .notifier import Notifier
 from .decision import compute_rsi, compute_ma, compute_confidence, recommend_action
 from .liquidity import estimate_slippage
 from .executor import PaperExecutor
+from .risk import RiskParams, compute_stop_levels
 
 # Set up console
 console = Console()
@@ -51,6 +52,8 @@ class CryptoTracker:
         self.spread_bps_default: int = 10
         # Paper executor (safe; only used if flags allow)
         self.paper = PaperExecutor()
+        # Risk defaults
+        self.risk = RiskParams()
         self._load_optional_settings()
         self.setup_schedules()
     
@@ -134,6 +137,13 @@ class CryptoTracker:
             # liquidity
             liq_cfg = (cfg.get('liquidity') or {})
             self.spread_bps_default = int(liq_cfg.get('spread_bps_default', 10))
+            # risk
+            risk_cfg = (cfg.get('risk') or {})
+            self.risk = RiskParams(
+                stop_loss_pct=float(risk_cfg.get('stop_loss_pct', 0.03)),
+                take_profit_pct=float(risk_cfg.get('take_profit_pct', 0.06)),
+                trailing_stop_pct=float(risk_cfg.get('trailing_stop_pct', 0.04)),
+            )
         except Exception:
             # Keep defaults on any error
             pass
@@ -211,6 +221,8 @@ class CryptoTracker:
         table.add_column("Signal", justify="left")
         table.add_column("Confidence", justify="right")
         table.add_column("Exp. Slip (%)", justify="right")
+        table.add_column("SL", justify="right")
+        table.add_column("TP", justify="right")
         table.add_column("Action Rec.", justify="left")
         table.add_column("Action Taken", justify="left")
 
@@ -222,6 +234,8 @@ class CryptoTracker:
                     "—",
                     f"${coin_config.threshold:,.2f}",
                     "[blue]Disabled",
+                    "—",
+                    "—",
                     "—",
                     "—",
                     "—",
@@ -242,6 +256,8 @@ class CryptoTracker:
                     "CMC",
                     datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                     "threshold_check",
+                    "—",
+                    "—",
                     "—",
                     "—",
                     "Hold",
@@ -285,6 +301,9 @@ class CryptoTracker:
                     # downgrade action to Manual/Hold if stale
                     action_rec = "Manual"
 
+            # Display-only stop levels relative to current price (for preview)
+            sl_level, tp_level = compute_stop_levels(float(current_price), self.risk)
+
             status = "[yellow]Equal" if is_equal else ("[red]Below" if below else "[green]Above")
             table.add_row(
                 f"{coin_config.name} ({coin_config.symbol.upper()})",
@@ -296,6 +315,8 @@ class CryptoTracker:
                 signal,
                 f"{confidence:.2f}",
                 f"{exp_slip_pct:.2f}",
+                f"${sl_level:,.4f}",
+                f"${tp_level:,.4f}",
                 action_rec,
                 ("None"),
             )
