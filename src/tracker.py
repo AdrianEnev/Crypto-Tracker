@@ -5,6 +5,7 @@ import yaml
 import schedule
 from pathlib import Path
 from typing import Dict, Any
+from collections import deque
 from rich.console import Console
 from rich.table import Table
 from rich.progress import track
@@ -14,6 +15,7 @@ from datetime import datetime, timezone
 from .models import CoinConfig, AppConfig, MarketSnapshot, Decision
 from .fetcher import PriceFetcher
 from .notifier import Notifier
+from .decision import compute_rsi, compute_ma, compute_confidence, recommend_action
 
 # Set up console
 console = Console()
@@ -23,6 +25,7 @@ class CryptoTracker:
         """Initialize the crypto tracker with configuration."""
         # Load env vars first so overrides are available while loading config
         load_dotenv(dotenv_path=Path(__file__).parent.parent / 'config' / '.env')
+        self.config_path = config_path
         self.config = self._load_config(config_path)
         self.fetcher = PriceFetcher(
             base_url=self.config.api_base_url,
@@ -30,6 +33,14 @@ class CryptoTracker:
         )
         self.notifier = Notifier()
         self.global_interval_override = self._get_global_interval_override()
+        # In-memory price history for indicators
+        self.price_history: Dict[str, deque] = {}
+        # Decision settings (safe defaults)
+        self.suggestion_threshold: float = 0.5
+        self.rsi_period: int = 14
+        self.short_ma_window: int = 20
+        self.long_ma_window: int = 50
+        self._load_optional_settings()
         self.setup_schedules()
     
     def _load_config(self, config_path: str) -> AppConfig:
@@ -83,6 +94,24 @@ class CryptoTracker:
             console.print(f"[red]Error loading configuration: {e}[/red]")
             sys.exit(1)
 
+    def _load_optional_settings(self):
+        """Load optional non-critical settings from YAML (decision thresholds, etc.)."""
+        try:
+            with open(self.config_path, 'r') as f:
+                cfg = yaml.safe_load(f) or {}
+            # decision thresholds
+            decision = (cfg.get('decision') or {})
+            thresholds = (decision.get('confidence_thresholds') or {})
+            self.suggestion_threshold = float(thresholds.get('suggestion', 0.5))
+            # basic indicator windows (future-proof if added to config later)
+            indicators = (cfg.get('indicators') or {})
+            self.rsi_period = int(indicators.get('rsi_period', 14))
+            self.short_ma_window = int(indicators.get('short_ma_window', 20))
+            self.long_ma_window = int(indicators.get('long_ma_window', 50))
+        except Exception:
+            # Keep defaults on any error
+            pass
+
     def _get_global_interval_override(self) -> int | None:
         """Read CHECK_INTERVAL_SECONDS env to override per-coin intervals."""
         val = os.environ.get('CHECK_INTERVAL_SECONDS')
@@ -111,7 +140,7 @@ class CryptoTracker:
             interval = min(cfg.check_interval for cfg in enabled)
         schedule.every(interval).seconds.do(self.check_all_prices)
         console.print(
-            f"[blue]Using {'global ' if self.global_interval_override else ''}interval: every {interval}s (batched checks).[/]"
+            f"[blue]Using {'global ' if self.global_interval_override else ''}interval: every {interval}s.[/]"
         )
 
     def check_coin_price(self, coin_id: str, coin_config: CoinConfig):
@@ -204,6 +233,17 @@ class CryptoTracker:
                 silent=True,
             )
 
+            # Maintain price history for indicators
+            hist = self.price_history.setdefault(coin_id, deque(maxlen=max(self.long_ma_window + 5, self.rsi_period + 5)))
+            hist.append(float(current_price))
+
+            # Compute indicators and confidence
+            rsi_val = compute_rsi(list(hist), period=self.rsi_period)
+            sma_short = compute_ma(list(hist), window=self.short_ma_window)
+            sma_long = compute_ma(list(hist), window=self.long_ma_window)
+            confidence = compute_confidence(float(current_price), coin_config.threshold, rsi_val, sma_short, sma_long)
+            signal, action_rec, reason = recommend_action(float(current_price), coin_config.threshold, rsi_val, confidence, self.suggestion_threshold)
+
             status = "[yellow]Equal" if is_equal else ("[red]Below" if below else "[green]Above")
             table.add_row(
                 f"{coin_config.name} ({coin_config.symbol.upper()})",
@@ -212,9 +252,9 @@ class CryptoTracker:
                 status,
                 "CMC",
                 datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-                "threshold_check",
-                "0.00",
-                "Hold",
+                signal,
+                f"{confidence:.2f}",
+                action_rec,
                 "None",
             )
 
@@ -284,14 +324,13 @@ class CryptoTracker:
     def run(self):
         """Run the tracker main loop."""
         try:
-            console.print("\n-----[green]🚀 Starting price tracker. Press Ctrl+C to exit.-----[/]")
-            console.print("[blue]-------------------------------------------------------------[/]")
+            console.print("\nStarting script. Press Ctrl+C to exit.\n")
             self.check_all_prices()
             while True:
                 schedule.run_pending()
                 time.sleep(1)
         except KeyboardInterrupt:
-            console.print("\n---------------[blue]👋 Shutting down gracefully...---------------[/]")
+            console.print("\nShutting down gracefully...\n")
             sys.exit(0)
 
 if __name__ == "__main__":
