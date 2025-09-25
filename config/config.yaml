@@ -151,21 +151,21 @@ api:
 # Phase 1 foundations
 # Trading stays disabled by default. Paper vs live mode is only relevant later.
 auto_trade:
-  enable: false   # no trading in Phase 1
+  enable: true   # no trading in Phase 1
   mode: paper     # "paper" | "live" (paper is safe default)
 
 decision:
   confidence_thresholds:
     suggestion: 0.5  # display-only in Phase 1
-    auto: 0.8        # not used until auto trade is enabled
+    auto: 0.4        # not used until auto trade is enabled
 
 price:
   ttl_seconds: 15   # consider data stale if older than this (display-only in Phase 1)
 
 # Paper trading settings (Phase 3)
 paper:
-  place_orders: false  # when true and auto_trade.enable is true, simulate orders
-  exits_enable: false  # when true, allow paper SL/TP auto-closing
+  place_orders: true  # when true and auto_trade.enable is true, simulate orders
+  exits_enable: true  # when true, allow paper SL/TP auto-closing
 
 # Default trade sizing for estimates (Phase 3)
 trade:
@@ -175,13 +175,23 @@ trade:
 liquidity:
   spread_bps_default: 10  # 10 basis points = 0.10% assumed spread when unknown
 
-# Risk policy defaults (Phase 4)
 risk:
   stop_loss_pct: 0.03      # 3% below entry
   take_profit_pct: 0.06    # 6% above entry
   trailing_stop_pct: 0.04  # 4% trail from peak after entry
 
+# UI formatting (price precision thresholds)
+ui:
+  price_format:
+    thresholds: [1.0, 0.1, 0.01]   # cutoffs for precision steps
+    precisions: [2, 4, 6, 8]       # decimals for >=1.0, >=0.1, >=0.01, otherwise
+
+# Execution guardrails for testing
+execution:
+  max_open_positions: 5           # cap number of simultaneous paper positions
+  per_coin_cooldown_seconds: 60   # min seconds before re-opening same coin after exit
+
 # Price providers and agreement (Phase 5)
 providers:
-  sources: ["cmc", "coingecko"]  # order does not matter
+  sources: ["cmc"]  # order does not matter
   agreement_max_diff_pct: 0.5      # require providers within 0.5% for auto actions

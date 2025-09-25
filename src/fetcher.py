@@ -1,5 +1,7 @@
 import os
 import requests
+import time
+import random
 from typing import Dict, Optional
 from rich.console import Console
 
@@ -11,6 +13,25 @@ class PriceFetcher:
         self.timeout = timeout
         self.session = requests.Session()
         self.api_key = os.getenv("COINMARKETCAP_API_KEY")
+        # retry config
+        self.max_retries = 2
+        self.backoff_base = 0.3  # seconds
+
+    def _request_with_retries(self, url: str, headers: Dict[str, str], params: Dict[str, str]):
+        last_exc = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                resp = self.session.get(url, headers=headers, params=params, timeout=self.timeout)
+                resp.raise_for_status()
+                return resp
+            except requests.RequestException as e:
+                last_exc = e
+                if attempt < self.max_retries:
+                    sleep_s = self.backoff_base * (2 ** attempt) + random.uniform(0, 0.2)
+                    time.sleep(sleep_s)
+                else:
+                    break
+        raise last_exc
         
     def get_prices_by_symbols(self, id_to_symbol: Dict[str, str]) -> Dict[str, Optional[float]]:
         """Fetch current USD prices for the given mapping of coin IDs to symbols.
@@ -40,9 +61,7 @@ class PriceFetcher:
                 'symbol': symbols,
                 'convert': 'USD'
             }
-
-            response = self.session.get(url, headers=headers, params=params, timeout=self.timeout)
-            response.raise_for_status()
+            response = self._request_with_retries(url, headers, params)
             data = response.json()
 
             # Data shape: { 'data': { 'BTC': [{...}], 'ETH': [{...}], ... } }

@@ -18,10 +18,10 @@ from .notifier import Notifier
 from .decision import compute_rsi, compute_ma, compute_confidence, recommend_action
 from .liquidity import estimate_slippage
 from .executor import PaperExecutor
-from .risk import RiskParams, compute_stop_levels
+from .risk import RiskParams, compute_stop_levels, compute_trailing_stop
 from .fetcher_coingecko import CoingeckoFetcher
 from .aggregator import PriceAggregator
-from .logger import log_event
+from .logger import log_event, configure_file_logging
 from .portfolio import Portfolio
 
 # Set up console
@@ -64,6 +64,15 @@ class CryptoTracker:
         self.risk = RiskParams()
         # Paper portfolio (in-memory)
         self.portfolio = Portfolio()
+        # Execution guardrails
+        self.max_open_positions: int = 999999
+        self.per_coin_cooldown_seconds: int = 0
+        self._last_close_ts: Dict[str, float] = {}
+        # UI format defaults
+        self.ui_thresholds = [1.0, 0.1, 0.01]
+        self.ui_precisions = [2, 4, 6, 8]
+        # Recent orders buffer
+        self.recent_orders: deque = deque(maxlen=20)
         self._load_optional_settings()
         self.setup_schedules()
     
@@ -127,7 +136,20 @@ class CryptoTracker:
             decision = (cfg.get('decision') or {})
             thresholds = (decision.get('confidence_thresholds') or {})
             self.suggestion_threshold = float(thresholds.get('suggestion', 0.5))
-            self.trade_default_size_usd = float(trade_cfg.get('default_size_usd', 50.0))
+            self.auto_threshold = float(thresholds.get('auto', self.auto_threshold))
+            # price TTL
+            price_cfg = (cfg.get('price') or {})
+            self.ttl_seconds = int(price_cfg.get('ttl_seconds', self.ttl_seconds))
+            # auto trade + paper flags
+            at_cfg = (cfg.get('auto_trade') or {})
+            self.auto_trade_enable = bool(at_cfg.get('enable', self.auto_trade_enable))
+            paper_cfg = (cfg.get('paper') or {})
+            self.paper_place_orders = bool(paper_cfg.get('place_orders', self.paper_place_orders))
+            # paper exits flag (used by trailing/SL/TP logic)
+            self.paper_exits_enable = bool(paper_cfg.get('exits_enable', getattr(self, 'paper_exits_enable', False)))
+            # trade sizing
+            trade_cfg = (cfg.get('trade') or {})
+            self.trade_default_size_usd = float(trade_cfg.get('default_size_usd', self.trade_default_size_usd))
             # liquidity
             liq_cfg = (cfg.get('liquidity') or {})
             self.spread_bps_default = int(liq_cfg.get('spread_bps_default', 10))
@@ -138,6 +160,40 @@ class CryptoTracker:
                 take_profit_pct=float(risk_cfg.get('take_profit_pct', 0.06)),
                 trailing_stop_pct=float(risk_cfg.get('trailing_stop_pct', 0.04)),
             )
+            # Providers & agreement
+            providers_cfg = (cfg.get('providers') or {})
+            sources = providers_cfg.get('sources') or None
+            if sources and isinstance(sources, list):
+                try:
+                    self.aggregator.enabled_sources = set(sources)
+                except Exception:
+                    pass
+            self.agreement_max_diff_pct = float(providers_cfg.get('agreement_max_diff_pct', self.agreement_max_diff_pct))
+            # UI formatting
+            ui_cfg = (cfg.get('ui') or {})
+            pf = (ui_cfg.get('price_format') or {})
+            th = pf.get('thresholds')
+            pr = pf.get('precisions')
+            if isinstance(th, list) and len(th) == 3:
+                self.ui_thresholds = [float(x) for x in th]
+            if isinstance(pr, list) and len(pr) == 4:
+                self.ui_precisions = [int(x) for x in pr]
+            # Execution guardrails
+            exe = (cfg.get('execution') or {})
+            self.max_open_positions = int(exe.get('max_open_positions', self.max_open_positions))
+            self.per_coin_cooldown_seconds = int(exe.get('per_coin_cooldown_seconds', self.per_coin_cooldown_seconds))
+            # Logging
+            logging_cfg = (cfg.get('logging') or {})
+            log_dir = logging_cfg.get('dir')
+            try:
+                # default to project logs/ if not provided
+                if log_dir is None:
+                    default_logs = (Path(__file__).parent.parent / 'logs')
+                    configure_file_logging(str(default_logs))
+                else:
+                    configure_file_logging(str(log_dir))
+            except Exception:
+                configure_file_logging(None)
         except Exception:
             # Keep defaults on any error
             pass
@@ -233,6 +289,8 @@ class CryptoTracker:
         table.add_column("Position", justify="right")
         table.add_column("Entry", justify="right")
         table.add_column("P&L%", justify="right")
+        table.add_column("Trailing", justify="right")
+        table.add_column("Notes", justify="left")
         table.add_column("Action Rec.", justify="left")
         table.add_column("Action Taken", justify="left")
 
@@ -240,63 +298,76 @@ class CryptoTracker:
             if coin_config.disabled:
                 # Show disabled entries too for clarity
                 table.add_row(
-                    f"{coin_config.name} ({coin_config.symbol.upper()})",
-                    "—",
-                    f"${coin_config.threshold:,.2f}",
-                    "[blue]Disabled",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "None",
+                    f"{coin_config.name} ({coin_config.symbol.upper()})",  # Coin
+                    "—",  # Price
+                    f"${coin_config.threshold:,.2f}",  # Threshold
+                    "[blue]Disabled",  # Status
+                    "—",  # Exchange
+                    "—",  # Last Checked
+                    "—",  # Signal
+                    "—",  # Confidence
+                    "—",  # Exp. Slip
+                    "—",  # Agreement
+                    "—",  # Providers
+                    "—",  # SL
+                    "—",  # TP
+                    "—",  # Position
+                    "—",  # Entry
+                    "—",  # P&L%
+                    "—",  # Trailing
+                    "—",  # Notes
+                    "—",  # Action Rec.
+                    "None",  # Action Taken
                 )
                 continue
 
             price_data = aggregated.get(coin_id)
-            if price_data is None:
+            if not isinstance(price_data, dict):
                 table.add_row(
-                    f"{coin_config.name} ({coin_config.symbol.upper()})",
-                    "N/A",
-                    f"${coin_config.threshold:,.2f}",
-                    "[yellow]Error",
-                    "—",
-                    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-                    "threshold_check",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "Hold",
-                    "None",
+                    f"{coin_config.name} ({coin_config.symbol.upper()})",  # Coin
+                    "N/A",  # Price
+                    f"${coin_config.threshold:,.2f}",  # Threshold
+                    "[yellow]Error",  # Status
+                    "—",  # Exchange
+                    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),  # Last Checked
+                    "threshold_check",  # Signal
+                    "—",  # Confidence
+                    "—",  # Exp. Slip
+                    "—",  # Agreement
+                    "—",  # Providers
+                    "—",  # SL
+                    "—",  # TP
+                    "—",  # Position
+                    "—",  # Entry
+                    "—",  # P&L%
+                    "—",  # Notes
+                    "Hold",  # Action Rec.
+                    "None",  # Action Taken
                 )
-                # Maintain notifier state silently on errors as no price is available
                 continue
 
             current_price = price_data.get('price')
             if current_price is None:
                 table.add_row(
-                    f"{coin_config.name} ({coin_config.symbol.upper()})",
-                    "N/A",
-                    f"${coin_config.threshold:,.2f}",
-                    "[yellow]Error",
-                    "CMC", # Assuming CMC is the default for error rows
-                    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-                    "threshold_check",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "Hold",
-                    "None",
+                    f"{coin_config.name} ({coin_config.symbol.upper()})",  # Coin
+                    "N/A",  # Price
+                    f"${coin_config.threshold:,.2f}",  # Threshold
+                    "[yellow]Error",  # Status
+                    "—",  # Exchange
+                    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),  # Last Checked
+                    "threshold_check",  # Signal
+                    "—",  # Confidence
+                    "—",  # Exp. Slip
+                    "—",  # Agreement
+                    "—",  # Providers
+                    "—",  # SL
+                    "—",  # TP
+                    "—",  # Position
+                    "—",  # Entry
+                    "—",  # P&L%
+                    "—",  # Notes
+                    "Hold",  # Action Rec.
+                    "None",  # Action Taken
                 )
                 continue
 
@@ -345,24 +416,79 @@ class CryptoTracker:
                 if agreement_pct is not None and agreement_pct > self.agreement_max_diff_pct:
                     action_rec = "Manual"  # disagreement -> require manual
 
-            # Display-only stop levels relative to current price (for preview)
+            # Build notes for veto reasons
+            notes_parts = []
+            if is_stale:
+                notes_parts.append("Stale data")
+            if (agreement_pct is not None) and (agreement_pct > self.agreement_max_diff_pct):
+                notes_parts.append("Provider disagreement")
+            notes_str = ", ".join(notes_parts) if notes_parts else "—"
+
+            # Helper to adaptively format currency for tiny-price assets
+            def _fmt_usd(v: float) -> str:
+                try:
+                    av = abs(float(v))
+                except Exception:
+                    return "—"
+                t0, t1, t2 = self.ui_thresholds
+                p0, p1, p2, p3 = self.ui_precisions
+                if av >= t0:
+                    return f"${v:,.{p0}f}"
+                elif av >= t1:
+                    return f"${v:,.{p1}f}"
+                elif av >= t2:
+                    return f"${v:,.{p2}f}"
+                else:
+                    return f"${v:,.{p3}f}"
+
+            # Stop levels for display
+            # If in a position, show SL/TP computed from ENTRY (matches exit logic).
+            # Otherwise, show preview based on current price.
+            # These are only for display; execution uses entry-based levels.
             sl_level, tp_level = compute_stop_levels(float(current_price), self.risk)
 
             # Portfolio state for display
             symbol_key = coin_config.symbol.upper()
             pos = self.portfolio.get(symbol_key)
             pos_units_display = f"{pos.units:.6f}" if pos else "—"
-            entry_display = (f"${pos.entry_price:,.4f}" if pos else "—")
+            entry_display = (_fmt_usd(pos.entry_price) if pos else "—")
             pnl_display = (f"{pos.pnl_pct(float(current_price)):.2f}" if pos else "—")
+
+            # Update trailing peak when in position
+            if pos is not None:
+                pos.update_peak(float(current_price))
+                trailing_level_display = _fmt_usd(compute_trailing_stop(float(pos.peak_price), self.risk))
+            else:
+                trailing_level_display = "—"
 
             # Conditional paper execution (guarded)
             action_taken = "None"
+            # Execution guardrails
+            open_count = len(self.portfolio.positions)
+            last_close_ok = True
+            if self.per_coin_cooldown_seconds > 0:
+                last_ts = self._last_close_ts.get(symbol_key)
+                if last_ts is not None:
+                    last_close_ok = (time.time() - last_ts) >= self.per_coin_cooldown_seconds
+            guard_note: str | None = None
             can_place = (
                 self.auto_trade_enable and
                 self.paper_place_orders and
                 (not is_stale) and
-                (agreement_pct is None or agreement_pct <= self.agreement_max_diff_pct)
+                (agreement_pct is None or agreement_pct <= self.agreement_max_diff_pct) and
+                (open_count < self.max_open_positions) and
+                last_close_ok
             )
+            if not can_place:
+                if open_count >= self.max_open_positions:
+                    guard_note = f"Guard: max {self.max_open_positions} open"
+                elif not last_close_ok:
+                    guard_note = f"Guard: cooldown {self.per_coin_cooldown_seconds}s"
+                # include guard note into notes
+                if guard_note:
+                    notes_parts = [] if notes_str == "—" else notes_str.split(", ")
+                    notes_parts.append(guard_note)
+                    notes_str = ", ".join(notes_parts)
             try:
                 if can_place:
                     # Simple buy rule for demo: recommend Buy and no existing position
@@ -380,10 +506,18 @@ class CryptoTracker:
                             "agreement_pct": agreement_pct,
                             "status": order.status,
                         })
+                        # record in recent orders
+                        self.recent_orders.append({
+                            "time": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+                            "symbol": symbol_key,
+                            "event": "buy",
+                            "price": float(current_price),
+                            "status": order.status,
+                        })
                         # refresh position display
                         pos = self.portfolio.get(symbol_key)
                         pos_units_display = f"{pos.units:.6f}" if pos else "—"
-                        entry_display = (f"${pos.entry_price:,.4f}" if pos else "—")
+                        entry_display = (_fmt_usd(pos.entry_price) if pos else "—")
                         pnl_display = (f"{pos.pnl_pct(float(current_price)):.2f}" if pos else "—")
                     # Paper exits: SL/TP
                     if self.paper_exits_enable and pos is not None:
@@ -398,7 +532,16 @@ class CryptoTracker:
                                 "exit_price": float(current_price),
                                 "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
                             })
+                            self.recent_orders.append({
+                                "time": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+                                "symbol": symbol_key,
+                                "event": "stop_loss",
+                                "price": float(current_price),
+                                "status": "closed",
+                                "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
+                            })
                             action_taken = "SL"
+                            self._last_close_ts[symbol_key] = time.time()
                             pos = None
                             pos_units_display = "—"
                             entry_display = "—"
@@ -412,14 +555,62 @@ class CryptoTracker:
                                 "exit_price": float(current_price),
                                 "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
                             })
+                            self.recent_orders.append({
+                                "time": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+                                "symbol": symbol_key,
+                                "event": "take_profit",
+                                "price": float(current_price),
+                                "status": "closed",
+                                "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
+                            })
                             action_taken = "TP"
+                            self._last_close_ts[symbol_key] = time.time()
                             pos = None
                             pos_units_display = "—"
                             entry_display = "—"
                             pnl_display = "—"
+                        else:
+                            # Trailing stop based on peak
+                            trailing_level = compute_trailing_stop(float(pos.peak_price), self.risk)
+                            if float(current_price) <= trailing_level:
+                                closed = self.portfolio.close(symbol_key)
+                                log_event("paper_exit", {
+                                    "symbol": symbol_key,
+                                    "reason": "trailing_stop",
+                                    "entry": float(closed.entry_price) if closed else None,
+                                    "exit_price": float(current_price),
+                                    "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
+                                })
+                                action_taken = "TRAIL"
+                                self._last_close_ts[symbol_key] = time.time()
+                                pos = None
+                                pos_units_display = "—"
+                                entry_display = "—"
+                                pnl_display = "—"
+                                self.recent_orders.append({
+                                    "time": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+                                    "symbol": symbol_key,
+                                    "event": "trailing_stop",
+                                    "price": float(current_price),
+                                    "status": "closed",
+                                    "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
+                                })
             except Exception as ex:
                 log_event("paper_error", {"symbol": symbol_key, "error": str(ex)})
                 action_taken = "Error"
+
+            # If a position exists and no new action occurred this tick, show 'Open'
+            if (self.portfolio.get(symbol_key) is not None) and (action_taken == "None"):
+                action_taken = "Open"
+
+            # When in a position, show SL/TP from entry for clarity
+            if self.portfolio.get(symbol_key) is not None:
+                entry_sl, entry_tp = compute_stop_levels(float(self.portfolio.get(symbol_key).entry_price), self.risk)
+                sl_display = _fmt_usd(entry_sl)
+                tp_display = _fmt_usd(entry_tp)
+            else:
+                sl_display = _fmt_usd(sl_level)
+                tp_display = _fmt_usd(tp_level)
 
             status = "[yellow]Equal" if is_equal else ("[red]Below" if below else "[green]Above")
 
@@ -442,7 +633,7 @@ class CryptoTracker:
                 pass
             table.add_row(
                 f"{coin_config.name} ({coin_config.symbol.upper()})",
-                f"${current_price:,.2f}",
+                _fmt_usd(float(current_price)),
                 f"${coin_config.threshold:,.2f}",
                 status,
                 "Agg",
@@ -452,16 +643,39 @@ class CryptoTracker:
                 f"{exp_slip_pct:.2f}",
                 (f"{agreement_pct:.2f}" if agreement_pct is not None else "—"),
                 (providers_str or "—"),
-                f"${sl_level:,.4f}",
-                f"${tp_level:,.4f}",
+                sl_display,
+                tp_display,
                 pos_units_display,
                 entry_display,
                 pnl_display,
+                trailing_level_display,
+                notes_str,
                 action_rec,
                 action_taken,
             )
 
         console.print(table)
+
+        # Render Recent Orders (if any)
+        if self.recent_orders:
+            orders_table = Table(show_header=True, header_style="bold cyan")
+            orders_table.add_column("Time", justify="left")
+            orders_table.add_column("Symbol", justify="left")
+            orders_table.add_column("Event", justify="left")
+            orders_table.add_column("Price", justify="right")
+            orders_table.add_column("P&L%", justify="right")
+            orders_table.add_column("Status", justify="left")
+            for ev in list(self.recent_orders)[-20:]:
+                orders_table.add_row(
+                    ev.get("time", "—"),
+                    ev.get("symbol", "—"),
+                    ev.get("event", "—"),
+                    (f"{ev['price']:.6f}" if isinstance(ev.get('price'), (int, float)) else "—"),
+                    (f"{ev['pnl_pct']:.2f}" if isinstance(ev.get('pnl_pct'), (int, float)) else "—"),
+                    ev.get("status", "—"),
+                )
+            console.print("\n[bold]Recent Orders[/bold]")
+            console.print(orders_table)
 
     def display_status(self):
         """Display current prices and thresholds for all coins."""
@@ -530,11 +744,26 @@ class CryptoTracker:
             # Startup banner with active providers and thresholds
             providers_active = ",".join(sorted(list(getattr(self.aggregator, 'enabled_sources', {"cmc"}))))
             console.print("\n[green]Starting script. Press Ctrl+C to exit.[/]")
+            # Provider status (Coingecko backoff)
+            cg_backoff_left = 0
+            try:
+                import time as _t
+                left = getattr(self.cg_fetcher, 'backoff_until_ts', 0.0) - _t.time()
+                cg_backoff_left = int(left) if left > 0 else 0
+            except Exception:
+                cg_backoff_left = 0
+            status_extra = ""
+            if cg_backoff_left > 0:
+                mins = cg_backoff_left // 60
+                secs = cg_backoff_left % 60
+                status_extra = f" | CG backoff: {mins}m {secs}s left"
             console.print(
                 f"[blue]Providers:[/] {providers_active} | "
                 f"[blue]TTL(s):[/] {self.ttl_seconds} | "
                 f"[blue]Agreement max diff(%):[/] {self.agreement_max_diff_pct} | "
-                f"[blue]Confidence thresholds (suggest/auto):[/] {self.suggestion_threshold}/{self.auto_threshold}"
+                f"[blue]Confidence thresholds (suggest/auto):[/] {self.suggestion_threshold}/{self.auto_threshold} | "
+                f"[blue]Max pos:[/] {self.max_open_positions} | "
+                f"[blue]Cooldown:[/] {self.per_coin_cooldown_seconds}s" + status_extra
             )
             self.check_all_prices()
             while True:

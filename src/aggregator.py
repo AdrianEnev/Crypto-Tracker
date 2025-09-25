@@ -79,15 +79,20 @@ class PriceAggregator:
 
             prices_only = [v for _, v in vals]
             med = median(prices_only)
-            # max deviation from median in percent
-            if med == 0:
-                diff_pct = 0.0
+            # If we only have a single provider, do not compute agreement; show None
+            if len(prices_only) < 2:
+                diff_pct_val: Optional[float] = None
             else:
-                diff_pct = max(abs(v - med) / med for v in prices_only) * 100.0
+                # max deviation from median in percent
+                if med == 0:
+                    diff_pct_val = 0.0
+                else:
+                    diff_pct_val = max(abs(v - med) / med for v in prices_only) * 100.0
+                diff_pct_val = round(diff_pct_val, 4)
 
             out[cid] = {
                 'price': float(med),
                 'providers': providers,
-                'agreement_diff_pct': round(diff_pct, 4),
+                'agreement_diff_pct': diff_pct_val,
             }
         return out
