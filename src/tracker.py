@@ -10,7 +10,8 @@ from rich.table import Table
 from rich.progress import track
 from dotenv import load_dotenv
 # Import local modules
-from .models import CoinConfig, AppConfig
+from datetime import datetime, timezone
+from .models import CoinConfig, AppConfig, MarketSnapshot, Decision
 from .fetcher import PriceFetcher
 from .notifier import Notifier
 
@@ -150,6 +151,12 @@ class CryptoTracker:
         table.add_column("Price (USD)", justify="right")
         table.add_column("Threshold", justify="right")
         table.add_column("Status", justify="center")
+        table.add_column("Exchange", justify="left")
+        table.add_column("Last Checked (UTC)", justify="left")
+        table.add_column("Signal", justify="left")
+        table.add_column("Confidence", justify="right")
+        table.add_column("Action Rec.", justify="left")
+        table.add_column("Action Taken", justify="left")
 
         for coin_id, coin_config in self.config.tracked_coins.items():
             if coin_config.disabled:
@@ -159,6 +166,12 @@ class CryptoTracker:
                     "—",
                     f"${coin_config.threshold:,.2f}",
                     "[blue]Disabled",
+                    "—",
+                    "—",
+                    "—",
+                    "—",
+                    "—",
+                    "None",
                 )
                 continue
 
@@ -169,6 +182,12 @@ class CryptoTracker:
                     "N/A",
                     f"${coin_config.threshold:,.2f}",
                     "[yellow]Error",
+                    "CMC",
+                    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                    "threshold_check",
+                    "—",
+                    "Hold",
+                    "None",
                 )
                 # Maintain notifier state silently on errors as no price is available
                 continue
@@ -191,6 +210,12 @@ class CryptoTracker:
                 f"${current_price:,.2f}",
                 f"${coin_config.threshold:,.2f}",
                 status,
+                "CMC",
+                datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                "threshold_check",
+                "0.00",
+                "Hold",
+                "None",
             )
 
         console.print(table)
@@ -207,6 +232,12 @@ class CryptoTracker:
         table.add_column("Price (USD)", justify="right")
         table.add_column("Threshold", justify="right")
         table.add_column("Status", justify="center")
+        table.add_column("Exchange", justify="left")
+        table.add_column("Last Checked (UTC)", justify="left")
+        table.add_column("Signal", justify="left")
+        table.add_column("Confidence", justify="right")
+        table.add_column("Action Rec.", justify="left")
+        table.add_column("Action Taken", justify="left")
         for coin_id, coin_config in self.config.tracked_coins.items():
             if coin_config.disabled:
                 status = "[blue]Disabled"
@@ -215,6 +246,12 @@ class CryptoTracker:
                     "—",
                     f"${coin_config.threshold:,.2f}",
                     status,
+                    "—",
+                    "—",
+                    "—",
+                    "—",
+                    "—",
+                    "None",
                 )
                 continue
             price = prices.get(coin_id)
@@ -235,6 +272,12 @@ class CryptoTracker:
                 price_str,
                 threshold_str,
                 status,
+                ("CMC" if price is not None else "CMC"),
+                datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                "threshold_check",
+                ("0.00" if price is not None else "—"),
+                "Hold",
+                "None",
             )
         console.print(table)
 

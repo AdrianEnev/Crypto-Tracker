@@ -120,7 +120,6 @@ tracked_coins:
     name: NEAR Protocol
     threshold: 1.0
     check_interval: 300
-  
   cosmos:
     symbol: atom
     name: Cosmos  
@@ -144,3 +143,17 @@ api:
   # CoinMarketCap Pro API base URL
   base_url: "https://pro-api.coinmarketcap.com"
   timeout: 10  # seconds
+
+# Phase 1 foundations
+# Trading stays disabled by default. Paper vs live mode is only relevant later.
+auto_trade:
+  enable: false   # no trading in Phase 1
+  mode: paper     # "paper" | "live" (paper is safe default)
+
+decision:
+  confidence_thresholds:
+    suggestion: 0.5  # display-only in Phase 1
+    auto: 0.8        # not used until auto trade is enabled
+
+price:
+  ttl_seconds: 15   # consider data stale if older than this (display-only in Phase 1)
