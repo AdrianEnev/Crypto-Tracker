@@ -30,12 +30,14 @@ tracked_coins:
     name: Binance Coin
     threshold: 500.0
     check_interval: 300
+    coingecko_id: binancecoin
   
   xrp:
     symbol: xrp
     name: XRP
     threshold: 1.0
     check_interval: 300
+    coingecko_id: ripple
   
   solana:
     symbol: sol
@@ -72,6 +74,7 @@ tracked_coins:
     name: Avalanche
     threshold: 50.0
     check_interval: 300
+    coingecko_id: avalanche-2
   
   shiba-inu:
     symbol: shib
@@ -120,6 +123,7 @@ tracked_coins:
     name: NEAR Protocol
     threshold: 1.0
     check_interval: 300
+    coingecko_id: near
   cosmos:
     symbol: atom
     name: Cosmos  
