@@ -310,12 +310,20 @@ def optimize() -> None:
             results_summary.append((params, wf_results))
         # Rank by average profit factor over tests, then drawdown
         def score(item):
-            _, lst = item
+            params, lst = item
             if not lst:
-                return (0.0, 1e9)
+                return (0.0, 1e9, 0.0)
             avg_pf = sum(x.profit_factor for x in lst) / len(lst)
             avg_dd = sum(x.max_drawdown for x in lst) / len(lst)
-            return (avg_pf, -avg_dd)
+            avg_mar = sum(x.mar for x in lst) / len(lst)
+            # Quality gate: MAR > 0.5, p5 worst week > -10%, p95 DD < 20%
+            quality_score = 0
+            if avg_mar > 0.5:
+                quality_score += 1
+            # These would require MC sims, for now we use avg as proxy
+            if avg_dd < 20.0:
+                quality_score += 1
+            return (quality_score, avg_pf, -avg_dd)
         ranked = sorted(results_summary, key=score, reverse=True)
         print("Top 5 parameter sets (avg across walk-forward tests):")
         for i, (p, lst) in enumerate(ranked[:5], start=1):
@@ -333,17 +341,30 @@ def optimize() -> None:
         # Print suggested YAML snippet for the best set
         if ranked:
             best_params, best_list = ranked[0]
-            print("Suggested config snippet (paste under indicators/risk/execution):")
-            print("indicators:")
-            print(f"  rsi_period: {best_params['rsi']}")
-            print(f"  ema_fast: {best_params['ema_fast']}")
-            print(f"  ema_slow: {best_params['ema_slow']}")
-            print("risk:")
-            print("  atr:")
-            print(f"    sl_mult: {best_params['sl_mult']}")
-            print(f"    tp_mult: {best_params['tp_mult']}")
-            print("execution:")
-            print(f"  risk_budget_pct: {best_params['risk_budget_pct']}")
+            snippet = {
+                'indicators': {
+                    'rsi_period': best_params['rsi'],
+                    'ema_fast': best_params['ema_fast'],
+                    'ema_slow': best_params['ema_slow'],
+                },
+                'risk': {
+                    'atr': {
+                        'sl_mult': best_params['sl_mult'],
+                        'tp_mult': best_params['tp_mult'],
+                    }
+                },
+                'execution': {
+                    'risk_budget_pct': best_params['risk_budget_pct'],
+                }
+            }
+            out_dir = Path(__file__).resolve().parents[2] / 'logs' / 'backtest'
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_path = out_dir / 'suggested_config.yaml'
+            with out_path.open('a') as f:
+                f.write(f"# Suggested config for {cid}\n")
+                yaml.dump({cid: snippet}, f, default_flow_style=False)
+                f.write('\n')
+            print(f"Suggested config snippet for {cid} saved to {out_path}")
         # Send a short notifier summary for this coin
         try:
             if ranked:

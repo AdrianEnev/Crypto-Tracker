@@ -29,6 +29,7 @@ from .risk import (
 from .fetcher_coingecko import CoingeckoFetcher
 from .aggregator import PriceAggregator
 from .fetcher_ccxt import CCXTPriceFetcher
+from .fetcher_websocket import WebSocketPriceFetcher
 from .logger import log_event, configure_file_logging, log_order_csv, log_decision_csv
 from .executor_ccxt import CCXTLiveExecutor
 from .portfolio import Portfolio
@@ -36,6 +37,7 @@ from .persistence.sqlite_store import SQLiteStore
 from .data.ohlcv import get_candles
 from .data.ccxt_ohlcv import get_candles_ccxt
 from .indicators.core import rsi as rsi_series, ema as ema_series, atr as atr_series
+from .config.validator import validate_config
 
 # Set up console
 console = Console()
@@ -83,10 +85,17 @@ class CryptoTracker:
                 ccxt_fetcher = CCXTPriceFetcher(exchange_name, sym_to_mkt)
             except Exception:
                 ccxt_fetcher = None
+        ws_fetcher = None
+        if 'websocket' in enabled_sources:
+            ws_symbols = [mkt for sym, mkt in sym_to_mkt.items()]
+            ws_fetcher = WebSocketPriceFetcher(ws_symbols)
+            ws_fetcher.start()
+
         self.aggregator = PriceAggregator(self.fetcher, self.cg_fetcher,
                                           agreement_max_diff_pct=self.agreement_max_diff_pct,
                                           enabled_sources=[s.lower() for s in enabled_sources],
-                                          ccxt=ccxt_fetcher)
+                                          ccxt=ccxt_fetcher,
+                                          websocket=ws_fetcher)
         self.notifier = Notifier()
         self.global_interval_override = self._get_global_interval_override()
         # In-memory price history for indicators
@@ -169,7 +178,13 @@ class CryptoTracker:
                 key = os.environ.get(f"{exch_name.upper()}_API_KEY") or os.environ.get("BINANCE_API_KEY")
                 secret = os.environ.get(f"{exch_name.upper()}_SECRET") or os.environ.get("BINANCE_SECRET")
                 if key and secret:
-                    self.live_executor = CCXTLiveExecutor(exch_name, key, secret)
+                    self.live_executor = CCXTLiveExecutor(
+                        exchange_name=exch_name, 
+                        api_key=key, 
+                        secret_key=secret,
+                        retry_count=self.executor_retry_count,
+                        backoff_factor=self.executor_backoff_factor
+                    )
                 else:
                     console.print(f"[yellow]Live mode requested but API keys not found for {exch_name}. Staying in paper.[/]")
                     self.auto_trade_mode = 'paper'
@@ -195,6 +210,7 @@ class CryptoTracker:
         self._daily_equity_start_usd: float | None = None
         self._last_equity_day: str | None = None
         self._last_close_ts: Dict[str, float] = {}
+        self._degraded_endpoints: set[str] = set()
         # Portfolio/sector exposure and cash floor controls
         self.max_coin_exposure_pct: float | None = None
         self.max_sector_exposure_pct: float | None = None
@@ -209,6 +225,9 @@ class CryptoTracker:
         self.kill_dd_intraday_pct: float | None = None
         self.kill_max_errors_per_hour: int | None = None
         self.kill_switch_active: bool = False
+        # Executor settings
+        self.executor_retry_count: int = 3
+        self.executor_backoff_factor: float = 0.5
         # Portfolio cool-off and staggered entries
         self.cooloff_max_entries_per_hour: int | None = None
         self.cooloff_seconds: int | None = None
@@ -555,6 +574,12 @@ class CryptoTracker:
                             try:
                                 st = self._protection.get(sym) or {'market': market_pair}
                                 st['sl_present'] = True
+                                try:
+                                    sl_id = self.live_executor.get_last_sl_id(market_pair)
+                                    if sl_id:
+                                        st['sl_id'] = sl_id
+                                except Exception:
+                                    pass
                                 self._protection[sym] = st
                                 self._save_protection_state()
                             except Exception:
@@ -635,20 +660,34 @@ class CryptoTracker:
         try:
             if self.auto_trade_mode != 'live' or self.live_executor is None:
                 return
-            degraded = []
+            now_degraded = set()
             for ep in ('create_order', 'fetch_open_orders', 'cancel_order'):
                 try:
                     if self.live_executor.has_high_failure_rate(ep, threshold=5, window_sec=60):
-                        degraded.append(ep)
+                        now_degraded.add(ep)
                 except Exception:
                     continue
-            if degraded:
-                msg = f"High failure rate: {', '.join(degraded)} (last 60s)"
-                log_event('ops_failure_rate', {'endpoints': degraded})
+
+            newly_degraded = now_degraded - self._degraded_endpoints
+            recovered = self._degraded_endpoints - now_degraded
+
+            if newly_degraded:
+                msg = f"High failure rate: {', '.join(newly_degraded)} (last 60s)"
+                log_event('ops_failure_rate', {'endpoints': list(newly_degraded)})
                 try:
                     self.notifier.alert('Ops Warning', msg, style='red')
                 except Exception:
                     pass
+
+            if recovered:
+                msg = f"Endpoint recovered: {', '.join(recovered)}"
+                log_event('ops_recovery', {'endpoints': list(recovered)})
+                try:
+                    self.notifier.alert('Ops Recovery', msg, style='green')
+                except Exception:
+                    pass
+
+            self._degraded_endpoints = now_degraded
         except Exception:
             pass
     
@@ -1387,7 +1426,7 @@ class CryptoTracker:
                         sym_to_price[sym] = float(price)
                 except Exception:
                     continue
-            # For each open position, check exits
+            # For each open position, check exits (confirm via exchange open orders)
             for sym, pos in list(self.portfolio.positions.items()):
                 # Backoff handling: skip symbol if in backoff window
                 try:
@@ -2550,6 +2589,7 @@ class CryptoTracker:
                                                     'market': market_pair,
                                                     'mode': 'oco',
                                                     'tp_id': None,
+                'sl_id': None,
                                                     'sl_present': True,
                                                 }
                                                 self._save_protection_state()
@@ -2586,6 +2626,7 @@ class CryptoTracker:
                                                     'market': market_pair,
                                                     'mode': 'separate',
                                                     'tp_id': (res or {}).get('tp_id'),
+                'sl_id': (res or {}).get('sl_id'),
                                                     'sl_present': bool((res or {}).get('sl_ok')),
                                                 }
                                                 self._save_protection_state()
