@@ -52,7 +52,13 @@ def simulate_on_series(coin_id: str, threshold: float,
                        rsi_period: int, ema_fast: int, ema_slow: int,
                        atr_params: Optional[ATRRiskParams], slippage_bps: int, fee_bps: int,
                        times: Optional[List[int]] = None,
-                       export_dir: Optional[Path] = None) -> BacktestResult:
+                       export_dir: Optional[Path] = None,
+                       use_regime_filter: bool = False,
+                       vol_gate_min_atr_pct: Optional[float] = None,
+                       vol_gate_max_atr_pct: Optional[float] = None,
+                       risk_budget_pct: Optional[float] = None,
+                       auto_threshold: float = 0.8,
+                       auto_threshold_bear: Optional[float] = None) -> BacktestResult:
     # Indicators
     if times is None:
         times = list(range(len(closes)))
@@ -92,17 +98,51 @@ def simulate_on_series(coin_id: str, threshold: float,
         signal, action_rec, _ = recommend_action(price, threshold, rsi, conf, suggestion_threshold=0.5)
 
         if action_rec == "Buy" and pos_qty == 0.0:
-            size_usd = cash * 0.1
-            if size_usd > 0:
-                fill_price = apply_costs(price, "buy")
-                qty = size_usd / fill_price
-                pos_qty = qty
-                pos_entry_price = fill_price
-                pos_entry_idx = i
-                peak_price_since_entry = price
-                trades.append(Trade(entry_idx=i, entry_price=fill_price))
-                cash -= size_usd
-                continue
+            # Regime filter gating
+            if use_regime_filter and ef is not None and es is not None and ef <= es:
+                # still compute regime-aware threshold check below — but if regime filter is ON and strictly forbids, skip
+                pass  # skip entry
+            else:
+                # Volatility gating
+                atr_ok = True
+                if (vol_gate_min_atr_pct is not None or vol_gate_max_atr_pct is not None) and atr is not None and price > 0:
+                    atr_pct = (atr / price) * 100.0
+                    if (vol_gate_min_atr_pct is not None and atr_pct < float(vol_gate_min_atr_pct)) or \
+                       (vol_gate_max_atr_pct is not None and atr_pct > float(vol_gate_max_atr_pct)):
+                        atr_ok = False
+                if not atr_ok:
+                    pass
+                else:
+                    # Confidence auto-threshold: bear uses stricter if provided
+                    is_bear = bool(use_regime_filter and ef is not None and es is not None and ef <= es)
+                    thr = float(auto_threshold_bear if (is_bear and auto_threshold_bear is not None) else auto_threshold)
+                    if conf < thr:
+                        # Not enough confidence to auto-enter
+                        continue
+                    # ATR-based sizing if configured; else fallback to 10% of cash
+                    size_usd = cash * 0.1
+                    if risk_budget_pct is not None and risk_budget_pct > 0:
+                        equity_val_now = cash + (pos_qty * price)
+                        budget_usd = max(0.0, equity_val_now * float(risk_budget_pct))
+                        if atr_params is not None and atr is not None and atr > 0:
+                            sl_price, _tp_price = compute_stop_levels_atr(price, atr, atr_params)
+                            if sl_price is not None and price > sl_price:
+                                risk_per_unit = price - sl_price
+                                if risk_per_unit > 0:
+                                    units = budget_usd / risk_per_unit
+                                    size_usd = min(budget_usd, price * units)
+                        size_usd = min(size_usd, cash)
+                    if size_usd > 0:
+                        fill_price = apply_costs(price, "buy")
+                        qty = size_usd / fill_price
+                        if qty > 0:
+                            pos_qty = qty
+                            pos_entry_price = fill_price
+                            pos_entry_idx = i
+                            peak_price_since_entry = price
+                            trades.append(Trade(entry_idx=i, entry_price=fill_price))
+                            cash -= size_usd
+                            continue
 
         if pos_qty > 0.0 and pos_entry_price is not None and pos_entry_idx is not None:
             peak_price_since_entry = max(peak_price_since_entry or price, price)
@@ -183,6 +223,43 @@ def simulate_coin(coin_id: str, cg_id: str, threshold: float, days: int, timefra
         cfg_all = yaml.safe_load(f) or {}
     data_cfg = (cfg_all.get("data") or {})
     provider = str(data_cfg.get("provider", "coingecko")).lower()
+    # Backtest parity options from config
+    ind_cfg = (cfg_all.get("indicators") or {})
+    rsi_period = int(ind_cfg.get("rsi_period", rsi_period))
+    ema_fast = int(ind_cfg.get("ema_fast", ema_fast))
+    ema_slow = int(ind_cfg.get("ema_slow", ema_slow))
+    # Strategy toggles
+    strat = (cfg_all.get("strategy") or {})
+    use_regime_filter = bool(strat.get("use_regime_filter", False))
+    vg = (strat.get("vol_gate") or {})
+    vol_gate_min_atr_pct = vg.get("min_atr_pct")
+    vol_gate_max_atr_pct = vg.get("max_atr_pct")
+    try:
+        vol_gate_min_atr_pct = float(vol_gate_min_atr_pct) if vol_gate_min_atr_pct is not None else None
+    except Exception:
+        vol_gate_min_atr_pct = None
+    try:
+        vol_gate_max_atr_pct = float(vol_gate_max_atr_pct) if vol_gate_max_atr_pct is not None else None
+    except Exception:
+        vol_gate_max_atr_pct = None
+    # Decision thresholds
+    decision = (cfg_all.get("decision") or {})
+    thresholds = (decision.get("confidence_thresholds") or {})
+    try:
+        auto_thr = float(thresholds.get("auto", 0.8))
+    except Exception:
+        auto_thr = 0.8
+    try:
+        auto_thr_bear = thresholds.get("auto_bear")
+        auto_thr_bear = float(auto_thr_bear) if auto_thr_bear is not None else None
+    except Exception:
+        auto_thr_bear = None
+    # Execution sizing
+    exe_cfg = (cfg_all.get("execution") or {})
+    try:
+        risk_budget_pct = float(exe_cfg.get("risk_budget_pct", 0.0))
+    except Exception:
+        risk_budget_pct = 0.0
     api_key = os.environ.get("COINGECKO_API_KEY")
     try:
         if provider == "ccxt":
@@ -244,18 +321,67 @@ def simulate_coin(coin_id: str, cg_id: str, threshold: float, days: int, timefra
         fee_bps=fee_bps,
         times=times,
         export_dir=export_dir,
+        use_regime_filter=use_regime_filter,
+        vol_gate_min_atr_pct=vol_gate_min_atr_pct,
+        vol_gate_max_atr_pct=vol_gate_max_atr_pct,
+        risk_budget_pct=risk_budget_pct,
+        auto_threshold=auto_thr,
+        auto_threshold_bear=auto_thr_bear,
     )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Backtest engine")
-    parser.add_argument("--coins", type=str, required=False, default="",
-                        help="Comma-separated coin ids from config.tracked_coins (e.g., solana,polkadot)")
-    parser.add_argument("--days", type=int, default=365)
-    parser.add_argument("--timeframe", type=str, default="1d")
-    parser.add_argument("--slippage_bps", type=int, default=10)
-    parser.add_argument("--fee_bps", type=int, default=5)
-    args = parser.parse_args()
+    # Always read settings from config/config.yaml
+    project_root = Path(__file__).resolve().parents[2]
+    config_path = project_root / "config" / "config.yaml"
+    with open(config_path, "r") as f:
+        cfg_all = yaml.safe_load(f) or {}
+    data_cfg = (cfg_all.get("data") or {})
+    timeframe = str(data_cfg.get("timeframe", "1d"))
+    days = int(data_cfg.get("days", 365))
+    ind_cfg = (cfg_all.get("indicators") or {})
+    rsi_period = int(ind_cfg.get("rsi_period", 14))
+    ema_fast = int(ind_cfg.get("ema_fast", 20))
+    ema_slow = int(ind_cfg.get("ema_slow", 50))
+    risk_cfg2 = (cfg_all.get("risk") or {})
+    atr_cfg = (risk_cfg2.get("atr") or {})
+    try:
+        atr_params = ATRRiskParams(
+            atr_period=int(atr_cfg.get("period", 14)),
+            sl_mult=float(atr_cfg.get("sl_mult", 1.5)),
+            tp_mult=float(atr_cfg.get("tp_mult", 3.0)),
+            trail_mult=float(atr_cfg.get("trail_mult", 2.0)),
+        )
+    except Exception:
+        atr_params = None
+    slippage_bps = 10
+    fee_bps = 5
+    tracked = (cfg_all.get("tracked_coins") or {})
+    coin_ids = [cid for cid, c in tracked.items() if not (c or {}).get("disabled", False)]
+    # Optional CoinGecko id mapping
+    results: Dict[str, BacktestResult] = {}
+    for cid in coin_ids:
+        cg_id = (tracked.get(cid) or {}).get("coingecko_id", cid)
+        threshold = float((tracked.get(cid) or {}).get("threshold", 0.0))
+        res = simulate_coin(
+            coin_id=cid,
+            cg_id=cg_id,
+            threshold=threshold,
+            days=days,
+            timeframe=timeframe,
+            rsi_period=rsi_period,
+            ema_fast=ema_fast,
+            ema_slow=ema_slow,
+            atr_params=atr_params,
+            slippage_bps=slippage_bps,
+            fee_bps=fee_bps,
+            export_dir=None,
+        )
+        results[cid] = res
+    # Print a simple summary
+    print("Backtest summary (config-driven):")
+    for cid, r in results.items():
+        print(f" - {cid}: trades={len(r.trades)}, win_rate={r.win_rate:.2f}%, PF={r.profit_factor:.3f}, maxDD={r.max_drawdown:.2f}%")
 
     # Load config for coin ids, thresholds and CG ids
     project_root = Path(__file__).resolve().parents[2]
