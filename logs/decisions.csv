@@ -121,3 +121,7 @@ ts,coin_id,symbol,price,threshold,status,signal,confidence,agreement_pct,provide
 2025-09-27T15:33:20.395880+00:00,polkadot,DOT,3.878004182974879,10.0,below,threshold_check,0.633,0.0259,"cmc,ccxt",False,Hold
 2025-09-27T15:33:26.439481+00:00,solana,SOL,202.7607451593582,500.0,below,threshold_check,0.5724,0.0152,"cmc,ccxt",False,Hold
 2025-09-27T15:33:26.441105+00:00,polkadot,DOT,3.878504182974879,10.0,below,threshold_check,0.633,0.013,"cmc,ccxt",False,Hold
+2025-09-27T16:02:50.841865+00:00,solana,SOL,203.52,500.0,below,threshold_check,0.4247,0.2015,"cmc,coingecko,ccxt",False,Hold
+2025-09-27T16:02:50.842590+00:00,polkadot,DOT,3.892505084824064,10.0,below,threshold_check,0.6119,0.1925,"cmc,coingecko,ccxt",False,Hold
+2025-09-27T16:02:52.744161+00:00,solana,SOL,203.52,500.0,below,threshold_check,0.4247,0.1867,"cmc,coingecko,ccxt",False,Hold
+2025-09-27T16:02:52.744915+00:00,polkadot,DOT,3.895227325851263,10.0,below,threshold_check,0.5368,0.1225,"cmc,coingecko,ccxt",False,Hold
