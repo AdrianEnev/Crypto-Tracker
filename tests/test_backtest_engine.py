@@ -49,7 +49,8 @@ def test_simulate_on_series_percent_tp():
         ema_fast=12,
         ema_slow=40,
         atr_params=None,  # percent-based exits: 3% SL, 6% TP
-        slippage_bps=0,
+        slippage_k_atr_pct=0.0,
+        slippage_base_bps=0,
         fee_bps=0,
     )
     # Expect one trade that exits via TP with positive PF
