@@ -96,10 +96,10 @@ def recommend_action(price: float, threshold: float, rsi: Optional[float],
     """Return (signal, action_recommended, reason).
     For Phase 2: recommend Buy if price <= threshold and RSI < 35, else Hold.
     """
-    if price <= threshold: #and (rsi is not None and rsi < 35):
+    if price <= threshold and (rsi is not None and rsi < 30):
         signal = "threshold_rsi"
         action = "Buy" if confidence >= suggestion_threshold else "Hold"
-        reason = "price<=threshold & RSI<35"
+        reason = "price<=threshold & RSI<30"
         return signal, action, reason
     # Otherwise hold
     return "threshold_check", "Hold", "no-strong-signal"

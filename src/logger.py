@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, Dict
+import csv
 
 
 def utc_iso(dt: datetime | None = None) -> str:
@@ -54,3 +55,40 @@ def log_event(event_type: str, payload: Dict[str, Any]) -> None:
         except Exception:
             # ignore file logging errors to avoid breaking the app
             pass
+
+
+def _append_csv(filename: str, headers: list[str], row: Dict[str, Any]) -> None:
+    """Append a row to a CSV file under the configured log directory.
+    Creates file with headers if missing. No-ops if file logging is disabled.
+    """
+    global _log_dir
+    if _log_dir is None:
+        return
+    try:
+        fp = _log_dir / filename
+        file_exists = fp.exists()
+        with fp.open("a", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=headers)
+            if not file_exists:
+                w.writeheader()
+            # filter only known headers to avoid arbitrary columns expansion
+            row_filtered = {k: row.get(k) for k in headers}
+            w.writerow(row_filtered)
+    except Exception:
+        # Never fail on logging
+        pass
+
+
+def log_decision_csv(row: Dict[str, Any]) -> None:
+    headers = [
+        "ts", "coin_id", "symbol", "price", "threshold", "status", "signal",
+        "confidence", "agreement_pct", "providers", "stale", "action_recommended"
+    ]
+    _append_csv("decisions.csv", headers, row)
+
+
+def log_order_csv(row: Dict[str, Any]) -> None:
+    headers = [
+        "ts", "symbol", "side", "size_usd", "price", "status", "reason", "pnl_pct"
+    ]
+    _append_csv("orders.csv", headers, row)
