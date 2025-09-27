@@ -28,9 +28,11 @@ from .risk import (
 )
 from .fetcher_coingecko import CoingeckoFetcher
 from .aggregator import PriceAggregator
+from .fetcher_ccxt import CCXTPriceFetcher
 from .logger import log_event, configure_file_logging, log_order_csv, log_decision_csv
 from .portfolio import Portfolio
 from .data.ohlcv import get_candles
+from .data.ccxt_ohlcv import get_candles_ccxt
 from .indicators.core import rsi as rsi_series, ema as ema_series, atr as atr_series
 
 # Set up console
@@ -50,7 +52,39 @@ class CryptoTracker:
         # Additional provider (Coingecko) and aggregator (Phase 5)
         self.cg_fetcher = CoingeckoFetcher()
         self.agreement_max_diff_pct: float = 0.5
-        self.aggregator = PriceAggregator(self.fetcher, self.cg_fetcher, agreement_max_diff_pct=self.agreement_max_diff_pct)
+        # Providers config: sources and optional ccxt exchange & markets
+        try:
+            with open(self.config_path, 'r') as f:
+                _cfg_all = yaml.safe_load(f) or {}
+            providers_cfg = (_cfg_all.get('providers') or {})
+            enabled_sources = providers_cfg.get('sources') or ["cmc", "coingecko"]
+            exchange_name = str(providers_cfg.get('exchange', 'binance')).lower()
+        except Exception:
+            enabled_sources = ["cmc", "coingecko"]
+            exchange_name = 'binance'
+        # Optional CCXT fetcher if requested
+        ccxt_fetcher = None
+        if any(src.lower() == 'ccxt' for src in enabled_sources):
+            sym_to_mkt = {}
+            try:
+                for cid, coin in self.config.tracked_coins.items():
+                    sym = coin.symbol.upper()
+                    # read per-coin market if provided
+                    with open(self.config_path, 'r') as f:
+                        _cfg_all2 = yaml.safe_load(f) or {}
+                    cdata = (_cfg_all2.get('tracked_coins') or {}).get(cid) or {}
+                    market = cdata.get('market') or f"{sym}/USDT"
+                    sym_to_mkt[sym] = market
+            except Exception:
+                pass
+            try:
+                ccxt_fetcher = CCXTPriceFetcher(exchange_name, sym_to_mkt)
+            except Exception:
+                ccxt_fetcher = None
+        self.aggregator = PriceAggregator(self.fetcher, self.cg_fetcher,
+                                          agreement_max_diff_pct=self.agreement_max_diff_pct,
+                                          enabled_sources=[s.lower() for s in enabled_sources],
+                                          ccxt=ccxt_fetcher)
         self.notifier = Notifier()
         self.global_interval_override = self._get_global_interval_override()
         # In-memory price history for indicators
@@ -111,6 +145,7 @@ class CryptoTracker:
             tf = str(data_cfg.get('timeframe', '1d'))
             days = int(data_cfg.get('days', 365))
             cache_dir = str(data_cfg.get('cache_dir', './data_cache'))
+            provider = str(data_cfg.get('provider', 'coingecko')).lower()
             ind_cfg = (cfg_all.get('indicators') or {})
             rsi_p = int(ind_cfg.get('rsi_period', 14))
             ema_fast = int(ind_cfg.get('ema_fast', 20))
@@ -140,7 +175,22 @@ class CryptoTracker:
                     ema_slow_coin = int(ind_over.get('ema_slow', ema_slow))
                     atr_p_coin = int(ind_over.get('atr_period', atr_p))
 
-                    candles = get_candles(cg_key, timeframe=tf, days=days, cache_dir=cache_dir, use_cache=True)
+                    # Fetch candles per provider
+                    if provider == 'ccxt':
+                        providers_cfg = (cfg_all.get('providers') or {})
+                        exchange_name = str(providers_cfg.get('exchange', 'binance')).lower()
+                        market = cdata.get('market') or f"{coin_cfg.symbol.upper()}/USDT"
+                        if tf == '1d':
+                            limit = min(int(days), 2000)
+                        elif tf == '4h':
+                            limit = min(int(days) * 6, 2000)
+                        elif tf == '1h':
+                            limit = min(int(days) * 24, 2000)
+                        else:
+                            limit = 1000
+                        candles = get_candles_ccxt(exchange_name, market, timeframe=tf, cache_dir=cache_dir, limit=limit, use_cache=True)
+                    else:
+                        candles = get_candles(cg_key, timeframe=tf, days=days, cache_dir=cache_dir, use_cache=True)
                     if not candles:
                         continue
                     closes = [c.c for c in candles]
@@ -172,6 +222,15 @@ class CryptoTracker:
                     log_event('history_load_error', {'coin': coin_id, 'error': str(ex)})
             if loaded > 0:
                 console.print(f"[blue]Preloaded history for {loaded} assets (tf={tf}, days={days}).[/]")
+                # Show history provider summary
+                try:
+                    providers_cfg = (cfg_all.get('providers') or {})
+                    exchange_name = str(providers_cfg.get('exchange', 'binance')).lower()
+                except Exception:
+                    exchange_name = 'binance'
+                hist_provider = provider.upper()
+                hist_extra = f", exchange={exchange_name}" if provider == 'ccxt' else ""
+                console.print(f"[blue]History provider: {hist_provider}{hist_extra}.[/]")
         except Exception as ex:
             log_event('history_init_error', {'error': str(ex)})
         self.setup_schedules()
@@ -398,6 +457,7 @@ class CryptoTracker:
             tf = str(data_cfg.get('timeframe', getattr(self, 'history_timeframe', '1d')))
             days = int(data_cfg.get('days', 365))
             cache_dir = str(data_cfg.get('cache_dir', './data_cache'))
+            provider = str(data_cfg.get('provider', 'coingecko')).lower()
             ind_cfg = (cfg_all.get('indicators') or {})
             rsi_p = int(ind_cfg.get('rsi_period', 14))
             ema_fast = int(ind_cfg.get('ema_fast', 20))
@@ -415,7 +475,22 @@ class CryptoTracker:
                     continue
                 cg_key = cg_ids.get(coin_id, coin_id)
                 try:
-                    candles = get_candles(cg_key, timeframe=tf, days=days, cache_dir=cache_dir, use_cache=False)
+                    if provider == 'ccxt':
+                        providers_cfg = (cfg_all.get('providers') or {})
+                        exchange_name = str(providers_cfg.get('exchange', 'binance')).lower()
+                        cdata = (cfg_all.get('tracked_coins') or {}).get(coin_id) or {}
+                        market = cdata.get('market') or f"{coin_cfg.symbol.upper()}/USDT"
+                        if tf == '1d':
+                            limit = min(int(days), 2000)
+                        elif tf == '4h':
+                            limit = min(int(days) * 6, 2000)
+                        elif tf == '1h':
+                            limit = min(int(days) * 24, 2000)
+                        else:
+                            limit = 1000
+                        candles = get_candles_ccxt(exchange_name, market, timeframe=tf, cache_dir=cache_dir, limit=limit, use_cache=False)
+                    else:
+                        candles = get_candles(cg_key, timeframe=tf, days=days, cache_dir=cache_dir, use_cache=False)
                     if not candles:
                         continue
                     closes = [c.c for c in candles]
