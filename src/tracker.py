@@ -30,7 +30,9 @@ from .fetcher_coingecko import CoingeckoFetcher
 from .aggregator import PriceAggregator
 from .fetcher_ccxt import CCXTPriceFetcher
 from .logger import log_event, configure_file_logging, log_order_csv, log_decision_csv
+from .executor_ccxt import CCXTLiveExecutor
 from .portfolio import Portfolio
+from .persistence.sqlite_store import SQLiteStore
 from .data.ohlcv import get_candles
 from .data.ccxt_ohlcv import get_candles_ccxt
 from .indicators.core import rsi as rsi_series, ema as ema_series, atr as atr_series
@@ -92,21 +94,69 @@ class CryptoTracker:
         # Decision settings (safe defaults)
         self.suggestion_threshold: float = 0.5
         self.auto_threshold: float = 0.8
+        # Higher auto threshold in bear regimes (defaults to auto_threshold if not configured)
+        self.auto_threshold_bear: float = self.auto_threshold
         self.rsi_period: int = 14
         self.short_ma_window: int = 20
         self.long_ma_window: int = 50
+        # MTF confirmation (optional)
+        self.mtf_confirm_tf: str | None = None
+        self.mtf_require_trend_agree: bool = False
         # Phase 3 settings
         self.ttl_seconds: int = 15
         self.auto_trade_enable: bool = False
+        self.auto_trade_mode: str = "paper"  # paper|live
         self.paper_place_orders: bool = False
         self.trade_default_size_usd: float = 50.0
         self.spread_bps_default: int = 10
+        # Fees and taxes (bps)
+        self.fee_bps_default: float = 10.0
+        self.tax_bps_default: float = 0.0
+        # Edge requirements
+        self.min_reward_to_risk: float = 1.3
+        self.min_tp_edge_bps: float = 30.0
         # Paper executor (safe; only used if flags allow)
         self.paper = PaperExecutor()
+        # Optional live executor (initialized if mode=live and keys available)
+        self.live_executor: CCXTLiveExecutor | None = None
+        self.live_exits_enable: bool = True
+        # Live exits backoff state per symbol
+        self._live_exit_backoff: Dict[str, Dict[str, float]] = {}
+        # Last OCO placement status for UI
+        self._last_oco_status: Dict[str, str] | None = None
+        # SQLite persistence store
+        try:
+            db_path = (Path(__file__).parent.parent / 'logs' / 'tracker.db')
+            self.store = SQLiteStore(db_path)
+        except Exception:
+            self.store = None
+        try:
+            with open(self.config_path, 'r') as f:
+                _cfg_all_live = yaml.safe_load(f) or {}
+            providers_cfg = (_cfg_all_live.get('providers') or {})
+            exch_name = str(providers_cfg.get('exchange', 'binance')).lower()
+            if self.auto_trade_mode == 'live':
+                # Try EXCHANGE_API_KEY/SECRET; fallback to BINANCE
+                key = os.environ.get(f"{exch_name.upper()}_API_KEY") or os.environ.get("BINANCE_API_KEY")
+                secret = os.environ.get(f"{exch_name.upper()}_SECRET") or os.environ.get("BINANCE_SECRET")
+                if key and secret:
+                    self.live_executor = CCXTLiveExecutor(exch_name, key, secret)
+                else:
+                    console.print(f"[yellow]Live mode requested but API keys not found for {exch_name}. Staying in paper.[/]")
+                    self.auto_trade_mode = 'paper'
+        except Exception:
+            self.live_executor = None
         # Risk defaults
         self.risk = RiskParams()
+        # Portfolio state path and load persisted state if available
+        self.state_path = (Path(__file__).parent.parent / 'logs' / 'state.json')
+        loaded_port = None
+        try:
+            loaded_port = Portfolio.load_state(self.state_path)
+        except Exception:
+            loaded_port = None
         # Paper portfolio (in-memory)
-        self.portfolio = Portfolio()
+        self.portfolio = loaded_port or Portfolio(initial_cash_usd=10000.0)
         # Execution guardrails
         self.max_open_positions: int = 999999
         self.per_coin_cooldown_seconds: int = 0
@@ -116,6 +166,13 @@ class CryptoTracker:
         self._daily_equity_start_usd: float | None = None
         self._last_equity_day: str | None = None
         self._last_close_ts: Dict[str, float] = {}
+        # Position sizing defaults
+        self.risk_budget_pct: float = 0.005  # 0.5% of equity by default
+        self.max_size_usd: float | None = None
+        self.min_size_usd: float | None = None
+        # Volatility gating (ATR%) defaults
+        self.vol_gate_min_atr_pct: float | None = None
+        self.vol_gate_max_atr_pct: float | None = None
         # UI format defaults
         self.ui_thresholds = [1.0, 0.1, 0.01]
         self.ui_precisions = [2, 4, 6, 8]
@@ -146,6 +203,8 @@ class CryptoTracker:
             days = int(data_cfg.get('days', 365))
             cache_dir = str(data_cfg.get('cache_dir', './data_cache'))
             provider = str(data_cfg.get('provider', 'coingecko')).lower()
+            # Save provider for UI
+            self.history_provider = provider
             ind_cfg = (cfg_all.get('indicators') or {})
             rsi_p = int(ind_cfg.get('rsi_period', 14))
             ema_fast = int(ind_cfg.get('ema_fast', 20))
@@ -217,6 +276,34 @@ class CryptoTracker:
                             'close': closes[-1] if closes else None,
                         }
                     }
+                    # Optional MTF confirmation timeframe preload (EMA only)
+                    if self.mtf_confirm_tf and self.mtf_confirm_tf != tf:
+                        try:
+                            if provider == 'ccxt':
+                                providers_cfg = (cfg_all.get('providers') or {})
+                                exchange_name = str(providers_cfg.get('exchange', 'binance')).lower()
+                                market = cdata.get('market') or f"{coin_cfg.symbol.upper()}/USDT"
+                                if self.mtf_confirm_tf == '1d':
+                                    limit2 = min(int(days), 2000)
+                                elif self.mtf_confirm_tf == '4h':
+                                    limit2 = min(int(days) * 6, 2000)
+                                elif self.mtf_confirm_tf == '1h':
+                                    limit2 = min(int(days) * 24, 2000)
+                                else:
+                                    limit2 = 1000
+                                candles2 = get_candles_ccxt(exchange_name, market, timeframe=self.mtf_confirm_tf, cache_dir=cache_dir, limit=limit2, use_cache=True)
+                            else:
+                                candles2 = get_candles(cg_key, timeframe=self.mtf_confirm_tf, days=days, cache_dir=cache_dir, use_cache=True)
+                            closes2 = [c.c for c in candles2]
+                            ema_fast2 = ema_series(closes2, ema_fast_coin)
+                            ema_slow2 = ema_series(closes2, ema_slow_coin)
+                            self.history[coin_id]['confirm'] = {
+                                'timeframe': self.mtf_confirm_tf,
+                                'ema_fast': ema_fast2[-1] if ema_fast2 else None,
+                                'ema_slow': ema_slow2[-1] if ema_slow2 else None,
+                            }
+                        except Exception:
+                            pass
                     loaded += 1
                 except Exception as ex:
                     log_event('history_load_error', {'coin': coin_id, 'error': str(ex)})
@@ -296,12 +383,21 @@ class CryptoTracker:
             thresholds = (decision.get('confidence_thresholds') or {})
             self.suggestion_threshold = float(thresholds.get('suggestion', 0.5))
             self.auto_threshold = float(thresholds.get('auto', self.auto_threshold))
+            try:
+                ab = thresholds.get('auto_bear', None)
+                self.auto_threshold_bear = float(ab) if ab is not None else self.auto_threshold
+            except Exception:
+                self.auto_threshold_bear = self.auto_threshold
             # price TTL
             price_cfg = (cfg.get('price') or {})
             self.ttl_seconds = int(price_cfg.get('ttl_seconds', self.ttl_seconds))
             # auto trade + paper flags
             at_cfg = (cfg.get('auto_trade') or {})
             self.auto_trade_enable = bool(at_cfg.get('enable', self.auto_trade_enable))
+            try:
+                self.auto_trade_mode = str(at_cfg.get('mode', self.auto_trade_mode)).lower()
+            except Exception:
+                self.auto_trade_mode = "paper"
             paper_cfg = (cfg.get('paper') or {})
             self.paper_place_orders = bool(paper_cfg.get('place_orders', self.paper_place_orders))
             # paper exits flag (used by trailing/SL/TP logic)
@@ -328,6 +424,83 @@ class CryptoTracker:
                 except Exception:
                     pass
             self.agreement_max_diff_pct = float(providers_cfg.get('agreement_max_diff_pct', self.agreement_max_diff_pct))
+            # Execution fees/taxes
+            exec_cfg = (cfg.get('execution') or {})
+            try:
+                self.fee_bps_default = float(exec_cfg.get('fee_bps', self.fee_bps_default))
+            except Exception:
+                pass
+            try:
+                self.tax_bps_default = float(exec_cfg.get('tax_bps', self.tax_bps_default))
+            except Exception:
+                pass
+            # Edge gating
+            strat2b = (cfg.get('strategy') or {})
+            try:
+                self.min_reward_to_risk = float(strat2b.get('min_reward_to_risk', self.min_reward_to_risk))
+            except Exception:
+                pass
+            try:
+                self.min_tp_edge_bps = float(strat2b.get('min_tp_edge_bps', self.min_tp_edge_bps))
+            except Exception:
+                pass
+            # MTF confirmation
+            data_cfg2 = (cfg.get('data') or {})
+            try:
+                tf2 = data_cfg2.get('confirmation_timeframe')
+                self.mtf_confirm_tf = str(tf2) if tf2 else None
+            except Exception:
+                self.mtf_confirm_tf = None
+            strat2 = (cfg.get('strategy') or {})
+            try:
+                self.mtf_require_trend_agree = bool(strat2.get('mtf_require_trend_agree', self.mtf_require_trend_agree))
+            except Exception:
+                pass
+            # Per-coin overrides: ATR, regime, vol gate, thresholds
+            self.atr_params_map: Dict[str, ATRRiskParams] = getattr(self, 'atr_params_map', {})
+            self.per_coin_use_regime: Dict[str, bool] = {}
+            self.per_coin_vol_gate: Dict[str, Dict[str, float | None]] = {}
+            self.per_coin_auto_thr: Dict[str, float] = {}
+            self.per_coin_auto_thr_bear: Dict[str, float | None] = {}
+            self.per_coin_suggest_thr: Dict[str, float] = {}
+            tcoins = (cfg.get('tracked_coins') or {})
+            for cid, cdata in tcoins.items():
+                try:
+                    # ATR
+                    atrc = (cdata or {}).get('atr') or {}
+                    if atrc:
+                        slm = float(atrc.get('sl_mult')) if atrc.get('sl_mult') is not None else None
+                        tpm = float(atrc.get('tp_mult')) if atrc.get('tp_mult') is not None else None
+                        trm = float(atrc.get('trail_mult')) if atrc.get('trail_mult') is not None else None
+                        if any(v is not None for v in (slm, tpm, trm)):
+                            base = self.atr_params
+                            self.atr_params_map[cid] = ATRRiskParams(
+                                atr_period=getattr(base, 'atr_period', 14),
+                                sl_mult=slm if slm is not None else getattr(base, 'sl_mult', 1.5),
+                                tp_mult=tpm if tpm is not None else getattr(base, 'tp_mult', 3.0),
+                                trail_mult=trm if trm is not None else getattr(base, 'trail_mult', 2.0),
+                            )
+                    # Strategy
+                    sc = (cdata or {}).get('strategy') or {}
+                    if 'use_regime_filter' in sc:
+                        self.per_coin_use_regime[cid] = bool(sc.get('use_regime_filter'))
+                    vg = (sc.get('vol_gate') or {})
+                    if vg:
+                        vmin = float(vg.get('min_atr_pct')) if vg.get('min_atr_pct') is not None else None
+                        vmax = float(vg.get('max_atr_pct')) if vg.get('max_atr_pct') is not None else None
+                        self.per_coin_vol_gate[cid] = { 'min': vmin, 'max': vmax }
+                    # Decision thresholds
+                    dc = (cdata or {}).get('decision') or {}
+                    th = (dc.get('thresholds') or {})
+                    if th:
+                        if th.get('auto') is not None:
+                            self.per_coin_auto_thr[cid] = float(th.get('auto'))
+                        if th.get('auto_bear') is not None:
+                            self.per_coin_auto_thr_bear[cid] = float(th.get('auto_bear'))
+                        if th.get('suggestion') is not None:
+                            self.per_coin_suggest_thr[cid] = float(th.get('suggestion'))
+                except Exception:
+                    continue
             # UI formatting
             ui_cfg = (cfg.get('ui') or {})
             pf = (ui_cfg.get('price_format') or {})
@@ -341,6 +514,21 @@ class CryptoTracker:
             exe = (cfg.get('execution') or {})
             self.max_open_positions = int(exe.get('max_open_positions', self.max_open_positions))
             self.per_coin_cooldown_seconds = int(exe.get('per_coin_cooldown_seconds', self.per_coin_cooldown_seconds))
+            # ATR-based sizing knobs
+            try:
+                self.risk_budget_pct = float(exe.get('risk_budget_pct', self.risk_budget_pct))
+            except Exception:
+                pass
+            try:
+                msu = exe.get('max_size_usd')
+                self.max_size_usd = float(msu) if msu is not None else self.max_size_usd
+            except Exception:
+                pass
+            try:
+                mns = exe.get('min_size_usd')
+                self.min_size_usd = float(mns) if mns is not None else self.min_size_usd
+            except Exception:
+                pass
             # Logging
             logging_cfg = (cfg.get('logging') or {})
             log_dir = logging_cfg.get('dir')
@@ -370,6 +558,18 @@ class CryptoTracker:
             # Strategy toggles
             strat = (cfg.get('strategy') or {})
             self.use_regime_filter = bool(strat.get('use_regime_filter', self.use_regime_filter))
+            # Volatility gating
+            vg = (strat.get('vol_gate') or {})
+            try:
+                mnp = vg.get('min_atr_pct')
+                self.vol_gate_min_atr_pct = float(mnp) if mnp is not None else self.vol_gate_min_atr_pct
+            except Exception:
+                pass
+            try:
+                mxp = vg.get('max_atr_pct')
+                self.vol_gate_max_atr_pct = float(mxp) if mxp is not None else self.vol_gate_max_atr_pct
+            except Exception:
+                pass
             # ATR risk params
             risk_cfg2 = (cfg.get('risk') or {})
             atr_cfg = (risk_cfg2.get('atr') or {})
@@ -444,6 +644,9 @@ class CryptoTracker:
             else:
                 refresh_seconds = max(60, interval)
             schedule.every(refresh_seconds).seconds.do(self._refresh_history_tail)
+            # Live exits manager runs frequently if live mode
+            if getattr(self, 'auto_trade_mode', 'paper') == 'live' and self.live_executor is not None and self.live_exits_enable:
+                schedule.every(5).seconds.do(self._manage_live_exits)
         except Exception:
             # Best-effort scheduling; ignore errors
             pass
@@ -510,11 +713,162 @@ class CryptoTracker:
                         'close': closes[-1] if closes else None,
                     }
                     h['timeframe'] = tf
+                    # Refresh confirmation timeframe EMA last values if configured
+                    if self.mtf_confirm_tf and self.mtf_confirm_tf != tf:
+                        try:
+                            if provider == 'ccxt':
+                                if self.mtf_confirm_tf == '1d':
+                                    limit2 = min(int(days), 2000)
+                                elif self.mtf_confirm_tf == '4h':
+                                    limit2 = min(int(days) * 6, 2000)
+                                elif self.mtf_confirm_tf == '1h':
+                                    limit2 = min(int(days) * 24, 2000)
+                                else:
+                                    limit2 = 1000
+                                candles2 = get_candles_ccxt(exchange_name, market, timeframe=self.mtf_confirm_tf, cache_dir=cache_dir, limit=limit2, use_cache=False)
+                            else:
+                                candles2 = get_candles(cg_key, timeframe=self.mtf_confirm_tf, days=days, cache_dir=cache_dir, use_cache=False)
+                            closes2 = [c.c for c in candles2]
+                            ema_fast2 = ema_series(closes2, ema_fast)
+                            ema_slow2 = ema_series(closes2, ema_slow)
+                            h['confirm'] = {
+                                'timeframe': self.mtf_confirm_tf,
+                                'ema_fast': ema_fast2[-1] if ema_fast2 else None,
+                                'ema_slow': ema_slow2[-1] if ema_slow2 else None,
+                            }
+                        except Exception:
+                            pass
                 except Exception:
                     # Ignore refresh errors per coin
                     pass
         except Exception:
             # Ignore outer refresh errors
+            pass
+
+    def _manage_live_exits(self):
+        """Best-effort manager for live positions: if SL/TP/trailing is hit, submit a market sell via CCXT and persist state.
+        This is intentionally simple for safety; it acts only when live mode is enabled and an executor exists.
+        """
+        try:
+            if self.auto_trade_mode != 'live' or self.live_executor is None:
+                return
+            # Map symbols to current prices via aggregator results
+            enabled_map = {cid: cfg.symbol for cid, cfg in self.config.tracked_coins.items() if not cfg.disabled}
+            aggregated = self.aggregator.aggregate_prices(enabled_map)
+            sym_to_price: Dict[str, float] = {}
+            for cid, pdata in (aggregated or {}).items():
+                try:
+                    price = pdata.get('price') if isinstance(pdata, dict) else None
+                    sym = (self.config.tracked_coins.get(cid).symbol.upper() if cid in self.config.tracked_coins else None)
+                    if price is not None and sym:
+                        sym_to_price[sym] = float(price)
+                except Exception:
+                    continue
+            # For each open position, check exits
+            for sym, pos in list(self.portfolio.positions.items()):
+                # Backoff handling: skip symbol if in backoff window
+                try:
+                    st = self._live_exit_backoff.get(sym)
+                    if st and time.time() < float(st.get('next_ts', 0.0)):
+                        continue
+                except Exception:
+                    pass
+                current_price = sym_to_price.get(sym)
+                if current_price is None:
+                    continue
+                # Update peak
+                pos.update_peak(float(current_price))
+                # Get ATR params and last ATR for this coin if available
+                coin_id = None
+                for cid, cfgc in self.config.tracked_coins.items():
+                    if cfgc.symbol.upper() == sym:
+                        coin_id = cid
+                        break
+                coin_atr_params = self.atr_params_map.get(coin_id, self.atr_params)
+                atr_last = None
+                if coin_id is not None:
+                    atr_last = (self.history.get(coin_id, {}) or {}).get('last', {}).get('atr')
+                # Compute SL/TP
+                if (coin_atr_params is not None) and (atr_last is not None) and (float(atr_last) > 0):
+                    sl_from_entry, tp_from_entry = compute_stop_levels_atr(float(pos.entry_price), float(atr_last), coin_atr_params)
+                    if sl_from_entry is None or tp_from_entry is None:
+                        sl_from_entry, tp_from_entry = compute_stop_levels(float(pos.entry_price), self.risk)
+                    trailing_level = compute_trailing_stop_atr(float(pos.peak_price), float(atr_last), coin_atr_params) or compute_trailing_stop(float(pos.peak_price), self.risk)
+                else:
+                    sl_from_entry, tp_from_entry = compute_stop_levels(float(pos.entry_price), self.risk)
+                    trailing_level = compute_trailing_stop(float(pos.peak_price), self.risk)
+                reason = None
+                if float(current_price) <= float(sl_from_entry):
+                    reason = 'stop_loss'
+                elif float(current_price) >= float(tp_from_entry):
+                    reason = 'take_profit'
+                elif float(current_price) <= float(trailing_level):
+                    reason = 'trailing_stop'
+                if reason is None:
+                    continue
+                # Resolve market pair
+                try:
+                    with open(self.config_path, 'r') as f:
+                        cfg_all2 = yaml.safe_load(f) or {}
+                    per_coin = (cfg_all2.get('tracked_coins') or {}).get(coin_id) or {}
+                    market_pair = per_coin.get('market') or f"{sym}/USDT"
+                except Exception:
+                    market_pair = f"{sym}/USDT"
+                # Place market sell for full position value in USD
+                try:
+                    size_usd = float(current_price) * float(pos.units)
+                    if size_usd <= 0:
+                        continue
+                    live_order = self.live_executor.place_order(symbol=market_pair, side='sell', size_usd=size_usd, order_type='market')
+                    # Close position in portfolio at execution price
+                    exec_price = float(live_order.price or current_price)
+                    closed = self.portfolio.close(sym, price=exec_price)
+                    log_event('live_exit', {
+                        'symbol': sym,
+                        'market': market_pair,
+                        'reason': reason,
+                        'order_id': live_order.id,
+                        'status': live_order.status,
+                        'exit_price': exec_price,
+                        'pnl_pct': (closed.get('pnl_pct') if closed else None),
+                    })
+                    try:
+                        self.portfolio.save_state(self.state_path)
+                    except Exception:
+                        pass
+                    # Persist trade in SQLite
+                    try:
+                        if self.store is not None:
+                            self.store.insert_trade({
+                                'symbol': sym,
+                                'market': market_pair,
+                                'reason': reason,
+                                'entry_price': float(closed.get('entry_price')) if closed else None,
+                                'exit_price': exec_price,
+                                'pnl_pct': (closed.get('pnl_pct') if closed else None),
+                                'order_id': live_order.id,
+                                'status': live_order.status,
+                            })
+                    except Exception:
+                        pass
+                    # reset backoff state on success
+                    try:
+                        if sym in self._live_exit_backoff:
+                            del self._live_exit_backoff[sym]
+                    except Exception:
+                        pass
+                except Exception as ex:
+                    log_event('live_exit_error', {'symbol': sym, 'reason': reason, 'error': str(ex)})
+                    # increase backoff for this symbol
+                    try:
+                        st = self._live_exit_backoff.get(sym) or {"retries": 0.0, "next_ts": 0.0}
+                        retries = float(st.get('retries', 0.0)) + 1.0
+                        delay = min(60.0, max(2.0, 2.0 ** retries))
+                        self._live_exit_backoff[sym] = {"retries": retries, "next_ts": time.time() + delay}
+                    except Exception:
+                        pass
+        except Exception:
+            # Never raise from background manager
             pass
 
     def check_coin_price(self, coin_id: str, coin_config: CoinConfig):
@@ -575,6 +929,12 @@ class CryptoTracker:
             px = sym_to_price.get(sym)
             if px is not None:
                 equity_now += float(pos.units) * float(px)
+        # Persist equity snapshot
+        try:
+            if getattr(self, 'store', None) is not None:
+                self.store.insert_equity(equity_now)
+        except Exception:
+            pass
         # Daily start reset on UTC day boundary
         day_now = datetime.now(timezone.utc).strftime('%Y-%m-%d')
         if (self._last_equity_day or day_now) != day_now or self._daily_equity_start_usd is None:
@@ -794,6 +1154,16 @@ class CryptoTracker:
                     notes_str = ", ".join(base_parts)
             except Exception:
                 pass
+            # Append last OCO placement details if applicable for this symbol
+            try:
+                if self._last_oco_status and self._last_oco_status.get('symbol') == symbol_key:
+                    base_parts = [] if notes_str == "—" else notes_str.split(", ")
+                    tp_v = self._last_oco_status.get('tp')
+                    sl_v = self._last_oco_status.get('sl')
+                    base_parts.append(f"OCO tp={tp_v} sl={sl_v}")
+                    notes_str = ", ".join(base_parts)
+            except Exception:
+                pass
 
             # Helper to adaptively format currency for tiny-price assets
             def _fmt_usd(v: float) -> str:
@@ -869,6 +1239,58 @@ class CryptoTracker:
             if can_place and daily_loss_hit:
                 can_place = False
                 guard_note = f"Guard: daily loss cap"
+            # Regime filter guard: require EMAfast > EMAslow for longs (allow per-coin override)
+            eff_use_regime = self.use_regime_filter
+            try:
+                if coin_id in self.per_coin_use_regime:
+                    eff_use_regime = bool(self.per_coin_use_regime.get(coin_id))
+            except Exception:
+                pass
+            if can_place and eff_use_regime:
+                ema_fast_last = (self.history.get(coin_id, {}) or {}).get('last', {}).get('ema_fast')
+                ema_slow_last = (self.history.get(coin_id, {}) or {}).get('last', {}).get('ema_slow')
+                try:
+                    if ema_fast_last is not None and ema_slow_last is not None and float(ema_fast_last) <= float(ema_slow_last):
+                        can_place = False
+                        guard_note = "Guard: regime filter"
+                except Exception:
+                    pass
+            # MTF confirmation guard: require confirm TF trend agreement if configured
+            if can_place and self.mtf_require_trend_agree and self.mtf_confirm_tf:
+                try:
+                    confirm = (self.history.get(coin_id, {}) or {}).get('confirm', {}) or {}
+                    ef2 = confirm.get('ema_fast')
+                    es2 = confirm.get('ema_slow')
+                    if ef2 is not None and es2 is not None and float(ef2) <= float(es2):
+                        can_place = False
+                        guard_note = "Guard: MTF confirm"
+                except Exception:
+                    pass
+            # Volatility gate: require min_atr_pct <= ATR% <= max_atr_pct (allow per-coin override)
+            vg_min = self.vol_gate_min_atr_pct
+            vg_max = self.vol_gate_max_atr_pct
+            try:
+                if coin_id in self.per_coin_vol_gate:
+                    o = self.per_coin_vol_gate.get(coin_id) or {}
+                    if o.get('min') is not None:
+                        vg_min = float(o.get('min'))
+                    if o.get('max') is not None:
+                        vg_max = float(o.get('max'))
+            except Exception:
+                pass
+            if can_place and (vg_min is not None or vg_max is not None):
+                try:
+                    atr_last = (self.history.get(coin_id, {}) or {}).get('last', {}).get('atr')
+                    px = float(current_price) if current_price is not None else None
+                    if atr_last is not None and px is not None and px > 0:
+                        atr_pct = float(atr_last) / px * 100.0
+                        too_low = (vg_min is not None and atr_pct < float(vg_min))
+                        too_high = (vg_max is not None and atr_pct > float(vg_max))
+                        if too_low or too_high:
+                            can_place = False
+                            guard_note = f"Guard: vol gate (ATR%={atr_pct:.2f})"
+                except Exception:
+                    pass
             if not can_place:
                 if open_count >= self.max_open_positions:
                     guard_note = f"Guard: max {self.max_open_positions} open"
@@ -882,29 +1304,201 @@ class CryptoTracker:
             try:
                 if can_place:
                     # Simple buy rule for demo: recommend Buy and no existing position
-                    allow_auto = (confidence >= self.auto_threshold) or (
-                        self.testing_enabled and self.testing_force_auto_on_suggest and confidence >= self.suggestion_threshold
+                    # Use a stricter auto threshold in bearish regime if configured
+                    regime_down = False
+                    try:
+                        if self.use_regime_filter and ema_fast_last is not None and ema_slow_last is not None:
+                            regime_down = float(ema_fast_last) <= float(ema_slow_last)
+                    except Exception:
+                        regime_down = False
+                    # Per-coin thresholds
+                    auto_thr_global = self.auto_threshold_bear if regime_down else self.auto_threshold
+                    auto_thr = auto_thr_global
+                    try:
+                        if regime_down and coin_id in self.per_coin_auto_thr_bear:
+                            auto_thr = float(self.per_coin_auto_thr_bear.get(coin_id))
+                        elif (coin_id in self.per_coin_auto_thr):
+                            auto_thr = float(self.per_coin_auto_thr.get(coin_id)) if not regime_down else auto_thr
+                    except Exception:
+                        pass
+                    allow_auto = (confidence >= auto_thr) or (
+                        self.testing_enabled and self.testing_force_auto_on_suggest and confidence >= (
+                            float(self.per_coin_suggest_thr.get(coin_id)) if coin_id in self.per_coin_suggest_thr else self.suggestion_threshold
+                        )
                     )
                     if action_rec == "Buy" and pos is None and allow_auto:
-                        order = self.paper.place_order(symbol=symbol_key, side="buy", size_usd=self.trade_default_size_usd, order_type="limit")
-                        self.portfolio.open(symbol=symbol_key, usd_size=self.trade_default_size_usd, price=float(current_price))
-                        action_taken = order.status
-                        log_event("paper_order", {
-                            "symbol": symbol_key,
-                            "side": "buy",
-                            "size_usd": self.trade_default_size_usd,
-                            "price": float(current_price),
-                            "confidence": confidence,
-                            "signal": signal,
-                            "agreement_pct": agreement_pct,
-                            "status": order.status,
-                        })
+                        # ATR-based position sizing
+                        size_usd = self.trade_default_size_usd
+                        try:
+                            equity_now = 0.0
+                            for _sym, _pos in self.portfolio.positions.items():
+                                px = sym_to_price.get(_sym)
+                                if px is not None:
+                                    equity_now += float(_pos.units) * float(px)
+                            budget_usd = max(0.0, equity_now * float(self.risk_budget_pct))
+                            atr_last = (self.history.get(coin_id, {}) or {}).get('last', {}).get('atr')
+                            coin_atr_params = self.atr_params_map.get(coin_id, self.atr_params)
+                            if budget_usd > 0 and atr_last is not None and coin_atr_params is not None and float(atr_last) > 0:
+                                sl_price, _tp_price = compute_stop_levels_atr(float(current_price), float(atr_last), coin_atr_params)
+                                if sl_price is not None and float(current_price) > float(sl_price):
+                                    risk_per_unit = float(current_price) - float(sl_price)
+                                    # Protect against division by zero
+                                    if risk_per_unit > 0:
+                                        units = budget_usd / risk_per_unit
+                                        size_usd = float(current_price) * units
+                            # Apply min/max caps if configured
+                            if self.max_size_usd is not None:
+                                size_usd = min(size_usd, float(self.max_size_usd))
+                            if self.min_size_usd is not None:
+                                size_usd = max(size_usd, float(self.min_size_usd))
+                            # Fallback to default if invalid
+                            if not (size_usd and size_usd > 0):
+                                size_usd = self.trade_default_size_usd
+                        except Exception:
+                            size_usd = self.trade_default_size_usd
+                        # Ensure we don't exceed available cash
+                        if hasattr(self.portfolio, 'cash_usd'):
+                            size_usd = min(size_usd, float(getattr(self.portfolio, 'cash_usd', size_usd)))
+                        # Pre-trade edge check vs fees/taxes and R multiple
+                        try:
+                            atr_last = (self.history.get(coin_id, {}) or {}).get('last', {}).get('atr')
+                            coin_atr_params = self.atr_params_map.get(coin_id, self.atr_params)
+                            if (coin_atr_params is not None) and (atr_last is not None) and float(atr_last) > 0:
+                                sl_tmp, tp_tmp = compute_stop_levels_atr(float(current_price), float(atr_last), coin_atr_params)
+                            else:
+                                sl_tmp, tp_tmp = compute_stop_levels(float(current_price), self.risk)
+                            if sl_tmp is not None and tp_tmp is not None and float(current_price) > 0:
+                                entry = float(current_price)
+                                rr = (tp_tmp - entry) / max(1e-12, entry - sl_tmp)
+                                fees_total_bps = float(self.fee_bps_default) * 2.0 + float(self.tax_bps_default) + float(self.spread_bps_default)
+                                tp_edge_bps = (tp_tmp - entry) / entry * 10000.0
+                                if rr < float(self.min_reward_to_risk) or tp_edge_bps <= (fees_total_bps + float(self.min_tp_edge_bps)):
+                                    can_place = False
+                                    guard_note = f"Guard: edge (R={rr:.2f}, tp_edge={tp_edge_bps:.0f}bps)"
+                        except Exception:
+                            pass
+                        # Place order: live or paper
+                        if self.auto_trade_mode == 'live' and self.live_executor is not None:
+                            # Resolve market pair for this coin
+                            try:
+                                with open(self.config_path, 'r') as f:
+                                    cfg_all2 = yaml.safe_load(f) or {}
+                                per_coin = (cfg_all2.get('tracked_coins') or {}).get(coin_id) or {}
+                                market_pair = per_coin.get('market') or f"{coin_config.symbol.upper()}/USDT"
+                            except Exception:
+                                market_pair = f"{coin_config.symbol.upper()}/USDT"
+                            try:
+                                live_order = self.live_executor.place_order(symbol=market_pair, side="buy", size_usd=size_usd, order_type="market")
+                                exec_price = float(live_order.price or current_price)
+                                self.portfolio.open(symbol=symbol_key, usd_size=size_usd, price=exec_price, fee_bps=self.fee_bps_default)
+                                action_taken = live_order.status
+                                log_event("live_order", {
+                                    "symbol": symbol_key,
+                                    "market": market_pair,
+                                    "side": "buy",
+                                    "size_usd": size_usd,
+                                    "price": exec_price,
+                                    "order_id": live_order.id,
+                                    "confidence": confidence,
+                                    "signal": signal,
+                                    "agreement_pct": agreement_pct,
+                                    "status": live_order.status,
+                                })
+                                # Attempt to arm exchange-side OCO (TP+SL) immediately (Binance only)
+                                try:
+                                    # Read ATR params and last ATR
+                                    atr_last_live = (self.history.get(coin_id, {}) or {}).get('last', {}).get('atr')
+                                    coin_atr_params_live = self.atr_params_map.get(coin_id, self.atr_params)
+                                    if (coin_atr_params_live is not None) and (atr_last_live is not None) and float(atr_last_live) > 0:
+                                        sl_from_entry_live, tp_from_entry_live = compute_stop_levels_atr(exec_price, float(atr_last_live), coin_atr_params_live)
+                                    else:
+                                        sl_from_entry_live, tp_from_entry_live = compute_stop_levels(exec_price, self.risk)
+                                    # Resolve quantity from portfolio
+                                    pos_now = self.portfolio.get(symbol_key)
+                                    if pos_now is not None and tp_from_entry_live is not None and sl_from_entry_live is not None:
+                                        # Use a small buffer for stop-limit below stop
+                                        sl_limit = sl_from_entry_live * 0.999
+                                        placed = self.live_executor.place_oco_sell(
+                                            symbol=market_pair,
+                                            quantity=float(pos_now.units),
+                                            tp_price=float(tp_from_entry_live),
+                                            sl_stop_price=float(sl_from_entry_live),
+                                            sl_limit_price=float(sl_limit),
+                                        )
+                                        if placed:
+                                            log_event("live_oco", {
+                                                "symbol": symbol_key,
+                                                "market": market_pair,
+                                                "tp_price": float(tp_from_entry_live),
+                                                "sl_stop_price": float(sl_from_entry_live),
+                                                "sl_limit_price": float(sl_limit),
+                                            })
+                                except Exception:
+                                    # Best-effort; exit manager will still protect positions
+                                    pass
+                                # Persist state
+                                try:
+                                    self.portfolio.save_state(self.state_path)
+                                except Exception:
+                                    pass
+                                # Persist order in SQLite
+                                try:
+                                    if self.store is not None:
+                                        self.store.insert_order({
+                                            'symbol': symbol_key,
+                                            'market': market_pair,
+                                            'side': 'buy',
+                                            'size_usd': size_usd,
+                                            'price': exec_price,
+                                            'provider': 'ccxt',
+                                            'order_id': live_order.id,
+                                            'status': live_order.status,
+                                        })
+                                except Exception:
+                                    pass
+                            except Exception as ex:
+                                action_taken = "error"
+                                log_event("live_order_error", {"symbol": symbol_key, "error": str(ex)})
+                        else:
+                            order = self.paper.place_order(symbol=symbol_key, side="buy", size_usd=size_usd, order_type="limit")
+                            self.portfolio.open(symbol=symbol_key, usd_size=size_usd, price=float(current_price), fee_bps=self.fee_bps_default)
+                            action_taken = order.status
+                            log_event("paper_order", {
+                                "symbol": symbol_key,
+                                "side": "buy",
+                                "size_usd": size_usd,
+                                "price": float(current_price),
+                                "confidence": confidence,
+                                "signal": signal,
+                                "agreement_pct": agreement_pct,
+                                "status": order.status,
+                            })
+                            # Persist state
+                            try:
+                                self.portfolio.save_state(self.state_path)
+                            except Exception:
+                                pass
+                            # Persist paper order in SQLite
+                            try:
+                                if self.store is not None:
+                                    self.store.insert_order({
+                                        'symbol': symbol_key,
+                                        'market': None,
+                                        'side': 'buy',
+                                        'size_usd': size_usd,
+                                        'price': float(current_price),
+                                        'provider': 'paper',
+                                        'order_id': getattr(order, 'id', None),
+                                        'status': order.status,
+                                    })
+                            except Exception:
+                                pass
                         try:
                             log_order_csv({
                                 "ts": datetime.now(timezone.utc).isoformat(),
                                 "symbol": symbol_key,
                                 "side": "buy",
-                                "size_usd": self.trade_default_size_usd,
+                                "size_usd": size_usd,
                                 "price": float(current_price),
                                 "status": order.status,
                             })
@@ -937,13 +1531,13 @@ class CryptoTracker:
                         else:
                             sl_from_entry, tp_from_entry = compute_stop_levels(float(pos.entry_price), self.risk)
                         if float(current_price) <= sl_from_entry:
-                            closed = self.portfolio.close(symbol_key)
+                            closed = self.portfolio.close(symbol_key, price=float(current_price), fee_bps=self.fee_bps_default)
                             log_event("paper_exit", {
                                 "symbol": symbol_key,
                                 "reason": "stop_loss",
-                                "entry": float(closed.entry_price) if closed else None,
+                                "entry": float(closed.get('entry_price')) if closed else None,
                                 "exit_price": float(current_price),
-                                "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
+                                "pnl_pct": (closed.get('pnl_pct') if closed else None),
                             })
                             try:
                                 log_order_csv({
@@ -953,8 +1547,23 @@ class CryptoTracker:
                                     "price": float(current_price),
                                     "status": "closed",
                                     "reason": "stop_loss",
-                                    "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
+                                    "pnl_pct": (closed.get('pnl_pct') if closed else None),
                                 })
+                            except Exception:
+                                pass
+                            # Persist trade in SQLite
+                            try:
+                                if self.store is not None:
+                                    self.store.insert_trade({
+                                        'symbol': symbol_key,
+                                        'market': None,
+                                        'reason': 'stop_loss',
+                                        'entry_price': float(closed.get('entry_price')) if closed else None,
+                                        'exit_price': float(current_price),
+                                        'pnl_pct': (closed.get('pnl_pct') if closed else None),
+                                        'order_id': None,
+                                        'status': 'closed',
+                                    })
                             except Exception:
                                 pass
                             self.recent_orders.append({
@@ -965,6 +1574,11 @@ class CryptoTracker:
                                 "status": "closed",
                                 "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
                             })
+                            # Persist state
+                            try:
+                                self.portfolio.save_state(self.state_path)
+                            except Exception:
+                                pass
                             action_taken = "SL"
                             self._last_close_ts[symbol_key] = time.time()
                             pos = None
@@ -972,7 +1586,7 @@ class CryptoTracker:
                             entry_display = "—"
                             pnl_display = "—"
                         elif float(current_price) >= tp_from_entry:
-                            closed = self.portfolio.close(symbol_key)
+                            closed = self.portfolio.close(symbol_key, price=float(current_price), fee_bps=self.fee_bps_default)
                             log_event("paper_exit", {
                                 "symbol": symbol_key,
                                 "reason": "take_profit",
@@ -992,6 +1606,21 @@ class CryptoTracker:
                                 })
                             except Exception:
                                 pass
+                            # Persist trade in SQLite
+                            try:
+                                if self.store is not None:
+                                    self.store.insert_trade({
+                                        'symbol': symbol_key,
+                                        'market': None,
+                                        'reason': 'take_profit',
+                                        'entry_price': float(closed.get('entry_price')) if closed else None,
+                                        'exit_price': float(current_price),
+                                        'pnl_pct': (closed.get('pnl_pct') if closed else None),
+                                        'order_id': None,
+                                        'status': 'closed',
+                                    })
+                            except Exception:
+                                pass
                             self.recent_orders.append({
                                 "time": datetime.now(timezone.utc).strftime("%H:%M:%S"),
                                 "symbol": symbol_key,
@@ -1000,6 +1629,11 @@ class CryptoTracker:
                                 "status": "closed",
                                 "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
                             })
+                            # Persist state
+                            try:
+                                self.portfolio.save_state(self.state_path)
+                            except Exception:
+                                pass
                             action_taken = "TP"
                             self._last_close_ts[symbol_key] = time.time()
                             pos = None
@@ -1015,7 +1649,7 @@ class CryptoTracker:
                             else:
                                 trailing_level = compute_trailing_stop(float(pos.peak_price), self.risk)
                             if float(current_price) <= trailing_level:
-                                closed = self.portfolio.close(symbol_key)
+                                closed = self.portfolio.close(symbol_key, price=float(current_price), fee_bps=self.fee_bps_default)
                                 log_event("paper_exit", {
                                     "symbol": symbol_key,
                                     "reason": "trailing_stop",
@@ -1035,12 +1669,32 @@ class CryptoTracker:
                                     })
                                 except Exception:
                                     pass
+                                # Persist trade in SQLite
+                                try:
+                                    if self.store is not None:
+                                        self.store.insert_trade({
+                                            'symbol': symbol_key,
+                                            'market': None,
+                                            'reason': 'trailing_stop',
+                                            'entry_price': float(closed.get('entry_price')) if closed else None,
+                                            'exit_price': float(current_price),
+                                            'pnl_pct': (closed.get('pnl_pct') if closed else None),
+                                            'order_id': None,
+                                            'status': 'closed',
+                                        })
+                                except Exception:
+                                    pass
                                 action_taken = "TRAIL"
                                 self._last_close_ts[symbol_key] = time.time()
                                 pos = None
                                 pos_units_display = "—"
                                 entry_display = "—"
                                 pnl_display = "—"
+                                # Persist state
+                                try:
+                                    self.portfolio.save_state(self.state_path)
+                                except Exception:
+                                    pass
                                 self.recent_orders.append({
                                     "time": datetime.now(timezone.utc).strftime("%H:%M:%S"),
                                     "symbol": symbol_key,
@@ -1237,6 +1891,19 @@ class CryptoTracker:
             regime_str = "ON" if self.use_regime_filter else "OFF"
             atr_str = "ON" if self.atr_params is not None else "OFF"
             console.print(f"[blue]Regime filter:[/] {regime_str} | [blue]ATR exits:[/] {atr_str}")
+            # Exec/History/OCO status
+            try:
+                exch_name = "binance"
+                with open(self.config_path, 'r') as f:
+                    _cfg_all = yaml.safe_load(f) or {}
+                providers_cfg = (_cfg_all.get('providers') or {})
+                exch_name = str(providers_cfg.get('exchange', 'binance')).lower()
+            except Exception:
+                exch_name = "binance"
+            exec_str = f"Live/CCXT({exch_name})" if self.auto_trade_mode == 'live' and self.live_executor else "Paper"
+            hist_str = f"{getattr(self, 'history_provider', 'unknown').upper()}/{getattr(self, 'history_timeframe','?')}"
+            oco_str = "Armed" if self._last_oco_status else "Not armed"
+            console.print(f"[blue]Exec:[/] {exec_str} | [blue]OCO:[/] {oco_str} | [blue]History:[/] {hist_str}")
 
             self.check_all_prices()
             while True:

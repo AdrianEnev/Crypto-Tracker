@@ -1,6 +1,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
+import json
+from pathlib import Path
 
 
 @dataclass
@@ -26,19 +28,104 @@ class Portfolio:
     - Open only when allowed by config and decision engine.
     """
 
-    def __init__(self):
+    def __init__(self, initial_cash_usd: float = 10000.0):
         self.positions: Dict[str, Position] = {}
+        self.initial_cash_usd: float = float(initial_cash_usd)
+        self.cash_usd: float = float(initial_cash_usd)
 
     def get(self, symbol: str) -> Optional[Position]:
         return self.positions.get(symbol)
 
-    def open(self, symbol: str, usd_size: float, price: float) -> Position:
+    def open(self, symbol: str, usd_size: float, price: float, fee_bps: float = 0.0) -> Position:
         if price <= 0:
             raise ValueError("Invalid entry price")
-        units = usd_size / price
+        # Do not exceed available cash
+        usd_alloc = min(float(usd_size), float(self.cash_usd))
+        fee_mult = 1.0 + (float(fee_bps) / 10000.0)
+        units = usd_alloc / price
         pos = Position(symbol=symbol, units=units, entry_price=price, peak_price=price)
         self.positions[symbol] = pos
+        # Deduct notional + fee from cash
+        self.cash_usd -= usd_alloc * fee_mult
         return pos
 
-    def close(self, symbol: str) -> Optional[Position]:
-        return self.positions.pop(symbol, None)
+    def close(self, symbol: str, price: float, fee_bps: float = 0.0) -> Optional[Dict[str, Any]]:
+        pos = self.positions.pop(symbol, None)
+        if pos is None:
+            return None
+        proceeds = float(pos.units) * float(price)
+        fee = proceeds * (float(fee_bps) / 10000.0)
+        self.cash_usd += (proceeds - fee)
+        pnl_usd = (float(price) - float(pos.entry_price)) * float(pos.units)
+        pnl_pct = pos.pnl_pct(float(price))
+        return {
+            "symbol": symbol,
+            "entry_price": float(pos.entry_price),
+            "exit_price": float(price),
+            "units": float(pos.units),
+            "pnl_usd": float(pnl_usd),
+            "pnl_pct": float(pnl_pct),
+        }
+
+    def equity_usd(self, sym_to_price: Dict[str, float]) -> float:
+        equity = float(self.cash_usd)
+        for sym, pos in self.positions.items():
+            px = sym_to_price.get(sym)
+            if px is not None:
+                equity += float(pos.units) * float(px)
+        return equity
+
+    # Persistence helpers
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "initial_cash_usd": float(self.initial_cash_usd),
+            "cash_usd": float(self.cash_usd),
+            "positions": {
+                sym: {
+                    "symbol": pos.symbol,
+                    "units": float(pos.units),
+                    "entry_price": float(pos.entry_price),
+                    "peak_price": float(pos.peak_price),
+                }
+                for sym, pos in self.positions.items()
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Portfolio":
+        p = cls(initial_cash_usd=float(data.get("initial_cash_usd", 0.0)))
+        p.cash_usd = float(data.get("cash_usd", p.initial_cash_usd))
+        positions = data.get("positions", {}) or {}
+        for sym, d in positions.items():
+            try:
+                pos = Position(
+                    symbol=str(d.get("symbol", sym)),
+                    units=float(d.get("units", 0.0)),
+                    entry_price=float(d.get("entry_price", 0.0)),
+                    peak_price=float(d.get("peak_price", 0.0)),
+                )
+                p.positions[sym] = pos
+            except Exception:
+                continue
+        return p
+
+    def save_state(self, path: str | Path) -> None:
+        try:
+            path = Path(path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("w") as f:
+                json.dump(self.to_dict(), f)
+        except Exception:
+            pass
+
+    @classmethod
+    def load_state(cls, path: str | Path) -> Optional["Portfolio"]:
+        try:
+            path = Path(path)
+            if not path.exists():
+                return None
+            with path.open("r") as f:
+                data = json.load(f)
+            return cls.from_dict(data)
+        except Exception:
+            return None
