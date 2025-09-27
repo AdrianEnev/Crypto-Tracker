@@ -6,6 +6,7 @@ from rich.console import Console
 
 from .fetcher import PriceFetcher  # CMC
 from .fetcher_coingecko import CoingeckoFetcher  # Coingecko
+from .fetcher_ccxt import CCXTPriceFetcher  # CCXT spot
 
 console = Console()
 
@@ -16,11 +17,12 @@ class PriceAggregator:
     """
 
     def __init__(self, cmc: PriceFetcher, cg: CoingeckoFetcher, agreement_max_diff_pct: float = 0.5,
-                 enabled_sources: Optional[List[str]] = None):
+                 enabled_sources: Optional[List[str]] = None, ccxt: CCXTPriceFetcher | None = None):
         self.cmc = cmc
         self.cg = cg
+        self.ccxt = ccxt
         self.agreement_max_diff_pct = agreement_max_diff_pct
-        # enabled_sources can be a subset of {"cmc","coingecko"}
+        # enabled_sources can be a subset of {"cmc","coingecko","ccxt"}
         self.enabled_sources = set((enabled_sources or ["cmc", "coingecko"]))
 
     def aggregate_prices(self, id_to_symbol: Dict[str, str], cg_ids: Optional[Dict[str, str]] = None) -> Dict[str, Dict[str, Optional[object]]]:
@@ -30,7 +32,7 @@ class PriceAggregator:
             'agreement_diff_pct': float|None  # max deviation from median across providers in %
         }
         """
-        # Fetch from both sources
+        # Fetch from configured sources
         out: Dict[str, Dict[str, Optional[object]]] = {}
         if "cmc" in self.enabled_sources:
             try:
@@ -56,6 +58,13 @@ class PriceAggregator:
                 cg_prices = {cid: None for cid in id_to_symbol.keys()}
         else:
             cg_prices = {cid: None for cid in id_to_symbol.keys()}
+        if "ccxt" in self.enabled_sources and self.ccxt is not None:
+            try:
+                ccxt_prices = self.ccxt.get_prices_by_symbols(id_to_symbol)
+            except Exception:
+                ccxt_prices = {cid: None for cid in id_to_symbol.keys()}
+        else:
+            ccxt_prices = {cid: None for cid in id_to_symbol.keys()}
 
         for cid in id_to_symbol.keys():
             vals: List[Tuple[str, float]] = []
@@ -68,6 +77,10 @@ class PriceAggregator:
             if cg_val is not None:
                 vals.append(("coingecko", float(cg_val)))
                 providers.append("coingecko")
+            ccxt_val = ccxt_prices.get(cid)
+            if ccxt_val is not None:
+                vals.append(("ccxt", float(ccxt_val)))
+                providers.append("ccxt")
 
             if not vals:
                 out[cid] = {

@@ -51,6 +51,31 @@ def load_jsonl(path: Path) -> List[Dict]:
     return rows
 
 
+def _sanitize_candles(candles: List[Candle]) -> List[Candle]:
+    """Sort by ts asc, deduplicate by ts (keep last), and drop invalid records.
+    Validity rules: ts>0, all prices finite and >0, volume finite and >=0.
+    """
+    if not candles:
+        return candles
+    # Keep last occurrence per ts
+    by_ts: Dict[int, Candle] = {}
+    for c in candles:
+        try:
+            if not isinstance(c.ts, int) or c.ts <= 0:
+                continue
+            if not (math.isfinite(c.o) and math.isfinite(c.h) and math.isfinite(c.l) and math.isfinite(c.c) and math.isfinite(c.v)):
+                continue
+            if c.o <= 0 or c.h <= 0 or c.l <= 0 or c.c <= 0:
+                continue
+            if c.v < 0:
+                continue
+            by_ts[c.ts] = c
+        except Exception:
+            continue
+    out = sorted(by_ts.values(), key=lambda x: x.ts)
+    return out
+
+
 def fetch_ohlcv_coingecko(coin_id: str, vs_currency: str = "usd", days: int = 365, interval: str = "daily", api_key: Optional[str] = None) -> List[Candle]:
     """Fetch OHLC-like data from CoinGecko market_chart endpoint.
     Note: CoinGecko provides prices (close), market_caps, total_volumes; true OHLC is on /ohlc for limited days.
@@ -126,6 +151,7 @@ def get_candles(
     if timeframe == "1d":
         interval = "daily"
         candles = fetch_ohlcv_coingecko(coin_id, vs_currency=vs_currency, days=days, interval=interval, api_key=api_key)
+        candles = _sanitize_candles(candles)
         rows = [c.__dict__ for c in candles]
         save_jsonl(cache_file, rows)
         return candles
@@ -134,6 +160,7 @@ def get_candles(
         days_req = min(int(days), 90)
         interval = "hourly"
         hourly = fetch_ohlcv_coingecko(coin_id, vs_currency=vs_currency, days=days_req, interval=interval, api_key=api_key)
+        hourly = _sanitize_candles(hourly)
         if timeframe == "1h":
             rows = [c.__dict__ for c in hourly]
             save_jsonl(cache_file, rows)
@@ -146,6 +173,7 @@ def get_candles(
         if not four_h and hourly:
             # if less than 4 samples, return last as single candle
             four_h = [hourly[-1]]
+        four_h = _sanitize_candles(four_h)
         rows = [c.__dict__ for c in four_h]
         save_jsonl(cache_file, rows)
         return four_h
