@@ -2,145 +2,201 @@ tracked_coins:
   bitcoin:
     symbol: btc
     name: Bitcoin
-    threshold: 120000.0  # Alert if price drops below this
-    check_interval: 300  # seconds (5 minutes)
-    # disabled: true     # Uncomment to stop tracking without deleting
-  
+    threshold: 120000.0
+    check_interval: 300
   ethereum:
     symbol: eth
     name: Ethereum
     threshold: 5000.0
     check_interval: 300
-    # disabled: true     # Uncomment to stop tracking without deleting
-
   tether:
     symbol: usdt
     name: Tether
     threshold: 1.0
     check_interval: 300
-  
   usd-coin:
     symbol: usdc
     name: USD Coin
     threshold: 1.0
     check_interval: 300
-  
   binance-coin:
     symbol: bnb
     name: Binance Coin
     threshold: 500.0
     check_interval: 300
-  
+    coingecko_id: binancecoin
   xrp:
     symbol: xrp
     name: XRP
     threshold: 1.0
     check_interval: 300
-  
+    coingecko_id: ripple
   solana:
     symbol: sol
     name: Solana
     threshold: 500.0
     check_interval: 300
-  
+    indicators:
+      rsi_period: 10
+      ema_fast: 12
+      ema_slow: 40
+    risk:
+      atr:
+        period: 14
+        sl_mult: 1.5
+        tp_mult: 4.0
   cardano:
     symbol: ada
     name: Cardano
     threshold: 1.0
     check_interval: 300
-  
   dogecoin:
     symbol: doge
     name: Dogecoin
     threshold: 0.1
     check_interval: 300
-  
   polkadot:
     symbol: dot
     name: Polkadot
     threshold: 10.0
     check_interval: 300
-  
+    indicators:
+      rsi_period: 10
+      ema_fast: 12
+      ema_slow: 40
+    risk:
+      atr:
+        period: 14
+        sl_mult: 1.5
+        tp_mult: 2.0
   tron:
     symbol: trx
     name: Tron
     threshold: 0.1
     check_interval: 300
-  
   avalanche:
     symbol: avax
     name: Avalanche
     threshold: 50.0
     check_interval: 300
-  
+    coingecko_id: avalanche-2
   shiba-inu:
     symbol: shib
     name: Shiba Inu
     threshold: 0.001
     check_interval: 300
-  
   litecoin:
     symbol: ltc
     name: Litecoin
     threshold: 100.0
     check_interval: 300
-  
   chainlink:
     symbol: link
-    name: Chainlink 
+    name: Chainlink
     threshold: 20.0
     check_interval: 300
-  
   bitcoin-cash:
     symbol: bch
     name: Bitcoin Cash
     threshold: 500.0
     check_interval: 300
-  
   uniswap:
     symbol: uni
     name: Uniswap
     threshold: 5.0
     check_interval: 300
-  
   aptos:
     symbol: apt
     name: Aptos
     threshold: 1.0
     check_interval: 300
-  
   sui:
     symbol: sui
     name: Sui
     threshold: 1.0
     check_interval: 300
-  
   near-protocol:
     symbol: near
     name: NEAR Protocol
     threshold: 1.0
     check_interval: 300
-  
+    coingecko_id: near
   cosmos:
     symbol: atom
-    name: Cosmos  
+    name: Cosmos
     threshold: 1.0
     check_interval: 300
-  
   stellar:
     symbol: xlm
     name: Stellar
     threshold: 0.1
     check_interval: 300
-  
   internet-computer:
     symbol: icp
     name: Internet Computer
     threshold: 1.0
     check_interval: 300
-
-# API settings
 api:
-  # CoinMarketCap Pro API base URL
-  base_url: "https://pro-api.coinmarketcap.com"
-  timeout: 10  # seconds
+  base_url: https://pro-api.coinmarketcap.com
+  timeout: 10
+data:
+  provider: coingecko
+  cache_dir: ./data_cache
+  timeframe: 1d
+  days: 365
+auto_trade:
+  enable: true
+  mode: paper
+decision:
+  confidence_thresholds:
+    suggestion: 0.5
+    auto: 0.8
+price:
+  ttl_seconds: 15
+paper:
+  place_orders: true
+  exits_enable: true
+trade:
+  default_size_usd: 50.0
+liquidity:
+  spread_bps_default: 10
+risk:
+  stop_loss_pct: 0.03
+  take_profit_pct: 0.06
+  trailing_stop_pct: 0.04
+  atr:
+    period: 14
+    sl_mult: 1.5
+    tp_mult: 3.0
+    trail_mult: 2.0
+ui:
+  price_format:
+    thresholds:
+    - 1.0
+    - 0.1
+    - 0.01
+    precisions:
+    - 2
+    - 4
+    - 6
+    - 8
+indicators:
+  rsi_period: 14
+  ema_fast: 20
+  ema_slow: 50
+  atr_period: 14
+strategy:
+  use_regime_filter: false
+execution:
+  max_open_positions: 5
+  per_coin_cooldown_seconds: 60
+providers:
+  sources:
+  - cmc
+  - coingecko
+  agreement_max_diff_pct: 0.5
+testing:
+  enabled: false
+  force_auto_on_suggest: false
+  global_price_offset_pct: 0.0
+  per_coin_price_offset_pct: {}
