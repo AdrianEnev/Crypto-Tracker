@@ -2,12 +2,16 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 from typing import Dict, Optional
+import os
+import json
+import requests
 
 console = Console()
 
 class Notifier:
     def __init__(self):
         self.last_alerts = {}
+        self.webhook_url: Optional[str] = os.environ.get("NOTIFIER_WEBHOOK_URL")
     
     def check_thresholds(self, coin_id: str, coin_name: str, 
                         current_price: Optional[float], threshold: float,
@@ -74,3 +78,26 @@ class Notifier:
         """Clear alert state for a coin."""
         if coin_id in self.last_alerts:
             del self.last_alerts[coin_id]
+
+    # Generic operational alert (console panel). Can be extended to Slack/webhooks later.
+    def alert(self, title: str, message: str, style: str = "yellow") -> None:
+        try:
+            panel = Panel(Text(message), title=f"[bold]{title}[/bold]", border_style=style, padding=(1,2))
+            console.print(panel)
+            # Optional webhook post
+            if self.webhook_url:
+                try:
+                    payload = {"title": title, "message": message, "style": style}
+                    headers = {"Content-Type": "application/json"}
+                    requests.post(self.webhook_url, data=json.dumps(payload), headers=headers, timeout=5)
+                except Exception:
+                    pass
+        except Exception:
+            # Fallback to plain print
+            console.print(f"[{style}]{title}: {message}[/]")
+
+    def set_webhook(self, url: Optional[str]) -> None:
+        try:
+            self.webhook_url = url
+        except Exception:
+            self.webhook_url = None

@@ -50,7 +50,8 @@ def _log_fallback(coin_id: str, timeframe: str, ex: Exception, provider: str, st
 def simulate_on_series(coin_id: str, threshold: float,
                        closes: List[float], highs: List[float], lows: List[float],
                        rsi_period: int, ema_fast: int, ema_slow: int,
-                       atr_params: Optional[ATRRiskParams], slippage_bps: int, fee_bps: int,
+                       atr_params: Optional[ATRRiskParams],
+                       slippage_base_bps: int, slippage_k_atr_pct: float, fee_bps: int,
                        times: Optional[List[int]] = None,
                        export_dir: Optional[Path] = None,
                        use_regime_filter: bool = False,
@@ -77,9 +78,17 @@ def simulate_on_series(coin_id: str, threshold: float,
     pos_entry_price: Optional[float] = None
     peak_price_since_entry: Optional[float] = None
 
-    def apply_costs(price: float, side: str) -> float:
-        mult = 1.0
-        mult *= (1.0 + (slippage_bps + fee_bps) / 10000.0) if side == "buy" else (1.0 - (slippage_bps + fee_bps) / 10000.0)
+    def apply_costs(price: float, side: str, atr_pct: float) -> float:
+        # Dynamic slippage: base_bps + k * ATR%
+        slip_dynamic = float(slippage_base_bps)
+        try:
+            slip_dynamic += float(slippage_k_atr_pct) * float(atr_pct)
+        except Exception:
+            pass
+        # Cap slippage to a reasonable range [0, 100] bps
+        slip_dynamic = max(0.0, min(100.0, slip_dynamic))
+        total_bps = slip_dynamic + float(fee_bps)
+        mult = (1.0 + total_bps / 10000.0) if side == "buy" else (1.0 - total_bps / 10000.0)
         return price * mult
 
     for i in range(len(closes)):
@@ -133,7 +142,8 @@ def simulate_on_series(coin_id: str, threshold: float,
                                     size_usd = min(budget_usd, price * units)
                         size_usd = min(size_usd, cash)
                     if size_usd > 0:
-                        fill_price = apply_costs(price, "buy")
+                        atr_pct_now = (atr / price * 100.0) if (atr is not None and price > 0) else 0.0
+                        fill_price = apply_costs(price, "buy", atr_pct_now)
                         qty = size_usd / fill_price
                         if qty > 0:
                             pos_qty = qty
@@ -159,7 +169,8 @@ def simulate_on_series(coin_id: str, threshold: float,
             stop_hit = price <= sl
             tp_hit = price >= tp
             if stop_hit or tp_hit:
-                fill_price = apply_costs(price, "sell")
+                atr_pct_now2 = (atr / price * 100.0) if (atr is not None and price > 0) else 0.0
+                fill_price = apply_costs(price, "sell", atr_pct_now2)
                 cash += pos_qty * fill_price
                 trades[-1].exit_idx = i
                 trades[-1].exit_price = fill_price
@@ -170,7 +181,8 @@ def simulate_on_series(coin_id: str, threshold: float,
                 peak_price_since_entry = None
                 continue
             if trail_hit:
-                fill_price = apply_costs(price, "sell")
+                atr_pct_now3 = (atr / price * 100.0) if (atr is not None and price > 0) else 0.0
+                fill_price = apply_costs(price, "sell", atr_pct_now3)
                 cash += pos_qty * fill_price
                 trades[-1].exit_idx = i
                 trades[-1].exit_price = fill_price
@@ -254,12 +266,36 @@ def simulate_coin(coin_id: str, cg_id: str, threshold: float, days: int, timefra
         auto_thr_bear = float(auto_thr_bear) if auto_thr_bear is not None else None
     except Exception:
         auto_thr_bear = None
-    # Execution sizing
+    # Execution sizing and fee/slippage parity
     exe_cfg = (cfg_all.get("execution") or {})
     try:
         risk_budget_pct = float(exe_cfg.get("risk_budget_pct", 0.0))
     except Exception:
         risk_budget_pct = 0.0
+    # Fee tiers -> choose fee_bps if tiers defined
+    try:
+        tiers = exe_cfg.get("fee_tiers") or []
+        fee_tier_volume_usd = float(exe_cfg.get("fee_tier_volume_usd", 0.0))
+        best = None
+        if isinstance(tiers, list):
+            for t in tiers:
+                try:
+                    v = float(t.get("volume_usd", 0.0))
+                    if v <= fee_tier_volume_usd:
+                        if best is None or v > float(best.get("volume_usd", -1e9)):
+                            best = t
+                except Exception:
+                    continue
+        if best is not None:
+            tb = best.get("taker_bps", best.get("maker_bps", None))
+            if tb is not None:
+                fee_bps = int(float(tb))
+    except Exception:
+        pass
+    # Slippage model
+    slip_cfg = (exe_cfg.get("slippage") or {})
+    slippage_base_bps = int(slip_cfg.get("base_bps", slippage_bps))
+    slippage_k_atr_pct = float(slip_cfg.get("k_atr_pct", 0.0))
     api_key = os.environ.get("COINGECKO_API_KEY")
     try:
         if provider == "ccxt":
@@ -317,7 +353,8 @@ def simulate_coin(coin_id: str, cg_id: str, threshold: float, days: int, timefra
         ema_fast=ema_fast,
         ema_slow=ema_slow,
         atr_params=atr_params,
-        slippage_bps=slippage_bps,
+        slippage_base_bps=slippage_base_bps,
+        slippage_k_atr_pct=slippage_k_atr_pct,
         fee_bps=fee_bps,
         times=times,
         export_dir=export_dir,

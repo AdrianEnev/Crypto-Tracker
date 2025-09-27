@@ -87,6 +87,7 @@ class PriceAggregator:
                     'price': None,
                     'providers': providers,
                     'agreement_diff_pct': None,
+                    'stability_score': 0.0,
                 }
                 continue
 
@@ -103,9 +104,24 @@ class PriceAggregator:
                     diff_pct_val = max(abs(v - med) / med for v in prices_only) * 100.0
                 diff_pct_val = round(diff_pct_val, 4)
 
+            # Stability score (0..1): combine provider count and inverse of variance proxy
+            try:
+                prov_factor = min(1.0, len(providers) / 3.0)  # up to 3 providers
+                if diff_pct_val is None:
+                    var_factor = 0.6  # unknown variance, neutral-ish if only one provider
+                else:
+                    # If agreement is within threshold, high score; decay beyond ~4x threshold
+                    denom = max(1e-6, float(self.agreement_max_diff_pct) * 4.0)
+                    var_factor = max(0.0, 1.0 - float(diff_pct_val) / denom)
+                stability_score = 0.5 * prov_factor + 0.5 * var_factor
+                stability_score = max(0.0, min(1.0, float(stability_score)))
+            except Exception:
+                stability_score = 0.0
+
             out[cid] = {
                 'price': float(med),
                 'providers': providers,
                 'agreement_diff_pct': diff_pct_val,
+                'stability_score': float(stability_score),
             }
         return out

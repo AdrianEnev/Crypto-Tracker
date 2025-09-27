@@ -1,2 +1,2 @@
-rsi,ema_fast,ema_slow,sl_mult,tp_mult,risk_budget_pct,avg_pf,avg_dd,avg_trades,avg_win_rate
-14,20,50,1.5,3.0,0.0,0.0000,0.00,0.00,0.00
+rsi,ema_fast,ema_slow,sl_mult,tp_mult,risk_budget_pct,avg_pf,avg_dd,avg_trades,avg_win_rate,avg_cagr,avg_mar,avg_return_pct,mc_p5_return_pct
+14,20,50,1.5,3.0,0.0,0.0000,0.00,0.00,0.00,0.00,0.00,0.00,6.45
