@@ -1,12 +1,14 @@
 from __future__ import annotations
 from statistics import median
 from typing import Dict, List, Optional, Tuple
+import time
 
 from rich.console import Console
 
 from .fetcher import PriceFetcher  # CMC
 from .fetcher_coingecko import CoingeckoFetcher  # Coingecko
 from .fetcher_ccxt import CCXTPriceFetcher  # CCXT spot
+from .fetcher_websocket import WebSocketPriceFetcher
 
 console = Console()
 
@@ -17,13 +19,19 @@ class PriceAggregator:
     """
 
     def __init__(self, cmc: PriceFetcher, cg: CoingeckoFetcher, agreement_max_diff_pct: float = 0.5,
-                 enabled_sources: Optional[List[str]] = None, ccxt: CCXTPriceFetcher | None = None):
+                 enabled_sources: Optional[List[str]] = None, ccxt: CCXTPriceFetcher | None = None, websocket: WebSocketPriceFetcher | None = None, cache_ttl: int = 2):
         self.cmc = cmc
         self.cg = cg
         self.ccxt = ccxt
+        self.websocket = websocket
         self.agreement_max_diff_pct = agreement_max_diff_pct
         # enabled_sources can be a subset of {"cmc","coingecko","ccxt"}
-        self.enabled_sources = set((enabled_sources or ["cmc", "coingecko"]))
+        if enabled_sources is None:
+            self.enabled_sources = ["cmc", "coingecko"]
+        else:
+            self.enabled_sources = list(enabled_sources)
+        self.cache = {}
+        self.cache_ttl = cache_ttl
 
     def aggregate_prices(self, id_to_symbol: Dict[str, str], cg_ids: Optional[Dict[str, str]] = None) -> Dict[str, Dict[str, Optional[object]]]:
         """Return a mapping coin_id -> {
@@ -34,6 +42,18 @@ class PriceAggregator:
         """
         # Fetch from configured sources
         out: Dict[str, Dict[str, Optional[object]]] = {}
+        now = time.time()
+        cached_results = {}
+        uncached_id_to_symbol = {}
+
+        for cid, symbol in id_to_symbol.items():
+            if cid in self.cache and (now - self.cache[cid]['timestamp']) < self.cache_ttl:
+                cached_results[cid] = self.cache[cid]['data']
+            else:
+                uncached_id_to_symbol[cid] = symbol
+
+        if not uncached_id_to_symbol:
+            return cached_results
         if "cmc" in self.enabled_sources:
             try:
                 cmc_prices = self.cmc.get_prices_by_symbols(id_to_symbol)
@@ -58,6 +78,14 @@ class PriceAggregator:
                 cg_prices = {cid: None for cid in id_to_symbol.keys()}
         else:
             cg_prices = {cid: None for cid in id_to_symbol.keys()}
+        if "websocket" in self.enabled_sources and self.websocket is not None:
+            try:
+                ws_prices = self.websocket.get_prices()
+            except Exception:
+                ws_prices = {cid: None for cid in id_to_symbol.keys()}
+        else:
+            ws_prices = {cid: None for cid in id_to_symbol.keys()}
+
         if "ccxt" in self.enabled_sources and self.ccxt is not None:
             try:
                 ccxt_prices = self.ccxt.get_prices_by_symbols(id_to_symbol)
@@ -66,7 +94,7 @@ class PriceAggregator:
         else:
             ccxt_prices = {cid: None for cid in id_to_symbol.keys()}
 
-        for cid in id_to_symbol.keys():
+        for cid in uncached_id_to_symbol.keys():
             vals: List[Tuple[str, float]] = []
             providers: List[str] = []
             cmc_val = cmc_prices.get(cid)
@@ -82,6 +110,11 @@ class PriceAggregator:
                 vals.append(("ccxt", float(ccxt_val)))
                 providers.append("ccxt")
 
+            ws_val = ws_prices.get(id_to_symbol[cid])
+            if ws_val is not None:
+                vals.append(("websocket", float(ws_val)))
+                providers.append("websocket")
+
             if not vals:
                 out[cid] = {
                     'price': None,
@@ -92,7 +125,18 @@ class PriceAggregator:
                 continue
 
             prices_only = [v for _, v in vals]
+            # Ensure self.enabled_sources is treated as a list for indexed access.
+            # This handles cases where it might have been inadvertently set to a set
+            # or another non-subscriptable iterable. It also handles empty collections.
+            primary_source_key = None
+            if self.enabled_sources:
+                enabled_sources_list = list(self.enabled_sources)
+                if enabled_sources_list:
+                    primary_source_key = enabled_sources_list[0]
+            
+            primary_price = next((p for s, p in vals if s == primary_source_key), None)
             med = median(prices_only)
+            final_price = primary_price if primary_price is not None else med
             # If we only have a single provider, do not compute agreement; show None
             if len(prices_only) < 2:
                 diff_pct_val: Optional[float] = None
@@ -124,4 +168,8 @@ class PriceAggregator:
                 'agreement_diff_pct': diff_pct_val,
                 'stability_score': float(stability_score),
             }
+        for cid, data in out.items():
+            self.cache[cid] = {'timestamp': now, 'data': data}
+
+        out.update(cached_results)
         return out

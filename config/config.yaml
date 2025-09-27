@@ -195,6 +195,9 @@ strategy:
     max_atr_pct: 10.0    # block panic regimes
     min_reward_to_risk: 1.3     # require R>=1.3
     min_tp_edge_bps: 30     #  require at least +30bps beyond fees+tax+spread
+executor:
+  retry_count: 3
+  backoff_factor: 0.5
 execution:
   max_open_positions: 5
   per_coin_cooldown_seconds: 60
@@ -208,6 +211,7 @@ providers:
   - cmc
   - coingecko
   - ccxt
+  - websocket
   agreement_max_diff_pct: 0.5
   exchange: binance
 testing:
