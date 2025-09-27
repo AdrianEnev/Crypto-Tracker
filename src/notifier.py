@@ -5,6 +5,7 @@ from typing import Dict, Optional
 import os
 import json
 import requests
+from .slack_adapter import SlackAdapter
 
 console = Console()
 
@@ -12,6 +13,8 @@ class Notifier:
     def __init__(self):
         self.last_alerts = {}
         self.webhook_url: Optional[str] = os.environ.get("NOTIFIER_WEBHOOK_URL")
+        self.webhook_level: str = os.environ.get("NOTIFIER_WEBHOOK_LEVEL", "info").lower()
+        self.slack_adapter = SlackAdapter() if os.environ.get("SLACK_WEBHOOK_URL") else None
     
     def check_thresholds(self, coin_id: str, coin_name: str, 
                         current_price: Optional[float], threshold: float,
@@ -80,12 +83,14 @@ class Notifier:
             del self.last_alerts[coin_id]
 
     # Generic operational alert (console panel). Can be extended to Slack/webhooks later.
-    def alert(self, title: str, message: str, style: str = "yellow") -> None:
+    def alert(self, title: str, message: str, style: str = "yellow", severity: str = "info") -> None:
         try:
             panel = Panel(Text(message), title=f"[bold]{title}[/bold]", border_style=style, padding=(1,2))
             console.print(panel)
             # Optional webhook post
-            if self.webhook_url:
+            if self.slack_adapter and self._should_send_webhook(severity):
+                self.slack_adapter.send(title, message, style)
+            elif self.webhook_url and self._should_send_webhook(severity):
                 try:
                     payload = {"title": title, "message": message, "style": style}
                     headers = {"Content-Type": "application/json"}
@@ -95,6 +100,10 @@ class Notifier:
         except Exception:
             # Fallback to plain print
             console.print(f"[{style}]{title}: {message}[/]")
+
+    def _should_send_webhook(self, severity: str) -> bool:
+        levels = {"debug": 0, "info": 1, "warning": 2, "error": 3}
+        return levels.get(severity, 1) >= levels.get(self.webhook_level, 1)
 
     def set_webhook(self, url: Optional[str]) -> None:
         try:

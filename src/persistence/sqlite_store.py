@@ -60,6 +60,19 @@ class SQLiteStore:
             );
             """
         )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS positions_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                units REAL,
+                entry_price REAL,
+                mark_price REAL,
+                pnl_pct REAL
+            );
+            """
+        )
         self._conn.commit()
 
     def insert_order(self, data: Dict[str, Any]) -> None:
@@ -119,6 +132,24 @@ class SQLiteStore:
             self._conn.close()
         except Exception:
             pass
+
+    def insert_position_snapshot(self, data: Dict[str, Any]) -> None:
+        cur = self._conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO positions_snapshots (ts, symbol, units, entry_price, mark_price, pnl_pct)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                data.get("ts") or datetime.now(timezone.utc).isoformat(),
+                data.get("symbol"),
+                float(data.get("units") or 0.0),
+                float(data.get("entry_price") or 0.0),
+                float(data.get("mark_price") or 0.0),
+                float(data.get("pnl_pct") or 0.0),
+            ),
+        )
+        self._conn.commit()
 
     def get_recent_equity(self, limit: int = 30) -> list[tuple[str, float]]:
         """Return up to 'limit' most recent (ts, equity_usd) rows ordered asc by ts."""
