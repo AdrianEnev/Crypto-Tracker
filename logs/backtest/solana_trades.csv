@@ -1,0 +1,2 @@
+entry_idx,entry_time,entry_price,exit_idx,exit_time,exit_price,reason,pnl_pct
+151,1740441600000,141.377679,157,1740960000000,177.906871,tp,25.8380
