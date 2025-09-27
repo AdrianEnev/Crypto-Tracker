@@ -124,6 +124,15 @@ class CryptoTracker:
         self._live_exit_backoff: Dict[str, Dict[str, float]] = {}
         # Last OCO placement status for UI
         self._last_oco_status: Dict[str, str] | None = None
+        # Paper-mode break-even armed flags per symbol
+        self._breakeven_armed: Dict[str, bool] = {}
+        # Live-mode break-even armed flags per symbol
+        self._live_be_armed: Dict[str, bool] = {}
+        # Live-mode last trailing level per symbol (to avoid redundant updates)
+        self._live_last_trail: Dict[str, float] = {}
+        # Drawdown-based de-leveraging state
+        self._equity_peak_usd: float | None = None
+        self._dd_risk_factor: float = 1.0
         # SQLite persistence store
         try:
             db_path = (Path(__file__).parent.parent / 'logs' / 'tracker.db')
@@ -423,6 +432,140 @@ class CryptoTracker:
                     self.aggregator.enabled_sources = set(sources)
                 except Exception:
                     pass
+                # Pyramiding: add on ATR-based advances
+                try:
+                    if pos.adds_count < self.pyr_max_adds:
+                        # Determine anchor price (last add or entry)
+                        anchor_px = float(pos.last_add_price or pos.entry_price)
+                        # Need ATR for trigger
+                        atr_last = None
+                        coin_id = None
+                        for cid, cfgc in self.config.tracked_coins.items():
+                            if cfgc.symbol.upper() == sym:
+                                coin_id = cid
+                                break
+                        if coin_id is not None:
+                            atr_last = (self.history.get(coin_id, {}) or {}).get('last', {}).get('atr')
+                        if atr_last is not None and float(atr_last) > 0:
+                            if float(current_price) >= anchor_px + self.pyr_atr_trigger * float(atr_last):
+                                # Compute add size in USD
+                                frac = self.pyr_add_fracs[min(pos.adds_count, len(self.pyr_add_fracs)-1)] if self.pyr_add_fracs else 0.5
+                                add_size_usd = float(self.trade_default_size_usd) * float(self._dd_risk_factor) * float(frac)
+                                # Edge check again
+                                can_add = True
+                                try:
+                                    sl0, tp0 = compute_stop_levels(float(current_price), self.risk)
+                                    if sl0 is not None and tp0 is not None and float(current_price) > 0:
+                                        rr = (tp0 - float(current_price)) / max(1e-12, float(current_price) - sl0)
+                                        fees_total_bps = float(self.fee_bps_default) * 2.0 + float(self.tax_bps_default) + float(self.spread_bps_default)
+                                        tp_edge_bps = (tp0 - float(current_price)) / float(current_price) * 10000.0
+                                        if rr < float(self.min_reward_to_risk) or tp_edge_bps <= (fees_total_bps + float(self.min_tp_edge_bps)):
+                                            can_add = False
+                                except Exception:
+                                    pass
+                                if can_add:
+                                    market_pair = self._symbol_to_market(sym)
+                                    if self.auto_trade_mode == 'live' and self.live_executor is not None:
+                                        try:
+                                            live_order = self.live_executor.place_order(symbol=market_pair, side='buy', size_usd=add_size_usd, order_type='market')
+                                            exec_price = float(live_order.price or current_price)
+                                            self.portfolio.add_to_position(sym, usd_size=add_size_usd, price=exec_price, fee_bps=self.fee_bps_default)
+                                            log_event('live_pyramid_add', {
+                                                'symbol': sym,
+                                                'market': market_pair,
+                                                'add_usd': add_size_usd,
+                                                'price': exec_price,
+                                                'adds_count': int(self.portfolio.get(sym).adds_count if self.portfolio.get(sym) else 0),
+                                                'order_id': live_order.id,
+                                                'status': live_order.status,
+                                            })
+                                            # Persist order
+                                            try:
+                                                if self.store is not None:
+                                                    self.store.insert_order({
+                                                        'symbol': sym,
+                                                        'market': market_pair,
+                                                        'side': 'buy',
+                                                        'size_usd': add_size_usd,
+                                                        'price': exec_price,
+                                                        'provider': 'ccxt',
+                                                        'order_id': live_order.id,
+                                                        'status': live_order.status,
+                                                    })
+                                            except Exception:
+                                                pass
+                                            # Update protective stop to new trailing (reuse live adaptive logic)
+                                            # Will be handled by subsequent loop iteration raising trailing
+                                        except Exception as ex:
+                                            log_event('live_pyramid_error', {'symbol': sym, 'error': str(ex)})
+                                    else:
+                                        # Paper add
+                                        self.portfolio.add_to_position(sym, usd_size=add_size_usd, price=float(current_price), fee_bps=self.fee_bps_default)
+                                        log_event('paper_pyramid_add', {
+                                            'symbol': sym,
+                                            'add_usd': add_size_usd,
+                                            'price': float(current_price),
+                                            'adds_count': int(self.portfolio.get(sym).adds_count if self.portfolio.get(sym) else 0),
+                                        })
+                                        try:
+                                            self.portfolio.save_state(self.state_path)
+                                        except Exception:
+                                            pass
+                except Exception:
+                    pass
+                # Live adaptive trailing: attempt to update protective stop upwards when conditions tighten
+                try:
+                    if self.live_executor is not None:
+                        entry_px = float(pos.entry_price)
+                        # reuse ATR/tighten logic similar to paper
+                        atr_last = None
+                        coin_id = None
+                        for cid, cfgc in self.config.tracked_coins.items():
+                            if cfgc.symbol.upper() == sym:
+                                coin_id = cid
+                                break
+                        if coin_id is not None:
+                            atr_last = (self.history.get(coin_id, {}) or {}).get('last', {}).get('atr')
+                        atr_pct_now = (float(atr_last) / float(current_price) * 100.0) if (atr_last is not None and float(current_price) > 0) else 0.0
+                        # Estimate base trailing as fraction from peak using current ATR params
+                        coin_atr_params = self.atr_params_map.get(coin_id, self.atr_params)
+                        if (coin_atr_params is not None) and (atr_last is not None) and (float(atr_last) > 0):
+                            trailing_level_base = compute_trailing_stop_atr(float(pos.peak_price), float(atr_last), coin_atr_params) or compute_trailing_stop(float(pos.peak_price), self.risk)
+                        else:
+                            trailing_level_base = compute_trailing_stop(float(pos.peak_price), self.risk)
+                        trailing_level_eff = float(trailing_level_base)
+                        # Momentum as R multiple
+                        # Risk from initial SL estimate
+                        try:
+                            sl0, _ = compute_stop_levels(entry_px, self.risk)
+                            rr_unrealized = (float(current_price) - entry_px) / max(1e-12, (entry_px - float(sl0)))
+                        except Exception:
+                            rr_unrealized = 0.0
+                        if rr_unrealized >= self.trail_up_momentum_r or atr_pct_now >= self.trail_up_atr_pct_min:
+                            tighten_to = entry_px + (float(current_price) - entry_px) * (1.0 - self.trail_up_tighten_factor)
+                            trailing_level_eff = max(trailing_level_eff, tighten_to)
+                        # Respect break-even
+                        if self._live_be_armed.get(sym, False):
+                            trailing_level_eff = max(trailing_level_eff, entry_px)
+                        # If we can raise the last trailing level, try placing a new protective stop-limit
+                        prev = float(self._live_last_trail.get(sym, 0.0))
+                        if trailing_level_eff > prev and float(current_price) > trailing_level_eff:
+                            limit_px = trailing_level_eff * 0.999
+                            ok2 = self.live_executor.place_stop_limit_sell(
+                                symbol=self._symbol_to_market(sym),
+                                quantity=float(pos.units),
+                                stop_price=trailing_level_eff,
+                                limit_price=limit_px,
+                            )
+                            if ok2:
+                                self._live_last_trail[sym] = trailing_level_eff
+                                log_event('live_trail_update', {
+                                    'symbol': sym,
+                                    'stop_price': trailing_level_eff,
+                                    'limit_price': limit_px,
+                                })
+                except Exception:
+                    pass
             self.agreement_max_diff_pct = float(providers_cfg.get('agreement_max_diff_pct', self.agreement_max_diff_pct))
             # Execution fees/taxes
             exec_cfg = (cfg.get('execution') or {})
@@ -444,6 +587,25 @@ class CryptoTracker:
                 self.min_tp_edge_bps = float(strat2b.get('min_tp_edge_bps', self.min_tp_edge_bps))
             except Exception:
                 pass
+            # De-leveraging thresholds (drawdown tiers)
+            self.dd_t1_pct = float((strat2b.get('dd_tier1_pct', 5.0)))   # 5%
+            self.dd_t2_pct = float((strat2b.get('dd_tier2_pct', 10.0)))  # 10%
+            self.dd_t1_factor = float((strat2b.get('dd_tier1_factor', 0.75)))
+            self.dd_t2_factor = float((strat2b.get('dd_tier2_factor', 0.50)))
+            # Adaptive trailing upgrade thresholds
+            tr_up = (strat2b.get('trail_upgrade') or {})
+            self.trail_up_atr_pct_min = float(tr_up.get('atr_pct_min', 6.0))   # tighten if ATR% high
+            self.trail_up_momentum_r = float(tr_up.get('momentum_r', 1.5))     # tighten if R>=1.5
+            self.trail_up_tighten_factor = float(tr_up.get('tighten_factor', 0.7))  # 30% tighter
+            # Pyramiding controls
+            pyr = (strat2b.get('pyramiding') or {})
+            self.pyr_max_adds = int(pyr.get('max_adds', 2))
+            self.pyr_atr_trigger = float(pyr.get('atr_trigger', 1.0))
+            self.pyr_add_fracs = pyr.get('add_fracs', [0.5, 0.33])
+            try:
+                self.pyr_add_fracs = [float(x) for x in self.pyr_add_fracs]
+            except Exception:
+                self.pyr_add_fracs = [0.5, 0.33]
             # MTF confirmation
             data_cfg2 = (cfg.get('data') or {})
             try:
@@ -778,6 +940,50 @@ class CryptoTracker:
                     continue
                 # Update peak
                 pos.update_peak(float(current_price))
+                # Live break-even: if unrealized R>=1 and not armed yet, arm a stop at entry
+                try:
+                    if self.live_executor is not None and not self._live_be_armed.get(sym, False):
+                        # Compute RR vs current SL estimate based on ATR params
+                        coin_id = None
+                        for cid, cfgc in self.config.tracked_coins.items():
+                            if cfgc.symbol.upper() == sym:
+                                coin_id = cid
+                                break
+                        sl_from_entry = None
+                        if coin_id:
+                            atr_last = (self.history.get(coin_id, {}) or {}).get('last', {}).get('atr')
+                            coin_atr_params = self.atr_params_map.get(coin_id, self.atr_params)
+                            if (coin_atr_params is not None) and (atr_last is not None) and (float(atr_last) > 0):
+                                sl_tmp, _tp_tmp = compute_stop_levels_atr(float(pos.entry_price), float(atr_last), coin_atr_params)
+                                sl_from_entry = sl_tmp
+                        if sl_from_entry is None:
+                            sl_from_entry, _ = compute_stop_levels(float(pos.entry_price), self.risk)
+                        entry_px = float(pos.entry_price)
+                        risk_per_unit = max(1e-12, entry_px - float(sl_from_entry))
+                        rr_unrealized = (float(current_price) - entry_px) / risk_per_unit
+                        if rr_unrealized >= 1.0:
+                            # Place/Update protective stop at entry (stop-limit a hair below)
+                            limit_px = entry_px * 0.999
+                            try:
+                                ok = self.live_executor.place_stop_limit_sell(
+                                    symbol=self._symbol_to_market(sym),
+                                    quantity=float(pos.units),
+                                    stop_price=entry_px,
+                                    limit_price=limit_px,
+                                )
+                                if ok:
+                                    self._live_be_armed[sym] = True
+                                    log_event('live_be_armed', {
+                                        'symbol': sym,
+                                        'entry': entry_px,
+                                        'stop_price': entry_px,
+                                        'limit_price': limit_px,
+                                        'rr_now': rr_unrealized,
+                                    })
+                            except Exception as ex:
+                                log_event('live_be_error', {'symbol': sym, 'error': str(ex)})
+                except Exception:
+                    pass
                 # Get ATR params and last ATR for this coin if available
                 coin_id = None
                 for cid, cfgc in self.config.tracked_coins.items():
@@ -935,6 +1141,22 @@ class CryptoTracker:
                 self.store.insert_equity(equity_now)
         except Exception:
             pass
+        # Update equity peak and DD-based risk factor
+        try:
+            if self._equity_peak_usd is None or equity_now > float(self._equity_peak_usd):
+                self._equity_peak_usd = float(equity_now)
+            dd_pct = 0.0
+            if self._equity_peak_usd and self._equity_peak_usd > 0:
+                dd_pct = max(0.0, (self._equity_peak_usd - equity_now) / self._equity_peak_usd * 100.0)
+            # Tiers: > t2 -> factor2, > t1 -> factor1, else 1.0
+            if dd_pct >= self.dd_t2_pct:
+                self._dd_risk_factor = self.dd_t2_factor
+            elif dd_pct >= self.dd_t1_pct:
+                self._dd_risk_factor = self.dd_t1_factor
+            else:
+                self._dd_risk_factor = 1.0
+        except Exception:
+            self._dd_risk_factor = 1.0
         # Daily start reset on UTC day boundary
         day_now = datetime.now(timezone.utc).strftime('%Y-%m-%d')
         if (self._last_equity_day or day_now) != day_now or self._daily_equity_start_usd is None:
@@ -1356,6 +1578,11 @@ class CryptoTracker:
                                 size_usd = self.trade_default_size_usd
                         except Exception:
                             size_usd = self.trade_default_size_usd
+                        # Adjust by drawdown factor (de-leveraging)
+                        try:
+                            size_usd *= float(self._dd_risk_factor)
+                        except Exception:
+                            pass
                         # Ensure we don't exceed available cash
                         if hasattr(self.portfolio, 'cash_usd'):
                             size_usd = min(size_usd, float(getattr(self.portfolio, 'cash_usd', size_usd)))
@@ -1530,11 +1757,29 @@ class CryptoTracker:
                                 sl_from_entry, tp_from_entry = compute_stop_levels(float(pos.entry_price), self.risk)
                         else:
                             sl_from_entry, tp_from_entry = compute_stop_levels(float(pos.entry_price), self.risk)
-                        if float(current_price) <= sl_from_entry:
+                        # Break-even stop: once unrealized R>=1, raise SL to entry
+                        try:
+                            entry_px = float(pos.entry_price)
+                            risk_per_unit = max(1e-12, entry_px - float(sl_from_entry))
+                            rr_unrealized = (float(current_price) - entry_px) / risk_per_unit
+                            if rr_unrealized >= 1.0 and not self._breakeven_armed.get(symbol_key, False):
+                                self._breakeven_armed[symbol_key] = True
+                                log_event("paper_be_armed", {
+                                    "symbol": symbol_key,
+                                    "entry": entry_px,
+                                    "old_sl": float(sl_from_entry),
+                                    "new_sl": entry_px,
+                                    "rr_now": rr_unrealized,
+                                })
+                        except Exception:
+                            pass
+                        # Use effective SL (max of computed SL and entry if BE armed)
+                        sl_effective = max(float(sl_from_entry), float(pos.entry_price)) if self._breakeven_armed.get(symbol_key, False) else float(sl_from_entry)
+                        if float(current_price) <= sl_effective:
                             closed = self.portfolio.close(symbol_key, price=float(current_price), fee_bps=self.fee_bps_default)
                             log_event("paper_exit", {
                                 "symbol": symbol_key,
-                                "reason": "stop_loss",
+                                "reason": "stop_loss" if not self._breakeven_armed.get(symbol_key, False) else "break_even",
                                 "entry": float(closed.get('entry_price')) if closed else None,
                                 "exit_price": float(current_price),
                                 "pnl_pct": (closed.get('pnl_pct') if closed else None),
@@ -1546,7 +1791,7 @@ class CryptoTracker:
                                     "side": "sell",
                                     "price": float(current_price),
                                     "status": "closed",
-                                    "reason": "stop_loss",
+                                    "reason": "stop_loss" if not self._breakeven_armed.get(symbol_key, False) else "break_even",
                                     "pnl_pct": (closed.get('pnl_pct') if closed else None),
                                 })
                             except Exception:
@@ -1557,7 +1802,7 @@ class CryptoTracker:
                                     self.store.insert_trade({
                                         'symbol': symbol_key,
                                         'market': None,
-                                        'reason': 'stop_loss',
+                                        'reason': 'stop_loss' if not self._breakeven_armed.get(symbol_key, False) else 'break_even',
                                         'entry_price': float(closed.get('entry_price')) if closed else None,
                                         'exit_price': float(current_price),
                                         'pnl_pct': (closed.get('pnl_pct') if closed else None),
@@ -1645,9 +1890,26 @@ class CryptoTracker:
                             atr_last = (self.history.get(coin_id, {}) or {}).get('last', {}).get('atr')
                             coin_atr_params = self.atr_params_map.get(coin_id, self.atr_params)
                             if (coin_atr_params is not None) and (atr_last is not None) and (float(atr_last) > 0):
-                                trailing_level = compute_trailing_stop_atr(float(pos.peak_price), float(atr_last), coin_atr_params) or compute_trailing_stop(float(pos.peak_price), self.risk)
+                                trailing_level_base = compute_trailing_stop_atr(float(pos.peak_price), float(atr_last), coin_atr_params) or compute_trailing_stop(float(pos.peak_price), self.risk)
                             else:
-                                trailing_level = compute_trailing_stop(float(pos.peak_price), self.risk)
+                                trailing_level_base = compute_trailing_stop(float(pos.peak_price), self.risk)
+                            # Adaptive trailing upgrade: tighten under conditions
+                            trailing_level = float(trailing_level_base)
+                            try:
+                                entry_px = float(pos.entry_price)
+                                risk_per_unit = max(1e-12, entry_px - (compute_stop_levels(entry_px, self.risk)[0]))
+                                rr_unrealized = (float(current_price) - entry_px) / risk_per_unit if risk_per_unit > 0 else 0.0
+                                atr_pct_now = (float(atr_last) / float(current_price) * 100.0) if (atr_last is not None and float(current_price) > 0) else 0.0
+                                if rr_unrealized >= self.trail_up_momentum_r or atr_pct_now >= self.trail_up_atr_pct_min:
+                                    # Tighten: move trailing closer to price by factor (raise the floor)
+                                    # Implement by blending between trailing_level and current price
+                                    tighten_to = entry_px + (float(current_price) - entry_px) * (1.0 - self.trail_up_tighten_factor)
+                                    trailing_level = max(trailing_level, tighten_to)
+                            except Exception:
+                                pass
+                            # If break-even armed, do not loosen below entry
+                            if self._breakeven_armed.get(symbol_key, False):
+                                trailing_level = max(float(trailing_level), float(pos.entry_price))
                             if float(current_price) <= trailing_level:
                                 closed = self.portfolio.close(symbol_key, price=float(current_price), fee_bps=self.fee_bps_default)
                                 log_event("paper_exit", {
@@ -1891,6 +2153,16 @@ class CryptoTracker:
             regime_str = "ON" if self.use_regime_filter else "OFF"
             atr_str = "ON" if self.atr_params is not None else "OFF"
             console.print(f"[blue]Regime filter:[/] {regime_str} | [blue]ATR exits:[/] {atr_str}")
+            # Show de-leveraging status
+            try:
+                dd_factor = float(getattr(self, '_dd_risk_factor', 1.0))
+                peak = getattr(self, '_equity_peak_usd', None)
+                dd_txt = f"dd_factor={dd_factor:.2f}"
+                if peak is not None and peak > 0:
+                    # We cannot easily fetch current equity here, it is printed in cycle; show peak and factor
+                    console.print(f"[blue]Risk De-leveraging:[/] {dd_txt}")
+            except Exception:
+                pass
             # Exec/History/OCO status
             try:
                 exch_name = "binance"

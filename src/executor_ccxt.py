@@ -138,3 +138,41 @@ class CCXTLiveExecutor:
             return True
         except Exception:
             return False
+
+    def place_stop_limit_sell(self, symbol: str, quantity: float, stop_price: float, limit_price: Optional[float] = None) -> bool:
+        """Place a standalone stop-limit sell order for protection.
+        Returns True if submitted, False otherwise.
+
+        Notes:
+        - On Binance via ccxt, use type='limit' with params {'stopPrice', 'timeInForce', 'type': 'STOP_LOSS_LIMIT'}
+        - Some exchanges require specific type names; this method targets common ccxt params
+        """
+        try:
+            market = self.markets.get(symbol)
+            if market is None:
+                return False
+            qty = self._conform_amount(market, float(quantity))
+            stp = self._conform_price(market, float(stop_price))
+            lim = self._conform_price(market, float(limit_price if limit_price is not None else stop_price))
+            params: Dict[str, Any] = {}
+            ex_id = getattr(self.ex, 'id', '')
+            if ex_id == 'binance':
+                params = {
+                    'type': 'STOP_LOSS_LIMIT',
+                    'stopPrice': stp,
+                    'timeInForce': 'GTC',
+                }
+                order = self.ex.create_order(symbol=symbol, type='limit', side='sell', amount=qty, price=lim, params=params)
+                _ = order
+                return True
+            else:
+                # Generic attempt: some exchanges accept stop params similarly
+                params = {
+                    'stopPrice': stp,
+                    'timeInForce': 'GTC',
+                }
+                order = self.ex.create_order(symbol=symbol, type='limit', side='sell', amount=qty, price=lim, params=params)
+                _ = order
+                return True
+        except Exception:
+            return False

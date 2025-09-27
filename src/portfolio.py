@@ -11,6 +11,8 @@ class Position:
     units: float
     entry_price: float
     peak_price: float
+    adds_count: int = 0
+    last_add_price: float = 0.0
 
     def pnl_pct(self, current_price: float) -> float:
         if self.entry_price <= 0:
@@ -43,7 +45,7 @@ class Portfolio:
         usd_alloc = min(float(usd_size), float(self.cash_usd))
         fee_mult = 1.0 + (float(fee_bps) / 10000.0)
         units = usd_alloc / price
-        pos = Position(symbol=symbol, units=units, entry_price=price, peak_price=price)
+        pos = Position(symbol=symbol, units=units, entry_price=price, peak_price=price, adds_count=0, last_add_price=price)
         self.positions[symbol] = pos
         # Deduct notional + fee from cash
         self.cash_usd -= usd_alloc * fee_mult
@@ -117,6 +119,36 @@ class Portfolio:
                 json.dump(self.to_dict(), f)
         except Exception:
             pass
+
+    def add_to_position(self, symbol: str, usd_size: float, price: float, fee_bps: float = 0.0) -> Optional[Position]:
+        """Increase an existing position by investing additional USD at current price.
+        Updates weighted average entry, peak, cash, and pyramiding metadata.
+        """
+        pos = self.positions.get(symbol)
+        if pos is None:
+            return None
+        if price <= 0 or usd_size <= 0:
+            return pos
+        usd_alloc = min(float(usd_size), float(self.cash_usd))
+        if usd_alloc <= 0:
+            return pos
+        fee_mult = 1.0 + (float(fee_bps) / 10000.0)
+        add_units = usd_alloc / float(price)
+        # Weighted average entry
+        total_value_prev = float(pos.units) * float(pos.entry_price)
+        total_value_new = total_value_prev + usd_alloc
+        new_units = float(pos.units) + float(add_units)
+        new_entry = (total_value_new / new_units) if new_units > 0 else pos.entry_price
+        pos.units = new_units
+        pos.entry_price = new_entry
+        # Update peak to at least entry
+        if pos.peak_price < new_entry:
+            pos.peak_price = new_entry
+        pos.adds_count += 1
+        pos.last_add_price = float(price)
+        # Deduct notional + fee
+        self.cash_usd -= usd_alloc * fee_mult
+        return pos
 
     @classmethod
     def load_state(cls, path: str | Path) -> Optional["Portfolio"]:
