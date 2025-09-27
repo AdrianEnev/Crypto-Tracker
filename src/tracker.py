@@ -102,6 +102,21 @@ class CryptoTracker:
         # MTF confirmation (optional)
         self.mtf_confirm_tf: str | None = None
         self.mtf_require_trend_agree: bool = False
+        # MTF v2: multiple confirm timeframes and confidence boost
+        self.mtf_confirm_tfs: list[str] = []
+        self.mtf_min_agree: int = 0
+        self.mtf_weight_per_confirm: float = 0.0
+        self.mtf_max_boost: float = 0.0
+        # Adaptive thresholds (dynamic baseline)
+        self.adapt_enable: bool = False
+        self.adapt_mode: str = "ema"  # ema|median
+        self.adapt_window: int = 50
+        self.adapt_weight: float = 0.0
+        self.adapt_max_boost: float = 0.0
+        # Structure filter (HH/HL)
+        self.struct_enable: bool = False
+        self.struct_lookback: int = 50
+        self.struct_swing_window: int = 3
         # Phase 3 settings
         self.ttl_seconds: int = 15
         self.auto_trade_enable: bool = False
@@ -112,6 +127,11 @@ class CryptoTracker:
         # Fees and taxes (bps)
         self.fee_bps_default: float = 10.0
         self.tax_bps_default: float = 0.0
+        # Optional fee tiers and slippage model (parity with backtests)
+        self.fee_tiers: list[dict] = []
+        self.fee_tier_volume_usd: float = 0.0
+        self.slippage_base_bps: int = 10
+        self.slippage_k_atr: float = 0.0
         # Edge requirements
         self.min_reward_to_risk: float = 1.3
         self.min_tp_edge_bps: float = 30.0
@@ -175,6 +195,30 @@ class CryptoTracker:
         self._daily_equity_start_usd: float | None = None
         self._last_equity_day: str | None = None
         self._last_close_ts: Dict[str, float] = {}
+        # Portfolio/sector exposure and cash floor controls
+        self.max_coin_exposure_pct: float | None = None
+        self.max_sector_exposure_pct: float | None = None
+        self.cash_floor_pct: float | None = None
+        self.coin_sector: Dict[str, str] = {}
+        # Correlation clusters and VaR cap
+        self.correlation_clusters: Dict[str, list[str]] = {}
+        self.cluster_max_new_entries: int | None = None
+        self.max_portfolio_var_pct: float | None = None
+        # Kill switch & safe mode
+        self.safe_mode: bool = False
+        self.kill_dd_intraday_pct: float | None = None
+        self.kill_max_errors_per_hour: int | None = None
+        self.kill_switch_active: bool = False
+        # Portfolio cool-off and staggered entries
+        self.cooloff_max_entries_per_hour: int | None = None
+        self.cooloff_seconds: int | None = None
+        self._portfolio_cooloff_until: float = 0.0
+        from collections import deque as _dq
+        self._recent_entry_ts: _dq = _dq(maxlen=200)
+        self.stagger_max_per_cycle: int = 1
+        self.stagger_spacing_seconds: int = 300
+        self._stagger_used_in_cycle: int = 0
+        self._stagger_queue: list[Dict[str, Any]] = []  # {coin_id, available_after}
         # Position sizing defaults
         self.risk_budget_pct: float = 0.005  # 0.5% of equity by default
         self.max_size_usd: float | None = None
@@ -198,9 +242,27 @@ class CryptoTracker:
         self.use_regime_filter: bool = False
         self.atr_params: ATRRiskParams | None = None
         self.atr_params_map: Dict[str, ATRRiskParams] = {}
+        # Data quality settings
+        self.min_stability_score: float = 0.0
+        self.ohlcv_ttl_seconds: int = 0
         self._load_optional_settings()
         # Preload historical candles and indicators (non-blocking if provider fails)
         self._preload_history()
+        # Reconciliation schedule every 30s in live mode
+        try:
+            if getattr(self, 'auto_trade_mode', 'paper') == 'live' and self.live_executor is not None:
+                schedule.every(30).seconds.do(self._reconcile_live_protection)
+                schedule.every(60).seconds.do(self._check_exchange_health)
+                schedule.every(90).seconds.do(self._cancel_orphan_sell_orders)
+        except Exception:
+            pass
+        # Protection state persistence (TP/SL order IDs or presence flags)
+        try:
+            self._protection_state_path = (Path(__file__).parent.parent / 'logs' / 'protection_state.json')
+            self._protection: Dict[str, Any] = {}
+            self._load_protection_state()
+        except Exception:
+            self._protection = {}
 
     def _preload_history(self):
         """Preload historical data for indicators."""
@@ -313,6 +375,40 @@ class CryptoTracker:
                             }
                         except Exception:
                             pass
+                    # MTF v2: preload multiple confirmation timeframes
+                    if hasattr(self, 'mtf_confirm_tfs') and self.mtf_confirm_tfs:
+                        self.history[coin_id]['confirm_multi'] = {}
+                        for tf_c in self.mtf_confirm_tfs:
+                            try:
+                                if tf_c == tf:
+                                    # already have ema on main tf; reuse last values
+                                    efv = ema_fast_vals[-1] if ema_fast_vals else None
+                                    esv = ema_slow_vals[-1] if ema_slow_vals else None
+                                else:
+                                    if provider == 'ccxt':
+                                        providers_cfg = (cfg_all.get('providers') or {})
+                                        exchange_name = str(providers_cfg.get('exchange', 'binance')).lower()
+                                        market = cdata.get('market') or f"{coin_cfg.symbol.upper()}/USDT"
+                                        if tf_c == '1d':
+                                            limitc = min(int(days), 2000)
+                                        elif tf_c == '4h':
+                                            limitc = min(int(days) * 6, 2000)
+                                        elif tf_c == '1h':
+                                            limitc = min(int(days) * 24, 2000)
+                                        else:
+                                            limitc = 1000
+                                        candles_c = get_candles_ccxt(exchange_name, market, timeframe=tf_c, cache_dir=cache_dir, limit=limitc, use_cache=True)
+                                    else:
+                                        candles_c = get_candles(cg_key, timeframe=tf_c, days=days, cache_dir=cache_dir, use_cache=True)
+                                    closes_c = [c.c for c in candles_c]
+                                    efv = (ema_series(closes_c, ema_fast_coin)[-1] if closes_c else None)
+                                    esv = (ema_series(closes_c, ema_slow_coin)[-1] if closes_c else None)
+                                self.history[coin_id]['confirm_multi'][tf_c] = {
+                                    'ema_fast': efv,
+                                    'ema_slow': esv,
+                                }
+                            except Exception:
+                                continue
                     loaded += 1
                 except Exception as ex:
                     log_event('history_load_error', {'coin': coin_id, 'error': str(ex)})
@@ -330,6 +426,231 @@ class CryptoTracker:
         except Exception as ex:
             log_event('history_init_error', {'error': str(ex)})
         self.setup_schedules()
+
+    def _load_protection_state(self) -> None:
+        try:
+            p = Path(self._protection_state_path)
+            if p.exists():
+                import json
+                with p.open('r') as f:
+                    self._protection = json.load(f) or {}
+        except Exception:
+            self._protection = {}
+
+    def _save_protection_state(self) -> None:
+        try:
+            p = Path(self._protection_state_path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            import json
+            with p.open('w') as f:
+                json.dump(self._protection, f)
+        except Exception:
+            pass
+
+    def _reconcile_live_protection(self) -> None:
+        """Reconciliation loop: ensure each live position has exchange-side protection (SL and TP).
+        If missing, attempt to place stop-limit and/or TP limit. Emits alerts on actions.
+        """
+        try:
+            if self.auto_trade_mode != 'live' or self.live_executor is None:
+                return
+            # Map symbols to markets
+            with open(self.config_path, 'r') as f:
+                cfg_all = yaml.safe_load(f) or {}
+            tracked = (cfg_all.get('tracked_coins') or {})
+            # For each open position, check open orders
+            for sym, pos in list(self.portfolio.positions.items()):
+                coin_id = None
+                for cid, cfgc in self.config.tracked_coins.items():
+                    if cfgc.symbol.upper() == sym:
+                        coin_id = cid
+                        break
+                if coin_id is None:
+                    continue
+                per = tracked.get(coin_id) or {}
+                market_pair = per.get('market') or f"{sym}/USDT"
+                # Fetch open orders to detect SL/TP
+                try:
+                    orders = self.live_executor.ex.fetch_open_orders(symbol=market_pair)
+                except Exception:
+                    orders = []
+                has_sl = False
+                has_tp = False
+                for o in (orders or []):
+                    try:
+                        if str(o.get('side','')).lower() != 'sell':
+                            continue
+                        otype = str(o.get('type','')).lower()
+                        stop_price = o.get('stopPrice')
+                        price = o.get('price')
+                        if stop_price is not None or 'stop' in otype:
+                            has_sl = True
+                        if price is not None and 'limit' in otype and (price > 0):
+                            has_tp = True
+                    except Exception:
+                        continue
+                # Compute target SL/TP from entry price and current ATR
+                try:
+                    atr_last = (self.history.get(coin_id, {}) or {}).get('last', {}).get('atr')
+                    coin_atr_params = self.atr_params_map.get(coin_id, self.atr_params)
+                    if (coin_atr_params is not None) and (atr_last is not None) and float(atr_last) > 0:
+                        sl_target, tp_target = compute_stop_levels_atr(float(pos.entry_price), float(atr_last), coin_atr_params)
+                    else:
+                        sl_target, tp_target = compute_stop_levels(float(pos.entry_price), self.risk)
+                except Exception:
+                    sl_target, tp_target = None, None
+                # If exactly one leg exists, enforce stricter policy: cancel sibling and re-arm both legs
+                try:
+                    if (has_sl != has_tp) and (sl_target is not None) and (tp_target is not None):
+                        # Cancel remaining open sell orders first
+                        try:
+                            self.live_executor.cancel_open_sell_orders(market_pair)
+                        except Exception:
+                            pass
+                        # Re-arm OCO or fallback
+                        sl_limit = float(sl_target) * 0.999
+                        res = self.live_executor.place_oco_or_fallback(
+                            symbol=market_pair,
+                            quantity=float(pos.units),
+                            tp_price=float(tp_target),
+                            sl_stop_price=float(sl_target),
+                            sl_limit_price=float(sl_limit),
+                        )
+                        mode2 = (res or {}).get('mode', 'failed')
+                        if mode2 == 'oco':
+                            log_event('live_rearm_oco', {'symbol': sym, 'market': market_pair, 'tp': float(tp_target), 'sl': float(sl_target)})
+                            try:
+                                self.notifier.alert('Reconcile', f"Re-armed OCO for {sym}", style='yellow')
+                            except Exception:
+                                pass
+                            self._protection[sym] = {'market': market_pair, 'mode': 'oco', 'tp_id': None, 'sl_present': True}
+                            self._save_protection_state()
+                            # Continue to next symbol; legs are refreshed
+                            continue
+                        elif mode2 == 'separate':
+                            log_event('live_rearm_fallback', {'symbol': sym, 'market': market_pair, 'tp': float(tp_target), 'sl': float(sl_target)})
+                            try:
+                                self.notifier.alert('Reconcile', f"Re-armed fallback TP/SL for {sym}", style='yellow')
+                            except Exception:
+                                pass
+                            self._protection[sym] = {'market': market_pair, 'mode': 'separate', 'tp_id': (res or {}).get('tp_id'), 'sl_present': bool((res or {}).get('sl_ok'))}
+                            self._save_protection_state()
+                            continue
+                        else:
+                            log_event('live_rearm_error', {'symbol': sym, 'market': market_pair, 'error': 'failed to re-arm'})
+                except Exception:
+                    pass
+                # Place missing legs
+                try:
+                    qty = float(pos.units)
+                    if not has_sl and sl_target is not None:
+                        sl_limit = float(sl_target) * 0.999
+                        ok_sl = self.live_executor.place_stop_limit_sell(market_pair, qty, float(sl_target), sl_limit)
+                        if ok_sl:
+                            log_event('live_reconcile_sl', {'symbol': sym, 'market': market_pair, 'stop': float(sl_target), 'limit': float(sl_limit)})
+                            try:
+                                self.notifier.alert('Reconcile', f"Added SL for {sym} @ {sl_target:.6f}", style='yellow')
+                            except Exception:
+                                pass
+                            try:
+                                st = self._protection.get(sym) or {'market': market_pair}
+                                st['sl_present'] = True
+                                self._protection[sym] = st
+                                self._save_protection_state()
+                            except Exception:
+                                pass
+                    if not has_tp and tp_target is not None:
+                        # TP as limit order
+                        try:
+                            order_tp = self.live_executor.create_limit_sell_retry(symbol=market_pair, amount=qty, price=float(tp_target))
+                            _ = order_tp
+                            log_event('live_reconcile_tp', {'symbol': sym, 'market': market_pair, 'tp': float(tp_target)})
+                            try:
+                                self.notifier.alert('Reconcile', f"Added TP for {sym} @ {tp_target:.6f}", style='yellow')
+                            except Exception:
+                                pass
+                            try:
+                                tp_id = str(order_tp.get('id')) if order_tp and order_tp.get('id') else None
+                                st = self._protection.get(sym) or {'market': market_pair}
+                                st['tp_id'] = tp_id
+                                self._protection[sym] = st
+                                self._save_protection_state()
+                            except Exception:
+                                pass
+                        except Exception:
+                            pass
+                except Exception:
+                    continue
+        except Exception:
+            # Never raise
+            pass
+
+    def _cancel_orphan_sell_orders(self) -> None:
+        """Cancel open sell orders for symbols without a portfolio position (orphan siblings)."""
+        try:
+            if self.auto_trade_mode != 'live' or self.live_executor is None:
+                return
+            with open(self.config_path, 'r') as f:
+                cfg_all = yaml.safe_load(f) or {}
+            tracked = (cfg_all.get('tracked_coins') or {})
+            for cid, cfgc in self.config.tracked_coins.items():
+                sym = cfgc.symbol.upper()
+                if self.portfolio.get(sym) is not None:
+                    continue
+                per = tracked.get(cid) or {}
+                market_pair = per.get('market') or f"{sym}/USDT"
+                try:
+                    # Prefer cancel by stored tp_id if we have it
+                    canceled = 0
+                    try:
+                        st = self._protection.get(sym)
+                        tp_id = st.get('tp_id') if isinstance(st, dict) else None
+                        if tp_id:
+                            try:
+                                self.live_executor.cancel_order_retry(tp_id, market_pair)
+                                canceled += 1
+                                # clear stored tp_id after cancel
+                                st['tp_id'] = None
+                                self._protection[sym] = st
+                                self._save_protection_state()
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                    # Also cancel any other open sell orders just in case
+                    canceled += self.live_executor.cancel_open_sell_orders(market_pair)
+                    if canceled > 0:
+                        log_event('live_cancel_orphans', {'symbol': sym, 'market': market_pair, 'canceled': canceled})
+                        try:
+                            self.notifier.alert('Reconcile', f"Canceled {canceled} orphan sell order(s) for {sym}", style='magenta')
+                        except Exception:
+                            pass
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    def _check_exchange_health(self) -> None:
+        """Periodic health check for failure rates across CCXT endpoints; emits alerts when degraded."""
+        try:
+            if self.auto_trade_mode != 'live' or self.live_executor is None:
+                return
+            degraded = []
+            for ep in ('create_order', 'fetch_open_orders', 'cancel_order'):
+                try:
+                    if self.live_executor.has_high_failure_rate(ep, threshold=5, window_sec=60):
+                        degraded.append(ep)
+                except Exception:
+                    continue
+            if degraded:
+                msg = f"High failure rate: {', '.join(degraded)} (last 60s)"
+                log_event('ops_failure_rate', {'endpoints': degraded})
+                try:
+                    self.notifier.alert('Ops Warning', msg, style='red')
+                except Exception:
+                    pass
+        except Exception:
+            pass
     
     def _load_config(self, config_path: str) -> AppConfig:
         """Load configuration from YAML file, applying env overrides."""
@@ -577,6 +898,36 @@ class CryptoTracker:
                 self.tax_bps_default = float(exec_cfg.get('tax_bps', self.tax_bps_default))
             except Exception:
                 pass
+            # Fee tiers
+            try:
+                tiers = exec_cfg.get('fee_tiers') or []
+                if isinstance(tiers, list):
+                    self.fee_tiers = tiers
+                self.fee_tier_volume_usd = float(exec_cfg.get('fee_tier_volume_usd', self.fee_tier_volume_usd))
+                # Pick best applicable tier by volume (<= fee_tier_volume_usd)
+                best = None
+                for t in self.fee_tiers:
+                    try:
+                        v = float(t.get('volume_usd', 0.0))
+                        if v <= self.fee_tier_volume_usd:
+                            if best is None or v > float(best.get('volume_usd', -1e9)):
+                                best = t
+                    except Exception:
+                        continue
+                if best is not None:
+                    # Prefer taker fees for market orders
+                    tb = best.get('taker_bps', best.get('maker_bps', None))
+                    if tb is not None:
+                        self.fee_bps_default = float(tb)
+            except Exception:
+                pass
+            # Slippage model (for parity reference)
+            try:
+                slip_cfg = exec_cfg.get('slippage') or {}
+                self.slippage_base_bps = int(slip_cfg.get('base_bps', self.slippage_base_bps))
+                self.slippage_k_atr = float(slip_cfg.get('k_atr_pct', self.slippage_k_atr))
+            except Exception:
+                pass
             # Edge gating
             strat2b = (cfg.get('strategy') or {})
             try:
@@ -613,9 +964,119 @@ class CryptoTracker:
                 self.mtf_confirm_tf = str(tf2) if tf2 else None
             except Exception:
                 self.mtf_confirm_tf = None
+            # MTF v2: list of confirm timeframes (overrides single if provided)
+            try:
+                tfs = data_cfg2.get('confirm_timeframes')
+                if isinstance(tfs, list) and tfs:
+                    self.mtf_confirm_tfs = [str(x) for x in tfs]
+            except Exception:
+                self.mtf_confirm_tfs = []
             strat2 = (cfg.get('strategy') or {})
             try:
                 self.mtf_require_trend_agree = bool(strat2.get('mtf_require_trend_agree', self.mtf_require_trend_agree))
+            except Exception:
+                pass
+            # MTF v2 parameters for gating/boost
+            try:
+                mtf_cfg = (strat2.get('mtf') or {})
+                self.mtf_min_agree = int(mtf_cfg.get('min_agree', 0))
+                self.mtf_weight_per_confirm = float(mtf_cfg.get('weight_per_confirm', 0.0))
+                self.mtf_max_boost = float(mtf_cfg.get('max_boost', 0.0))
+            except Exception:
+                pass
+            # Data quality
+            try:
+                dq_cfg = (cfg.get('data_quality') or {})
+                self.min_stability_score = float(dq_cfg.get('min_stability_score', self.min_stability_score))
+            except Exception:
+                pass
+            try:
+                data_cfg = (cfg.get('data') or {})
+                self.ohlcv_ttl_seconds = int(data_cfg.get('ohlcv_ttl_seconds', self.ohlcv_ttl_seconds))
+            except Exception:
+                pass
+            # Exposure caps and cash floor
+            try:
+                exec_cfg2 = (cfg.get('execution') or {})
+                self.max_exposure_pct = float(exec_cfg2.get('max_exposure_pct', self.max_exposure_pct))
+                me_usd = exec_cfg2.get('max_exposure_usd')
+                self.max_exposure_usd = float(me_usd) if me_usd is not None else self.max_exposure_usd
+                mcep = exec_cfg2.get('max_coin_exposure_pct')
+                self.max_coin_exposure_pct = float(mcep) if mcep is not None else self.max_coin_exposure_pct
+                msep = exec_cfg2.get('max_sector_exposure_pct')
+                self.max_sector_exposure_pct = float(msep) if msep is not None else self.max_sector_exposure_pct
+                cfp = exec_cfg2.get('cash_floor_pct')
+                self.cash_floor_pct = float(cfp) if cfp is not None else self.cash_floor_pct
+                self.max_portfolio_var_pct = float(exec_cfg2.get('max_portfolio_var_pct', self.max_portfolio_var_pct)) if exec_cfg2.get('max_portfolio_var_pct') is not None else self.max_portfolio_var_pct
+                # Liquidity check
+                liq = (exec_cfg2.get('liquidity_check') or {})
+                self.liq_enabled = bool(liq.get('enabled', False))
+                self.liq_min_daily_notional_usd = float(liq.get('min_daily_notional_usd', 0.0))
+                # Kill switch & safe mode
+                ks = (exec_cfg2.get('kill_switch') or {})
+                self.safe_mode = bool(ks.get('safe_mode', self.safe_mode))
+                try:
+                    self.kill_dd_intraday_pct = float(ks.get('dd_intraday_pct', self.kill_dd_intraday_pct)) if ks.get('dd_intraday_pct') is not None else self.kill_dd_intraday_pct
+                except Exception:
+                    self.kill_dd_intraday_pct = self.kill_dd_intraday_pct
+                try:
+                    self.kill_max_errors_per_hour = int(ks.get('max_errors_per_hour', self.kill_max_errors_per_hour)) if ks.get('max_errors_per_hour') is not None else self.kill_max_errors_per_hour
+                except Exception:
+                    self.kill_max_errors_per_hour = self.kill_max_errors_per_hour
+            except Exception:
+                pass
+            # Capture per-coin sector map
+            try:
+                self.coin_sector = {}
+                for cid, data in (cfg.get('tracked_coins') or {}).items():
+                    sec = (data or {}).get('sector')
+                    if sec:
+                        self.coin_sector[cid] = str(sec)
+            except Exception:
+                self.coin_sector = {}
+            # Correlation clusters
+            try:
+                port_cfg = (cfg.get('portfolio') or {})
+                clusters = (port_cfg.get('correlation_clusters') or {})
+                self.correlation_clusters = {str(k): [str(x) for x in (v or [])] for k, v in clusters.items()}
+                cmax = port_cfg.get('cluster_max_new_entries')
+                self.cluster_max_new_entries = int(cmax) if cmax is not None else self.cluster_max_new_entries
+            except Exception:
+                self.correlation_clusters = {}
+            # Portfolio cool-off
+            try:
+                cool = (cfg.get('execution', {}) or {}).get('cooloff', {}) or {}
+                meph = cool.get('max_entries_per_hour')
+                self.cooloff_max_entries_per_hour = int(meph) if meph is not None else self.cooloff_max_entries_per_hour
+                cs = cool.get('cooloff_seconds')
+                self.cooloff_seconds = int(cs) if cs is not None else self.cooloff_seconds
+            except Exception:
+                pass
+            # Staggered entries
+            try:
+                stag = (cfg.get('execution', {}) or {}).get('stagger', {}) or {}
+                mpc = stag.get('max_per_cycle')
+                self.stagger_max_per_cycle = int(mpc) if mpc is not None else self.stagger_max_per_cycle
+                sps = stag.get('spacing_seconds')
+                self.stagger_spacing_seconds = int(sps) if sps is not None else self.stagger_spacing_seconds
+            except Exception:
+                pass
+            # Adaptive thresholds config
+            try:
+                ad_cfg = (strat2.get('adaptive_thresholds') or {})
+                self.adapt_enable = bool(ad_cfg.get('enabled', self.adapt_enable))
+                self.adapt_mode = str(ad_cfg.get('mode', self.adapt_mode)).lower()
+                self.adapt_window = int(ad_cfg.get('window', self.adapt_window))
+                self.adapt_weight = float(ad_cfg.get('weight', self.adapt_weight))
+                self.adapt_max_boost = float(ad_cfg.get('max_boost', self.adapt_max_boost))
+            except Exception:
+                pass
+            # Structure filter config
+            try:
+                st_cfg = (strat2.get('structure_filter') or {})
+                self.struct_enable = bool(st_cfg.get('enabled', self.struct_enable))
+                self.struct_lookback = int(st_cfg.get('lookback', self.struct_lookback))
+                self.struct_swing_window = int(st_cfg.get('swing_window', self.struct_swing_window))
             except Exception:
                 pass
             # Per-coin overrides: ATR, regime, vol gate, thresholds
@@ -1071,6 +1532,12 @@ class CryptoTracker:
                         retries = float(st.get('retries', 0.0)) + 1.0
                         delay = min(60.0, max(2.0, 2.0 ** retries))
                         self._live_exit_backoff[sym] = {"retries": retries, "next_ts": time.time() + delay}
+                        if delay >= 30.0:
+                            log_event('live_backoff_alert', {'symbol': sym, 'reason': reason, 'delay_sec': delay})
+                            try:
+                                self.notifier.alert("Exit Backoff", f"{sym} delay {int(delay)}s (reason={reason})", style="yellow")
+                            except Exception:
+                                pass
                     except Exception:
                         pass
         except Exception:
@@ -1324,6 +1791,60 @@ class CryptoTracker:
                 ma_long_for_conf = float(ema_slow_last)
             # Confidence using available MAs
             confidence = compute_confidence(float(current_price), coin_config.threshold, rsi_val, ma_short_for_conf, ma_long_for_conf)
+            # Compute MTF v2 confirm strength and apply gating/boost
+            mtf_strength = 0
+            mtf_total = 0
+            try:
+                confm = (self.history.get(coin_id, {}) or {}).get('confirm_multi') or {}
+                if isinstance(confm, dict) and confm:
+                    for _tfk, vals in confm.items():
+                        efv = (vals or {}).get('ema_fast')
+                        esv = (vals or {}).get('ema_slow')
+                        if efv is not None and esv is not None:
+                            mtf_total += 1
+                            if float(efv) > float(esv):
+                                mtf_strength += 1
+            except Exception:
+                mtf_strength = 0
+                mtf_total = 0
+            # Confidence boost (capped)
+            confidence_eff = confidence
+            try:
+                if mtf_total > 0 and (self.mtf_weight_per_confirm > 0 or self.mtf_max_boost > 0):
+                    boost = min(mtf_strength * float(self.mtf_weight_per_confirm), float(self.mtf_max_boost))
+                    confidence_eff = min(1.0, float(confidence) + float(boost))
+            except Exception:
+                confidence_eff = confidence
+            # Adaptive thresholds: dynamic baseline boost
+            adapt_baseline_val = None
+            try:
+                if self.adapt_enable and self.adapt_weight > 0 and self.adapt_max_boost > 0:
+                    h = self.history.get(coin_id, {}) or {}
+                    candles_hist = h.get('candles') or []
+                    if candles_hist:
+                        closes_all = [c.c for c in candles_hist if getattr(c, 'c', None) is not None]
+                        if closes_all:
+                            closes_win = closes_all[-int(max(5, self.adapt_window)) :]
+                            if self.adapt_mode == 'ema':
+                                adapt_series = ema_series(closes_win, int(max(2, self.adapt_window)))
+                                adapt_baseline_val = adapt_series[-1] if adapt_series else None
+                            else:
+                                # median
+                                arr = sorted(closes_win)
+                                n = len(arr)
+                                if n > 0:
+                                    mid = n // 2
+                                    if n % 2 == 1:
+                                        adapt_baseline_val = float(arr[mid])
+                                    else:
+                                        adapt_baseline_val = float((arr[mid-1] + arr[mid]) / 2.0)
+                            if adapt_baseline_val and adapt_baseline_val > 0:
+                                diff_ratio = (float(current_price) - float(adapt_baseline_val)) / float(adapt_baseline_val)
+                                boost2 = max(0.0, diff_ratio * float(self.adapt_weight))
+                                boost2 = min(boost2, float(self.adapt_max_boost))
+                                confidence_eff = min(1.0, float(confidence_eff) + boost2)
+            except Exception:
+                pass
             signal, action_rec, reason = recommend_action(float(current_price), coin_config.threshold, rsi_val, confidence, self.suggestion_threshold)
 
             # Estimate slippage for default size
@@ -1337,6 +1858,19 @@ class CryptoTracker:
                 if is_stale:
                     # downgrade action to Manual/Hold if stale
                     action_rec = "Manual"
+            # OHLC staleness check (based on last candle timestamp)
+            is_ohlc_stale = False
+            try:
+                if self.ohlcv_ttl_seconds and self.ohlcv_ttl_seconds > 0:
+                    candles_hist = (self.history.get(coin_id, {}) or {}).get('candles') or []
+                    if candles_hist:
+                        last_ts_ms = int(candles_hist[-1].ts)
+                        age_sec = max(0, int(time.time()) - int(last_ts_ms // 1000))
+                        if age_sec > int(self.ohlcv_ttl_seconds):
+                            is_ohlc_stale = True
+                            action_rec = "Manual"
+            except Exception:
+                is_ohlc_stale = False
 
             # Agreement check
             agreement_pct = None
@@ -1347,13 +1881,24 @@ class CryptoTracker:
                 providers_str = ",".join(providers)
                 if agreement_pct is not None and agreement_pct > self.agreement_max_diff_pct:
                     action_rec = "Manual"  # disagreement -> require manual
+                # Stability score gating
+                try:
+                    stab = float(price_data.get('stability_score')) if price_data.get('stability_score') is not None else None
+                except Exception:
+                    stab = None
+            else:
+                stab = None
 
             # Build notes for veto reasons
             notes_parts = []
             if is_stale:
                 notes_parts.append("Stale data")
+            if is_ohlc_stale:
+                notes_parts.append("Stale OHLC")
             if (agreement_pct is not None) and (agreement_pct > self.agreement_max_diff_pct):
                 notes_parts.append("Provider disagreement")
+            if stab is not None:
+                notes_parts.append(f"Stability={stab:.2f}")
             notes_str = ", ".join(notes_parts) if notes_parts else "—"
             # Regime veto: avoid buys in strong downtrend if enabled
             if self.use_regime_filter and (ema_fast_last is not None) and (ema_slow_last is not None):
@@ -1363,6 +1908,49 @@ class CryptoTracker:
                     notes_parts.append("Regime veto")
                     notes_str = ", ".join(notes_parts)
 
+            # Structure filter: require HH/HL across recent pivots to buy
+            if self.struct_enable and action_rec == "Buy":
+                try:
+                    h = self.history.get(coin_id, {}) or {}
+                    candles_hist = h.get('candles') or []
+                    if candles_hist:
+                        highs = [c.h for c in candles_hist]
+                        lows = [c.l for c in candles_hist]
+                        n = len(highs)
+                        w = max(1, int(self.struct_swing_window))
+                        start_i = max(1, n - int(max(self.struct_lookback, 10)))
+                        swing_highs = []  # list of (idx, value)
+                        swing_lows = []
+                        for i in range(start_i + w, n - w):
+                            hi = highs[i]
+                            lo = lows[i]
+                            if hi is None or lo is None:
+                                continue
+                            is_h = all(hi > highs[j] for j in range(i - w, i)) and all(hi > highs[j] for j in range(i + 1, i + 1 + w))
+                            is_l = all(lo < lows[j] for j in range(i - w, i)) and all(lo < lows[j] for j in range(i + 1, i + 1 + w))
+                            if is_h:
+                                swing_highs.append((i, float(hi)))
+                            if is_l:
+                                swing_lows.append((i, float(lo)))
+                        # Take last 2 swings of each type
+                        hh_ok = True
+                        hl_ok = True
+                        if len(swing_highs) >= 2:
+                            last_h, prev_h = swing_highs[-1][1], swing_highs[-2][1]
+                            hh_ok = last_h >= prev_h
+                        if len(swing_lows) >= 2:
+                            last_l, prev_l = swing_lows[-1][1], swing_lows[-2][1]
+                            hl_ok = last_l >= prev_l
+                        struct_bull = hh_ok and hl_ok
+                        # Notes
+                        base_parts = [] if notes_str == "—" else notes_str.split(", ")
+                        base_parts.append(f"Struct {'HH/HL' if struct_bull else 'LH/LL'}")
+                        notes_str = ", ".join(base_parts)
+                        if not struct_bull:
+                            action_rec = "Hold"
+                except Exception:
+                    pass
+
             # Append indicators snapshot for visibility (RSI and EMA relation)
             try:
                 ind_parts = []
@@ -1370,6 +1958,12 @@ class CryptoTracker:
                     ind_parts.append(f"RSI={float(rsi_val):.1f}")
                 if (ema_fast_last is not None) and (ema_slow_last is not None):
                     ind_parts.append("EMAfast>=EMAslow" if float(ema_fast_last) >= float(ema_slow_last) else "EMAfast<EMAslow")
+                # Show MTF v2 strength if available
+                if mtf_total > 0:
+                    ind_parts.append(f"MTF {mtf_strength}/{mtf_total}")
+                # Show adaptive baseline if available
+                if adapt_baseline_val is not None:
+                    ind_parts.append(f"BASE({self.adapt_mode}{self.adapt_window})={float(adapt_baseline_val):.6f}")
                 if ind_parts:
                     base_parts = [] if notes_str == "—" else notes_str.split(", ")
                     base_parts.append(" ".join(ind_parts))
@@ -1454,6 +2048,49 @@ class CryptoTracker:
                 (open_count < self.max_open_positions) and
                 last_close_ok
             )
+            # Safe mode & kill switch gating
+            try:
+                if can_place and self.safe_mode:
+                    can_place = False
+                    guard_note = "Guard: safe mode"
+                # Kill switch by intraday drawdown
+                if can_place and self.kill_dd_intraday_pct is not None and self._daily_equity_start_usd:
+                    try:
+                        eq_now = 0.0
+                        for _sym, _pos in self.portfolio.positions.items():
+                            px = sym_to_price.get(_sym)
+                            if px is not None:
+                                eq_now += float(_pos.units) * float(px)
+                        dd = 0.0
+                        if float(self._daily_equity_start_usd) > 0:
+                            dd = max(0.0, (float(self._daily_equity_start_usd) - eq_now) / float(self._daily_equity_start_usd) * 100.0)
+                        if dd > float(self.kill_dd_intraday_pct):
+                            can_place = False
+                            self.kill_switch_active = True
+                            guard_note = f"Guard: kill-switch DD {dd:.1f}%>={self.kill_dd_intraday_pct:.1f}%"
+                    except Exception:
+                        pass
+                # Kill switch by errors/hour
+                if can_place and self.kill_max_errors_per_hour is not None and self.live_executor is not None:
+                    try:
+                        counts = self.live_executor.get_failure_counts(window_sec=3600)
+                        total_err = sum(counts.values())
+                        if total_err >= int(self.kill_max_errors_per_hour):
+                            can_place = False
+                            self.kill_switch_active = True
+                            guard_note = f"Guard: kill-switch errors/hr {total_err}>={self.kill_max_errors_per_hour}"
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            # Portfolio-level cool-off gate
+            try:
+                now_ts = time.time()
+                if can_place and getattr(self, '_portfolio_cooloff_until', 0.0) and now_ts < float(self._portfolio_cooloff_until):
+                    can_place = False
+                    guard_note = f"Guard: portfolio cool-off ({int(float(self._portfolio_cooloff_until) - now_ts)}s)"
+            except Exception:
+                pass
             # Portfolio-level guardrails
             if can_place and max_exposure_hit:
                 can_place = False
@@ -1477,7 +2114,7 @@ class CryptoTracker:
                         guard_note = "Guard: regime filter"
                 except Exception:
                     pass
-            # MTF confirmation guard: require confirm TF trend agreement if configured
+            # MTF confirmation guard (legacy single TF)
             if can_place and self.mtf_require_trend_agree and self.mtf_confirm_tf:
                 try:
                     confirm = (self.history.get(coin_id, {}) or {}).get('confirm', {}) or {}
@@ -1488,6 +2125,11 @@ class CryptoTracker:
                         guard_note = "Guard: MTF confirm"
                 except Exception:
                     pass
+            # MTF v2 guard: require minimum agreeing TFs
+            if can_place and self.mtf_min_agree > 0 and mtf_total > 0:
+                if mtf_strength < int(self.mtf_min_agree):
+                    can_place = False
+                    guard_note = f"Guard: MTF {mtf_strength}/{mtf_total}"
             # Volatility gate: require min_atr_pct <= ATR% <= max_atr_pct (allow per-coin override)
             vg_min = self.vol_gate_min_atr_pct
             vg_max = self.vol_gate_max_atr_pct
@@ -1523,6 +2165,19 @@ class CryptoTracker:
                     notes_parts = [] if notes_str == "—" else notes_str.split(", ")
                     notes_parts.append(guard_note)
                     notes_str = ", ".join(notes_parts)
+            # Data quality guards after initial can_place assessment
+            if can_place and (stab is not None) and (self.min_stability_score > 0) and (stab < float(self.min_stability_score)):
+                can_place = False
+                guard_note = f"Guard: low stability ({stab:.2f}<{self.min_stability_score:.2f})"
+                notes_parts = [] if notes_str == "—" else notes_str.split(", ")
+                notes_parts.append(guard_note)
+                notes_str = ", ".join(notes_parts)
+            if can_place and is_ohlc_stale:
+                can_place = False
+                guard_note = f"Guard: OHLC stale"
+                notes_parts = [] if notes_str == "—" else notes_str.split(", ")
+                notes_parts.append(guard_note)
+                notes_str = ", ".join(notes_parts)
             try:
                 if can_place:
                     # Simple buy rule for demo: recommend Buy and no existing position
@@ -1543,12 +2198,24 @@ class CryptoTracker:
                             auto_thr = float(self.per_coin_auto_thr.get(coin_id)) if not regime_down else auto_thr
                     except Exception:
                         pass
-                    allow_auto = (confidence >= auto_thr) or (
+                    allow_auto = (confidence_eff >= auto_thr) or (
                         self.testing_enabled and self.testing_force_auto_on_suggest and confidence >= (
                             float(self.per_coin_suggest_thr.get(coin_id)) if coin_id in self.per_coin_suggest_thr else self.suggestion_threshold
                         )
                     )
                     if action_rec == "Buy" and pos is None and allow_auto:
+                        # If coin is eligible from stagger dequeue, bypass per-cycle cap
+                        bypass_stagger = (coin_id in getattr(self, '_stagger_dequeue_set', set()))
+                        # Staggered entries gate: limit new entries per cycle and optionally queue
+                        try:
+                            if not bypass_stagger and self.stagger_max_per_cycle is not None and self.stagger_max_per_cycle > 0:
+                                if self._stagger_used_in_cycle >= int(self.stagger_max_per_cycle):
+                                    # Queue this candidate for later
+                                    self._stagger_queue.append({'coin_id': coin_id, 'available_after': time.time() + int(self.stagger_spacing_seconds)})
+                                    can_place = False
+                                    guard_note = f"Guard: stagger queued (+{self.stagger_spacing_seconds}s)"
+                        except Exception:
+                            pass
                         # ATR-based position sizing
                         size_usd = self.trade_default_size_usd
                         try:
@@ -1578,6 +2245,124 @@ class CryptoTracker:
                                 size_usd = self.trade_default_size_usd
                         except Exception:
                             size_usd = self.trade_default_size_usd
+                        # Exposure caps and cash floor checks
+                        try:
+                            # Portfolio exposure after
+                            total_exposure_usd = 0.0
+                            for _sym, _pos in self.portfolio.positions.items():
+                                px = sym_to_price.get(_sym)
+                                if px is not None:
+                                    total_exposure_usd += float(_pos.units) * float(px)
+                            proj_port_exposure = total_exposure_usd + float(size_usd)
+                            # Per-coin exposure after
+                            coin_exposure_now = 0.0
+                            if pos is not None:
+                                coin_exposure_now = float(pos.units) * float(current_price)
+                            proj_coin_exposure = coin_exposure_now + float(size_usd)
+                            # Sector exposure after
+                            sector_label = self.coin_sector.get(coin_id)
+                            sector_now = 0.0
+                            if sector_label:
+                                for cid2, cfgc2 in self.config.tracked_coins.items():
+                                    sym2 = cfgc2.symbol.upper()
+                                    pos2 = self.portfolio.get(sym2)
+                                    if pos2 is None:
+                                        continue
+                                    if self.coin_sector.get(cid2) == sector_label:
+                                        px2 = sym_to_price.get(sym2)
+                                        if px2 is not None:
+                                            sector_now += float(pos2.units) * float(px2)
+                            proj_sector_exposure = sector_now + float(size_usd)
+                            # Caps
+                            guard_local: list[str] = []
+                            if self.max_exposure_usd is not None and proj_port_exposure > float(self.max_exposure_usd):
+                                guard_local.append("exposure usd cap")
+                            if self.max_exposure_pct is not None and equity_now > 0 and (proj_port_exposure / equity_now) > float(self.max_exposure_pct):
+                                guard_local.append("exposure pct cap")
+                            if self.max_coin_exposure_pct is not None and equity_now > 0 and (proj_coin_exposure / equity_now) > float(self.max_coin_exposure_pct):
+                                guard_local.append("coin exposure cap")
+                            if (self.max_sector_exposure_pct is not None) and equity_now > 0 and sector_label and ((proj_sector_exposure / equity_now) > float(self.max_sector_exposure_pct)):
+                                guard_local.append(f"sector cap {sector_label}")
+                            # Cash floor after
+                            if self.cash_floor_pct is not None and equity_now > 0:
+                                cash_after = float(getattr(self.portfolio, 'cash_usd', 0.0)) - float(size_usd)
+                                if (cash_after / equity_now) < float(self.cash_floor_pct):
+                                    guard_local.append("cash floor")
+                            if guard_local:
+                                can_place = False
+                                guard_note = "Guard: " + "; ".join(guard_local)
+                                notes_parts = [] if notes_str == "—" else notes_str.split(", ")
+                                notes_parts.append(guard_note)
+                                notes_str = ", ".join(notes_parts)
+                        except Exception:
+                            pass
+                        # Correlation-aware throttling (cluster)
+                        try:
+                            if self.cluster_max_new_entries and self.cluster_max_new_entries > 0:
+                                # Identify clusters this coin belongs to
+                                coin_clusters = [cn for cn, members in self.correlation_clusters.items() if coin_id in (members or [])]
+                                if coin_clusters:
+                                    # Count open positions in these clusters
+                                    open_in_cluster = 0
+                                    for cid2, cfgc2 in self.config.tracked_coins.items():
+                                        sym2 = cfgc2.symbol.upper()
+                                        pos2 = self.portfolio.get(sym2)
+                                        if pos2 is None:
+                                            continue
+                                        for cn in coin_clusters:
+                                            if cid2 in (self.correlation_clusters.get(cn) or []):
+                                                open_in_cluster += 1
+                                                break
+                                    if open_in_cluster >= int(self.cluster_max_new_entries):
+                                        can_place = False
+                                        guard_note = f"Guard: cluster throttle ({','.join(coin_clusters)})"
+                                        notes_parts = [] if notes_str == "—" else notes_str.split(", ")
+                                        notes_parts.append(guard_note)
+                                        notes_str = ", ".join(notes_parts)
+                        except Exception:
+                            pass
+                        # Portfolio VaR cap (approx using SL preview)
+                        try:
+                            if self.max_portfolio_var_pct is not None and self.max_portfolio_var_pct > 0 and equity_now > 0:
+                                # Current VaR from open positions
+                                var_now = 0.0
+                                for cid2, cfgc2 in self.config.tracked_coins.items():
+                                    sym2 = cfgc2.symbol.upper()
+                                    pos2 = self.portfolio.get(sym2)
+                                    if pos2 is None:
+                                        continue
+                                    # Estimate SL from entry using ATR params if available
+                                    atr_last2 = (self.history.get(cid2, {}) or {}).get('last', {}).get('atr')
+                                    coin_atr_params2 = self.atr_params_map.get(cid2, self.atr_params)
+                                    if (coin_atr_params2 is not None) and (atr_last2 is not None) and float(atr_last2) > 0:
+                                        sl2, _ = compute_stop_levels_atr(float(pos2.entry_price), float(atr_last2), coin_atr_params2)
+                                    else:
+                                        sl2, _ = compute_stop_levels(float(pos2.entry_price), self.risk)
+                                    if sl2 is None:
+                                        continue
+                                    risk_per_unit2 = max(0.0, float(pos2.entry_price) - float(sl2))
+                                    var_now += float(pos2.units) * risk_per_unit2
+                                # Projected VaR add from this entry
+                                atr_last_new = (self.history.get(coin_id, {}) or {}).get('last', {}).get('atr')
+                                coin_atr_params_new = self.atr_params_map.get(coin_id, self.atr_params)
+                                if (coin_atr_params_new is not None) and (atr_last_new is not None) and float(atr_last_new) > 0:
+                                    sl_new, _ = compute_stop_levels_atr(float(current_price), float(atr_last_new), coin_atr_params_new)
+                                else:
+                                    sl_new, _ = compute_stop_levels(float(current_price), self.risk)
+                                if sl_new is not None and float(current_price) > float(sl_new) and float(current_price) > 0:
+                                    units_add = float(size_usd) / float(current_price)
+                                    var_add = units_add * (float(current_price) - float(sl_new))
+                                else:
+                                    var_add = 0.0
+                                var_after_pct = (var_now + var_add) / equity_now
+                                if var_after_pct > float(self.max_portfolio_var_pct):
+                                    can_place = False
+                                    guard_note = f"Guard: VaR cap ({var_after_pct:.2%}>{self.max_portfolio_var_pct:.2%})"
+                                    notes_parts = [] if notes_str == "—" else notes_str.split(", ")
+                                    notes_parts.append(guard_note)
+                                    notes_str = ", ".join(notes_parts)
+                        except Exception:
+                            pass
                         # Adjust by drawdown factor (de-leveraging)
                         try:
                             size_usd *= float(self._dd_risk_factor)
@@ -1602,6 +2387,32 @@ class CryptoTracker:
                                 if rr < float(self.min_reward_to_risk) or tp_edge_bps <= (fees_total_bps + float(self.min_tp_edge_bps)):
                                     can_place = False
                                     guard_note = f"Guard: edge (R={rr:.2f}, tp_edge={tp_edge_bps:.0f}bps)"
+                                else:
+                                    # Edge OK: include details in Notes
+                                    try:
+                                        parts = [] if notes_str == "—" else notes_str.split(", ")
+                                        parts.append(f"Edge R={rr:.2f} TPedge={tp_edge_bps:.0f}bps")
+                                        notes_str = ", ".join(parts)
+                                    except Exception:
+                                        pass
+                        except Exception:
+                            pass
+                        # Portfolio cool-off enforcement by entries/hour (update window and potentially set cool-off)
+                        try:
+                            if can_place and self.cooloff_max_entries_per_hour and self.cooloff_max_entries_per_hour > 0:
+                                now_ts2 = time.time()
+                                # Clean old timestamps (older than 3600s)
+                                try:
+                                    while self._recent_entry_ts and (now_ts2 - float(self._recent_entry_ts[0])) > 3600.0:
+                                        self._recent_entry_ts.popleft()
+                                except Exception:
+                                    pass
+                                if len(self._recent_entry_ts) >= int(self.cooloff_max_entries_per_hour):
+                                    # Trigger portfolio cool-off
+                                    if self.cooloff_seconds and self.cooloff_seconds > 0:
+                                        self._portfolio_cooloff_until = now_ts2 + int(self.cooloff_seconds)
+                                    can_place = False
+                                    guard_note = f"Guard: entries/hour>{self.cooloff_max_entries_per_hour}, cooling {int(self.cooloff_seconds or 0)}s"
                         except Exception:
                             pass
                         # Place order: live or paper
@@ -1614,8 +2425,57 @@ class CryptoTracker:
                                 market_pair = per_coin.get('market') or f"{coin_config.symbol.upper()}/USDT"
                             except Exception:
                                 market_pair = f"{coin_config.symbol.upper()}/USDT"
+                            # Liquidity gating using CCXT ticker
                             try:
-                                live_order = self.live_executor.place_order(symbol=market_pair, side="buy", size_usd=size_usd, order_type="market")
+                                if getattr(self, 'liq_enabled', False):
+                                    tkr = self.live_executor.ex.fetch_ticker(market_pair)
+                                    # Use quoteVolume if available; else approx by baseVolume*last
+                                    qv = tkr.get('quoteVolume')
+                                    if qv is None:
+                                        bv = tkr.get('baseVolume')
+                                        lastp = tkr.get('last') or tkr.get('close') or current_price
+                                        qv = (float(bv) * float(lastp)) if (bv is not None and lastp is not None) else None
+                                    if qv is None or float(qv) < float(getattr(self, 'liq_min_daily_notional_usd', 0.0)):
+                                        can_place = False
+                                        guard_note = f"Guard: illiquid (24h ${float(qv or 0):,.0f}<{self.liq_min_daily_notional_usd:,.0f})"
+                            except Exception:
+                                pass
+                            # Prevalidation: min notional and step/precision clamps
+                            try:
+                                market = self.live_executor.markets.get(market_pair)
+                                if market is not None and can_place:
+                                    # compute raw and conformed amount
+                                    px = float(current_price)
+                                    raw_amt = float(size_usd) / px if px > 0 else 0.0
+                                    # emulate conform
+                                    amt = raw_amt
+                                    step = market.get('limits', {}).get('amount', {}).get('step')
+                                    if step and step > 0:
+                                        amt = (amt // step) * step
+                                    prec = market.get('precision', {}).get('amount')
+                                    if isinstance(prec, int) and prec >= 0:
+                                        try:
+                                            amt = float(f"{amt:.{prec}f}")
+                                        except Exception:
+                                            pass
+                                    # notional after clamp
+                                    notional = amt * px
+                                    min_cost = market.get('limits', {}).get('cost', {}).get('min')
+                                    # Annotate clamp
+                                    if abs(amt - raw_amt) / (raw_amt + 1e-12) > 1e-9:
+                                        parts = [] if notes_str == "—" else notes_str.split(", ")
+                                        parts.append("Clamped to step/precision")
+                                        notes_str = ", ".join(parts)
+                                    if min_cost is not None and float(notional) < float(min_cost):
+                                        can_place = False
+                                        guard_note = "Guard: exchange minimum"
+                            except Exception:
+                                pass
+                            try:
+                                # Generate clientOrderId for idempotency: SYM-epochms-rand
+                                import random
+                                coid = f"{symbol_key}-{int(time.time()*1000)}-{random.randint(1000,9999)}"
+                                live_order = self.live_executor.place_order(symbol=market_pair, side="buy", size_usd=size_usd, order_type="market", client_order_id=coid)
                                 exec_price = float(live_order.price or current_price)
                                 self.portfolio.open(symbol=symbol_key, usd_size=size_usd, price=exec_price, fee_bps=self.fee_bps_default)
                                 action_taken = live_order.status
@@ -1631,6 +2491,17 @@ class CryptoTracker:
                                     "agreement_pct": agreement_pct,
                                     "status": live_order.status,
                                 })
+                                # Operational alert
+                                try:
+                                    self.notifier.alert("Live Buy", f"{symbol_key} ${exec_price:.6f} size ${size_usd:,.0f}", style="blue")
+                                except Exception:
+                                    pass
+                                # Record recent entry and increment stagger counter
+                                try:
+                                    self._recent_entry_ts.append(time.time())
+                                    self._stagger_used_in_cycle += 1
+                                except Exception:
+                                    pass
                                 # Attempt to arm exchange-side OCO (TP+SL) immediately (Binance only)
                                 try:
                                     # Read ATR params and last ATR
@@ -1645,24 +2516,97 @@ class CryptoTracker:
                                     if pos_now is not None and tp_from_entry_live is not None and sl_from_entry_live is not None:
                                         # Use a small buffer for stop-limit below stop
                                         sl_limit = sl_from_entry_live * 0.999
-                                        placed = self.live_executor.place_oco_sell(
+                                        res = self.live_executor.place_oco_or_fallback(
                                             symbol=market_pair,
                                             quantity=float(pos_now.units),
                                             tp_price=float(tp_from_entry_live),
                                             sl_stop_price=float(sl_from_entry_live),
                                             sl_limit_price=float(sl_limit),
                                         )
-                                        if placed:
+                                        mode = (res or {}).get('mode', 'failed')
+                                        if mode == 'oco':
                                             log_event("live_oco", {
                                                 "symbol": symbol_key,
                                                 "market": market_pair,
                                                 "tp_price": float(tp_from_entry_live),
                                                 "sl_stop_price": float(sl_from_entry_live),
                                                 "sl_limit_price": float(sl_limit),
+                                                "mode": mode,
                                             })
-                                except Exception:
+                                            # update UI flag
+                                            try:
+                                                self._last_oco_status = {
+                                                    "symbol": symbol_key,
+                                                    "market": market_pair,
+                                                    "tp": f"{tp_from_entry_live:.6f}",
+                                                    "sl": f"{sl_from_entry_live:.6f}",
+                                                    "mode": "oco",
+                                                }
+                                            except Exception:
+                                                self._last_oco_status = {"symbol": symbol_key, "mode": "oco"}
+                                            # persist protection state (assume both legs armed on-exchange)
+                                            try:
+                                                self._protection[symbol_key] = {
+                                                    'market': market_pair,
+                                                    'mode': 'oco',
+                                                    'tp_id': None,
+                                                    'sl_present': True,
+                                                }
+                                                self._save_protection_state()
+                                            except Exception:
+                                                pass
+                                        elif mode == 'separate':
+                                            log_event("live_oco_fallback", {
+                                                "symbol": symbol_key,
+                                                "market": market_pair,
+                                                "tp_price": float(tp_from_entry_live),
+                                                "sl_stop_price": float(sl_from_entry_live),
+                                                "sl_limit_price": float(sl_limit),
+                                                "tp_ok": bool((res or {}).get('tp_ok')),
+                                                "sl_ok": bool((res or {}).get('sl_ok')),
+                                            })
+                                            try:
+                                                self.notifier.alert("OCO Fallback", f"{symbol_key} TP/SL fallback placed", style="yellow")
+                                            except Exception:
+                                                pass
+                                            # update UI flag
+                                            try:
+                                                self._last_oco_status = {
+                                                    "symbol": symbol_key,
+                                                    "market": market_pair,
+                                                    "tp": f"{tp_from_entry_live:.6f}",
+                                                    "sl": f"{sl_from_entry_live:.6f}",
+                                                    "mode": "separate",
+                                                }
+                                            except Exception:
+                                                self._last_oco_status = {"symbol": symbol_key, "mode": "separate"}
+                                            # persist protection state (store TP id if available, mark SL presence)
+                                            try:
+                                                self._protection[symbol_key] = {
+                                                    'market': market_pair,
+                                                    'mode': 'separate',
+                                                    'tp_id': (res or {}).get('tp_id'),
+                                                    'sl_present': bool((res or {}).get('sl_ok')),
+                                                }
+                                                self._save_protection_state()
+                                            except Exception:
+                                                pass
+                                        else:
+                                            log_event("live_oco_error", {
+                                                "symbol": symbol_key,
+                                                "market": market_pair,
+                                                "tp_price": float(tp_from_entry_live),
+                                                "sl_stop_price": float(sl_from_entry_live),
+                                                "sl_limit_price": float(sl_limit),
+                                                "error": "OCO and fallback failed",
+                                            })
+                                            try:
+                                                self.notifier.alert("OCO Error", f"{symbol_key} failed to place OCO and fallback", style="red")
+                                            except Exception:
+                                                pass
+                                except Exception as _ex:
                                     # Best-effort; exit manager will still protect positions
-                                    pass
+                                    log_event("live_oco_error", {"symbol": symbol_key, "market": market_pair, "error": str(_ex)})
                                 # Persist state
                                 try:
                                     self.portfolio.save_state(self.state_path)
@@ -1700,6 +2644,12 @@ class CryptoTracker:
                                 "agreement_pct": agreement_pct,
                                 "status": order.status,
                             })
+                            # Record recent entry and increment stagger counter
+                            try:
+                                self._recent_entry_ts.append(time.time())
+                                self._stagger_used_in_cycle += 1
+                            except Exception:
+                                pass
                             # Persist state
                             try:
                                 self.portfolio.save_state(self.state_path)
@@ -1840,6 +2790,10 @@ class CryptoTracker:
                                 "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
                             })
                             try:
+                                self.notifier.alert("Paper Exit", f"{symbol_key} TP exit @ {float(current_price):.6f}", style="green")
+                            except Exception:
+                                pass
+                            try:
                                 log_order_csv({
                                     "ts": datetime.now(timezone.utc).isoformat(),
                                     "symbol": symbol_key,
@@ -1919,6 +2873,10 @@ class CryptoTracker:
                                     "exit_price": float(current_price),
                                     "pnl_pct": (closed.pnl_pct(float(current_price)) if closed else None),
                                 })
+                                try:
+                                    self.notifier.alert("Paper Exit", f"{symbol_key} TRL exit @ {float(current_price):.6f}", style="yellow")
+                                except Exception:
+                                    pass
                                 try:
                                     log_order_csv({
                                         "ts": datetime.now(timezone.utc).isoformat(),
@@ -2174,8 +3132,57 @@ class CryptoTracker:
                 exch_name = "binance"
             exec_str = f"Live/CCXT({exch_name})" if self.auto_trade_mode == 'live' and self.live_executor else "Paper"
             hist_str = f"{getattr(self, 'history_provider', 'unknown').upper()}/{getattr(self, 'history_timeframe','?')}"
-            oco_str = "Armed" if self._last_oco_status else "Not armed"
+            if self._last_oco_status:
+                mode = self._last_oco_status.get('mode') if isinstance(self._last_oco_status, dict) else None
+                mode_str = " (OCO)" if mode == 'oco' else (" (Fallback)" if mode == 'separate' else "")
+                oco_str = f"Armed{mode_str}"
+            else:
+                oco_str = "Not armed"
             console.print(f"[blue]Exec:[/] {exec_str} | [blue]OCO:[/] {oco_str} | [blue]History:[/] {hist_str}")
+            # Ops failure counts (last 60s)
+            try:
+                if self.live_executor is not None:
+                    counts = self.live_executor.get_failure_counts(window_sec=60)
+                    c = counts.get('create_order', 0)
+                    f = counts.get('fetch_open_orders', 0)
+                    x = counts.get('cancel_order', 0)
+                    console.print(f"[blue]Ops:[/] create={c} fetch={f} cancel={x} (60s)")
+            except Exception:
+                pass
+            # Kill-switch / safe mode status
+            try:
+                ks_parts = []
+                if self.safe_mode:
+                    ks_parts.append("safe=ON")
+                if getattr(self, 'kill_switch_active', False):
+                    ks_parts.append("kill=ACTIVE")
+                if not ks_parts:
+                    ks_parts.append("ok")
+                console.print(f"[blue]Safety:[/] {' '.join(ks_parts)}")
+            except Exception:
+                pass
+            # Sector/Cluster banner
+            try:
+                sec_cap = f"sec_cap={self.max_sector_exposure_pct:.0%}" if self.max_sector_exposure_pct is not None and self.max_sector_exposure_pct <= 1 else (f"sec_cap={self.max_sector_exposure_pct:.1f}%" if self.max_sector_exposure_pct is not None else "sec_cap=—")
+                cluster_count = len(self.correlation_clusters) if isinstance(self.correlation_clusters, dict) else 0
+                cl_max = self.cluster_max_new_entries if self.cluster_max_new_entries is not None else '—'
+                console.print(f"[blue]Portfolio:[/] {sec_cap} | clusters={cluster_count} max-new={cl_max}")
+            except Exception:
+                pass
+            # Equity sparkline over last N snapshots
+            try:
+                if getattr(self, 'store', None) is not None:
+                    rows = self.store.get_recent_equity(limit=30)
+                    vals = [eq for (_ts, eq) in rows]
+                    if vals:
+                        mn, mx = min(vals), max(vals)
+                        span = (mx - mn) if (mx - mn) > 0 else 1.0
+                        # Simple unicode sparkline blocks
+                        blocks = "▁▂▃▄▅▆▇█"
+                        s = "".join(blocks[min(len(blocks)-1, int((v - mn) / span * (len(blocks)-1)))] for v in vals)
+                        console.print(f"[blue]Equity:[/] {s}")
+            except Exception:
+                pass
 
             self.check_all_prices()
             while True:

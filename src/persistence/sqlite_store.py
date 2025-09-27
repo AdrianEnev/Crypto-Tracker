@@ -119,3 +119,14 @@ class SQLiteStore:
             self._conn.close()
         except Exception:
             pass
+
+    def get_recent_equity(self, limit: int = 30) -> list[tuple[str, float]]:
+        """Return up to 'limit' most recent (ts, equity_usd) rows ordered asc by ts."""
+        try:
+            cur = self._conn.cursor()
+            cur.execute("SELECT ts, equity_usd FROM equity ORDER BY id DESC LIMIT ?", (int(limit),))
+            rows = cur.fetchall() or []
+            rows.reverse()
+            return [(str(ts), float(eq)) for (ts, eq) in rows]
+        except Exception:
+            return []
