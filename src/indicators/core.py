@@ -202,3 +202,30 @@ def bollinger(
         lower.append(lo)
         width.append(up - lo)
     return mid, upper, lower, width
+
+
+def rolling_std(values: List[float], period: int) -> List[Optional[float]]:
+    """Calculate rolling standard deviation."""
+    out: List[Optional[float]] = []
+    if period <= 0:
+        return [None for _ in values]
+    
+    for i in range(len(values)):
+        if i + 1 < period:
+            out.append(None)
+            continue
+        
+        # Get window of values
+        window = values[i - period + 1:i + 1]
+        
+        # Calculate mean
+        mean_val = sum(window) / len(window)
+        
+        # Calculate variance
+        variance = sum((x - mean_val) ** 2 for x in window) / len(window)
+        
+        # Calculate standard deviation
+        std_dev = variance ** 0.5
+        out.append(std_dev)
+    
+    return out
