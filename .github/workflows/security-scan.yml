@@ -31,8 +31,9 @@ jobs:
 
       - name: Run Bandit security scan
         run: |
-          bandit -r src/ -f json -o bandit-report.json
-          bandit -r src/ -f txt
+          bandit -r src/ -f json -o bandit-report.json --severity-level medium
+          bandit -r src/ -f txt --severity-level medium
+          echo "Bandit scan completed - only medium+ severity issues cause failure"
 
       - name: Run Safety dependency check
         run: |

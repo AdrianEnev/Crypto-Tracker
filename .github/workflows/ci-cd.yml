@@ -49,7 +49,9 @@ jobs:
         run: mypy src/ --ignore-missing-imports --no-strict-optional
 
       - name: Security scan (Bandit)
-        run: bandit -r src/ -f json -o bandit-report.json || true
+        run: |
+          bandit -r src/ -f json -o bandit-report.json --severity-level medium
+          echo "Bandit scan completed - only medium+ severity issues cause failure"
 
       - name: Dependency vulnerability scan (Safety)
         run: safety check --json --output safety-report.json || true
