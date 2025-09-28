@@ -18,7 +18,7 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 from security import (
     APIKeyValidator, APIKeyValidationResult, SafetyStatus, PermissionLevel,
     SecurityManager, SecretsConfigManager, SecretsManagerFactory, 
-    SecretBackend, LocalEncryptedSecretsManager
+    SecretBackend, SecretMetadata, LocalEncryptedSecretsManager
 )
 from tracker.config_manager import ConfigManager
 

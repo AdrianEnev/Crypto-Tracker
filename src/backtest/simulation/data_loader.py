@@ -7,8 +7,8 @@ from typing import Dict, List, Optional, Tuple
 import yaml
 from pathlib import Path
 
-from ...data.ohlcv import get_candles
-from ...data.ccxt_ohlcv import get_candles_ccxt
+from src.data.ohlcv import get_candles
+from src.data.ccxt_ohlcv import get_candles_ccxt
 
 
 class BacktestDataLoader:
