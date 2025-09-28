@@ -5,8 +5,8 @@ Data fetching for backtest optimization.
 import os
 from typing import Dict, Any, Optional, Tuple, List
 from .config_loader import ConfigLoader
-from ...data.ohlcv import get_candles
-from ...data.ccxt_ohlcv import get_candles_ccxt
+from src.data.ohlcv import get_candles
+from src.data.ccxt_ohlcv import get_candles_ccxt
 
 
 class DataFetcher:
