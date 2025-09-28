@@ -1,0 +1,228 @@
+# Advanced Backtesting Configuration
+# Supports Phase 3 & 4 features: realistic fees, slippage, and order book simulation
+
+# Simulation mode configuration
+simulation:
+  mode: "enhanced"  # "simple", "enhanced", or "orderbook"
+  use_orderbook: true
+  tick_resolution: "1s"  # for synthetic tick generation
+  replay_speed: 1.0  # 1.0 = real time, 2.0 = 2x speed
+  
+# Exchange and fee configuration
+exchange:
+  name: "binance"
+  monthly_volume_usd: 100000.0  # For fee tier calculation
+  
+# Fee configuration
+fees:
+  mode: "realistic"  # "zero", "simplified", or "realistic"
+  exchanges:
+    binance:
+      maker_bps: 2.0
+      taker_bps: 4.0
+      volume_tiers:
+        - volume_usd: 0
+          maker_bps: 2.0
+          taker_bps: 4.0
+          description: "VIP 0"
+        - volume_usd: 50000
+          maker_bps: 1.8
+          taker_bps: 3.6
+          description: "VIP 1"
+        - volume_usd: 250000
+          maker_bps: 1.5
+          taker_bps: 3.0
+          description: "VIP 2"
+        - volume_usd: 1000000
+          maker_bps: 1.2
+          taker_bps: 2.4
+          description: "VIP 3"
+    
+    coinbase:
+      maker_bps: 5.0
+      taker_bps: 5.0
+      volume_tiers:
+        - volume_usd: 0
+          maker_bps: 5.0
+          taker_bps: 5.0
+          description: "Standard"
+        - volume_usd: 10000
+          maker_bps: 3.5
+          taker_bps: 3.5
+          description: "Tier 1"
+    
+    bybit:
+      maker_bps: 1.0
+      taker_bps: 6.0
+      volume_tiers:
+        - volume_usd: 0
+          maker_bps: 1.0
+          taker_bps: 6.0
+          description: "Standard"
+
+# Slippage configuration
+slippage:
+  model: "depth_based"  # "static", "volume_based", "depth_based", "market_impact"
+  base_bps: 5.0  # Base slippage for static model
+  depth_levels: 10  # Number of levels to consider for depth-based
+  market_impact_factor: 0.1  # Market impact scaling factor
+  max_slippage_bps: 1000.0  # Maximum slippage cap
+  
+  # Volume-based slippage parameters
+  volume_impact_factor: 0.5
+  volatility_factor: 2.0
+  min_volume_ratio: 0.001
+  
+  # Market impact parameters
+  permanent_impact_factor: 0.1
+  temporary_impact_factor: 0.3
+  decay_rate: 0.5
+
+# Order book simulation configuration
+orderbook:
+  enabled: true
+  data_source: "ccxt"  # "ccxt", "file", or "synthetic"
+  snapshot_interval: "1s"
+  replay_speed: "real_time"  # "real_time", "fast_forward", or numeric multiplier
+  
+  # Storage configuration
+  storage:
+    type: "sqlite"  # "sqlite" or "jsonl"
+    path: "./orderbook_data"
+    compression: true
+    
+  # Simulation parameters
+  simulation:
+    latency_ms: 50.0
+    partial_fill_probability: 0.1
+    rejection_probability: 0.01
+    market_impact_factor: 0.001
+
+# Strategy configuration
+strategy:
+  name: "enhanced_rsi_ema"
+  parameters:
+    rsi_period: 14
+    ema_fast: 20
+    ema_slow: 50
+    threshold: 0.0
+    auto_threshold: 0.7
+    risk_budget_pct: 0.02
+    
+  # Risk management
+  risk:
+    use_atr_stops: true
+    atr_period: 14
+    sl_mult: 1.5
+    tp_mult: 3.0
+    trail_mult: 2.0
+    
+    # Position sizing
+    max_position_size_pct: 0.1  # 10% of portfolio
+    max_daily_trades: 10
+    max_drawdown_pct: 0.2  # 20% max drawdown
+
+# Data configuration
+data:
+  provider: "ccxt"  # "coingecko" or "ccxt"
+  exchange: "binance"
+  symbols: ["BTC/USDT", "ETH/USDT", "BNB/USDT"]
+  timeframe: "1h"
+  days: 30
+  
+  # Order book data
+  orderbook:
+    enabled: true
+    levels: 20  # Number of levels to fetch
+    update_interval: "1s"
+    storage_duration_days: 7
+
+# Execution configuration
+execution:
+  # Order management
+  order_types: ["market", "limit", "stop"]
+  default_order_type: "market"
+  
+  # Execution quality targets
+  max_slippage_bps: 50.0
+  max_execution_time_ms: 1000.0
+  
+  # Smart order routing
+  enable_smart_routing: false
+  preferred_exchanges: ["binance", "coinbase"]
+  
+  # TWAP/VWAP execution
+  enable_twap: false
+  twap_duration_minutes: 30
+  twap_slices: 10
+  
+  enable_vwap: false
+  vwap_participation_rate: 0.1
+
+# Performance and optimization
+performance:
+  # Parallel processing
+  enable_parallel: true
+  max_workers: 4
+  
+  # Caching
+  enable_caching: true
+  cache_duration_hours: 24
+  
+  # Memory management
+  max_memory_mb: 1024
+  chunk_size: 1000
+
+# Reporting and analysis
+reporting:
+  # Output formats
+  formats: ["console", "csv", "json"]
+  output_dir: "./backtest_results"
+  
+  # Detailed analysis
+  include_cost_breakdown: true
+  include_slippage_analysis: true
+  include_order_book_metrics: true
+  
+  # Charts and visualization
+  generate_charts: false
+  chart_types: ["equity_curve", "drawdown", "trade_distribution"]
+  
+  # Export data
+  export_trades: true
+  export_order_book_data: false
+  export_fee_breakdown: true
+
+# Validation and testing
+validation:
+  # Data validation
+  validate_order_book: true
+  validate_prices: true
+  validate_volumes: true
+  
+  # Simulation validation
+  check_slippage_bounds: true
+  check_fee_calculations: true
+  check_execution_constraints: true
+  
+  # Performance validation
+  check_memory_usage: true
+  check_execution_time: true
+
+# Advanced features
+advanced:
+  # Machine learning integration
+  enable_ml_features: false
+  ml_model_path: "./models/"
+  
+  # Alternative data
+  enable_sentiment_data: false
+  enable_on_chain_data: false
+  
+  # Risk models
+  enable_var_calculation: false
+  var_confidence_level: 0.95
+  
+  # Portfolio optimization
+  enable_portfolio_optimization: false
+  optimization_method: "mean_variance"
