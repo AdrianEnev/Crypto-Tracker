@@ -39,7 +39,7 @@ def main():
                 results = optimizer.optimize_coin(args.coin, args.max_combinations)
         else:
             # Optimize all coins
-            results = optimizer.optimize_all_coins(args.max_combinations)
+            _ = optimizer.optimize_all_coins(args.max_combinations)
 
         console.print("[green]Optimization completed successfully![/green]")
 

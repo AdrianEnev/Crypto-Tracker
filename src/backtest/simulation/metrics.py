@@ -4,7 +4,7 @@ Metrics calculation for backtest simulation.
 
 from typing import List
 
-from .models import BacktestResult, Trade
+from .models import Trade
 
 
 class MetricsCalculator:

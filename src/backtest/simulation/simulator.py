@@ -2,8 +2,7 @@
 Trading simulation engine.
 """
 
-import os
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from src.decision import compute_confidence, recommend_action
 from src.indicators.core import atr as atr_series
@@ -109,7 +108,7 @@ class TradingSimulator:
                 if should_buy:
                     # Calculate position size
                     position_value = cash * risk_budget_pct
-                    units = position_value / current_price
+                    _ = position_value / current_price
 
                     # Apply fees
                     fee = position_value * (fee_bps / 10000.0)
