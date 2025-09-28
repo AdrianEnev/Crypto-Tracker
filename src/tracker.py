@@ -39,7 +39,7 @@ from .data.ohlcv import get_candles
 from .data.ccxt_ohlcv import get_candles_ccxt
 from .indicators.core import rsi as rsi_series, ema as ema_series, atr as atr_series
 from .config.validator import validate_config
-from .decision import make_decision
+from .decision import make_decision, compute_confidence
 from .position_sizing import compute_size_usd
 
 # Set up console
