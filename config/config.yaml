@@ -301,3 +301,62 @@ optimize:
   disable_regime_filter: false
   disable_vol_gate: false
   skip_symbols: ["USDT", "USDC"]
+
+# Order Management System Configuration
+order_manager:
+  enabled: true
+  
+  # Order limits and timeouts
+  max_active_orders: 1000
+  order_timeout_minutes: 60
+  
+  # Reconciliation settings
+  reconciliation:
+    enabled: true
+    interval_minutes: 5
+    auto_cancel_missing: false
+  
+  # Smart order routing
+  routing:
+    enabled: true
+    preferred_exchanges: ["binance", "bybit", "coinbase"]
+    liquidity_threshold: 10000  # USD
+    max_slippage_bps: 50
+    
+  # TWAP (Time-Weighted Average Price) settings
+  twap:
+    min_slice_size_usd: 100
+    max_slices: 20
+    min_slice_interval_seconds: 30
+    max_slice_interval_seconds: 300
+    randomization_factor: 0.1
+    
+  # VWAP (Volume-Weighted Average Price) settings
+  vwap:
+    participation_rate: 0.1  # 10% of market volume
+    max_participation_rate: 0.2  # Maximum 20% participation
+    min_slice_size_usd: 100
+    max_slice_size_usd: 10000
+    volume_lookback_hours: 24
+    slice_duration_minutes: 5
+    randomization_factor: 0.05
+    
+  # Retry and error handling
+  retry:
+    max_attempts: 3
+    base_delay_seconds: 1.0
+    max_delay_seconds: 30.0
+    backoff_multiplier: 2.0
+    jitter_range: 0.1
+    
+  # Circuit breaker settings
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    timeout_seconds: 60
+    
+  # Risk controls
+  risk:
+    max_order_size_usd: 10000
+    max_daily_orders: 100
+    position_size_limit_pct: 0.1  # 10% of portfolio
