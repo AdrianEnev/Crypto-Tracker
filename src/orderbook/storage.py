@@ -379,9 +379,9 @@ class SQLiteOrderBookStorage(OrderBookStorage):
 
         cursor.execute(
             """
-            SELECT timestamp, bids_json, asks_json, last_trade_price, 
+            SELECT timestamp, bids_json, asks_json, last_trade_price,
                    last_trade_quantity, last_trade_id, sequence_number
-            FROM snapshots 
+            FROM snapshots
             WHERE symbol = ? AND timestamp BETWEEN ? AND ?
             ORDER BY timestamp
         """,
@@ -431,7 +431,7 @@ class SQLiteOrderBookStorage(OrderBookStorage):
             """
             SELECT timestamp, event_type, bids_update_json, asks_update_json,
                    trade_price, trade_quantity, trade_side, sequence_number
-            FROM events 
+            FROM events
             WHERE symbol = ? AND timestamp BETWEEN ? AND ?
             ORDER BY timestamp
         """,
@@ -485,7 +485,7 @@ class SQLiteOrderBookStorage(OrderBookStorage):
                    weighted_bid_price, weighted_ask_price, spread, spread_bps,
                    mid_price, depth_5_levels, depth_10_levels, depth_20_levels,
                    bid_ask_ratio, order_imbalance
-            FROM metrics 
+            FROM metrics
             WHERE symbol = ? AND timestamp BETWEEN ? AND ?
             ORDER BY timestamp
         """,
