@@ -1,8 +1,8 @@
 from pathlib import Path
 import sys
 import yaml
-from .config.validator import validate_config
-from .tracker import CryptoTracker
+from src.config.validator import validate_config
+from src.tracker.core import CryptoTracker
 
 
 def main():
