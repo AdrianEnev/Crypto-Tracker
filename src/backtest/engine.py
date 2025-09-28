@@ -9,11 +9,11 @@ import os
 import yaml
 
 # Reuse existing modules
-from ..data.ohlcv import get_candles
-from ..data.ccxt_ohlcv import get_candles_ccxt
-from ..indicators.core import rsi as rsi_series, ema as ema_series, atr as atr_series
-from ..decision import compute_confidence, recommend_action
-from ..risk import ATRRiskParams, compute_stop_levels_atr, compute_stop_levels
+from src.data.ohlcv import get_candles
+from src.data.ccxt_ohlcv import get_candles_ccxt
+from src.indicators.core import rsi as rsi_series, ema as ema_series, atr as atr_series
+from src.decision import compute_confidence, recommend_action
+from src.risk import ATRRiskParams, compute_stop_levels_atr, compute_stop_levels
 
 
 @dataclass

@@ -214,7 +214,7 @@ jobs:
           python -c "
           import sys
           sys.path.append('src')
-          from backtest.engine import BacktestEngine
+          from backtest.engine import BacktestResult
           print('✅ Backtest engine imports successfully')
           "
           
