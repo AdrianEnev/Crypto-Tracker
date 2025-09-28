@@ -6,17 +6,18 @@ for advanced backtesting and strategy testing.
 """
 
 from __future__ import annotations
-from typing import Dict, List, Optional, Tuple, Callable, Any
-from datetime import datetime
-from dataclasses import dataclass, field
-import time
-import random
 
-from .models import OrderBookSnapshot, OrderLevel, FillResult, OrderBookMetrics, BidDepth, AskDepth
+import random
+import time
+from dataclasses import dataclass, field
+from datetime import datetime
 
 # Note: SlippageResult, SlippageType, MarketCondition are imported from slippage.models
 # but we'll define them locally to avoid import issues
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+from .models import AskDepth, BidDepth, FillResult, OrderBookMetrics, OrderBookSnapshot, OrderLevel
 
 
 class SlippageType(Enum):

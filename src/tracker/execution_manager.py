@@ -4,17 +4,18 @@ Handles order execution, exit management, and live trading operations.
 """
 
 import os
-import yaml
-from datetime import datetime, timezone
-from typing import Dict, Any, Optional
 from collections import deque
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
+import yaml
 
 from src.executor import PaperExecutor
 from src.executor_ccxt import CCXTLiveExecutor
-from src.logger import log_event, log_order_csv, log_decision_csv
+from src.logger import log_decision_csv, log_event, log_order_csv
 from src.position_sizing import compute_size_usd
-from src.security.security_manager import SecurityManager
 from src.security.secrets_config_manager import SecretsConfigManager
+from src.security.security_manager import SecurityManager
 
 
 class ExecutionManager:

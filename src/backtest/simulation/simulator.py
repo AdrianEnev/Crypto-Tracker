@@ -2,14 +2,17 @@
 Trading simulation engine.
 """
 
-from typing import List, Optional, Dict, Any
 import os
+from typing import Any, Dict, List, Optional
 
-from .models import Trade, BacktestResult
-from .metrics import MetricsCalculator
-from src.indicators.core import rsi as rsi_series, ema as ema_series, atr as atr_series
 from src.decision import compute_confidence, recommend_action
-from src.risk import ATRRiskParams, compute_stop_levels_atr, compute_stop_levels
+from src.indicators.core import atr as atr_series
+from src.indicators.core import ema as ema_series
+from src.indicators.core import rsi as rsi_series
+from src.risk import ATRRiskParams, compute_stop_levels, compute_stop_levels_atr
+
+from .metrics import MetricsCalculator
+from .models import BacktestResult, Trade
 
 
 class TradingSimulator:

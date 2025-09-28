@@ -3,12 +3,13 @@ Data loading for backtest simulation.
 """
 
 import os
-from typing import Dict, List, Optional, Tuple
-import yaml
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
-from src.data.ohlcv import get_candles
+import yaml
+
 from src.data.ccxt_ohlcv import get_candles_ccxt
+from src.data.ohlcv import get_candles
 
 
 class BacktestDataLoader:

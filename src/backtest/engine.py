@@ -1,19 +1,23 @@
 from __future__ import annotations
-import argparse
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
-import csv
 
-from pathlib import Path
+import argparse
+import csv
 import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
 import yaml
+
+from src.data.ccxt_ohlcv import get_candles_ccxt
 
 # Reuse existing modules
 from src.data.ohlcv import get_candles
-from src.data.ccxt_ohlcv import get_candles_ccxt
-from src.indicators.core import rsi as rsi_series, ema as ema_series, atr as atr_series
 from src.decision import compute_confidence, recommend_action
-from src.risk import ATRRiskParams, compute_stop_levels_atr, compute_stop_levels
+from src.indicators.core import atr as atr_series
+from src.indicators.core import ema as ema_series
+from src.indicators.core import rsi as rsi_series
+from src.risk import ATRRiskParams, compute_stop_levels, compute_stop_levels_atr
 
 
 @dataclass

@@ -3,19 +3,22 @@ Price management for the crypto tracker.
 Handles price fetching, aggregation, and historical data management.
 """
 
-import yaml
-from typing import Dict, Any, Optional
 from collections import deque
 from pathlib import Path
+from typing import Any, Dict, Optional
 
-from src.fetcher import PriceFetcher
-from src.fetcher_coingecko import CoingeckoFetcher
-from src.fetcher_ccxt import CCXTPriceFetcher
-from src.fetcher_websocket import WebSocketPriceFetcher
+import yaml
+
 from src.aggregator import PriceAggregator
-from src.data.ohlcv import get_candles
 from src.data.ccxt_ohlcv import get_candles_ccxt
-from src.indicators.core import rsi as rsi_series, ema as ema_series, atr as atr_series
+from src.data.ohlcv import get_candles
+from src.fetcher import PriceFetcher
+from src.fetcher_ccxt import CCXTPriceFetcher
+from src.fetcher_coingecko import CoingeckoFetcher
+from src.fetcher_websocket import WebSocketPriceFetcher
+from src.indicators.core import atr as atr_series
+from src.indicators.core import ema as ema_series
+from src.indicators.core import rsi as rsi_series
 from src.logger import log_event
 
 

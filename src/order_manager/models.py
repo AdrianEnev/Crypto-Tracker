@@ -6,11 +6,12 @@ including state tracking, metadata, and various order types.
 """
 
 from __future__ import annotations
+
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional, Dict, Any, List
-import uuid
+from typing import Any, Dict, List, Optional
 
 
 class OrderState(Enum):

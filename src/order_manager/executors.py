@@ -6,9 +6,10 @@ and execution modes (paper vs live).
 """
 
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, List
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from .models import Order, OrderRequest, OrderResult, OrderState
 

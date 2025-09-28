@@ -6,21 +6,21 @@ and realistic fill simulation for advanced backtesting.
 """
 
 from .models import (
-    OrderBookSnapshot,
-    OrderLevel,
+    AskDepth,
+    BidDepth,
+    FillResult,
     MarketDepth,
     OrderBookEvent,
-    FillResult,
-    OrderBookState,
-    OrderBookMetrics,
     OrderBookEventType,
-    BidDepth,
-    AskDepth,
+    OrderBookMetrics,
+    OrderBookSnapshot,
+    OrderBookState,
+    OrderLevel,
 )
 
 # Note: OrderBookFetcher requires ccxt, so we'll import it conditionally
 try:
-    from .fetcher import OrderBookFetcher, MultiExchangeOrderBookFetcher
+    from .fetcher import MultiExchangeOrderBookFetcher, OrderBookFetcher
 
     FETCHER_AVAILABLE = True
 except ImportError:
@@ -28,9 +28,9 @@ except ImportError:
     OrderBookFetcher = None
     MultiExchangeOrderBookFetcher = None
 
-from .storage import OrderBookStorage, JSONLOrderBookStorage, SQLiteOrderBookStorage
 from .replay_engine import OrderBookReplayEngine
-from .simulator import OrderBookSimulator, SimulatedOrder, SimulatedFill
+from .simulator import OrderBookSimulator, SimulatedFill, SimulatedOrder
+from .storage import JSONLOrderBookStorage, OrderBookStorage, SQLiteOrderBookStorage
 
 __all__ = [
     "OrderBookSnapshot",

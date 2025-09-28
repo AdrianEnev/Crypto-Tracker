@@ -1,18 +1,18 @@
 from __future__ import annotations
 
+import csv
+import os
 from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-import csv
 
-import os
 import yaml
 
-from .engine import simulate_on_series, ATRRiskParams
-from ..notifier import Notifier
-from ..data.ohlcv import get_candles
 from ..data.ccxt_ohlcv import get_candles_ccxt
+from ..data.ohlcv import get_candles
+from ..notifier import Notifier
+from .engine import ATRRiskParams, simulate_on_series
 
 
 @dataclass

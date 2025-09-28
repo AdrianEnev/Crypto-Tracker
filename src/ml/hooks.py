@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any, Dict, Optional
 
 # Minimal ML hooks placeholder. Safe-by-default: returns None unless a model is loaded.

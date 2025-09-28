@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from typing import Dict
+
 from rich.console import Console
 
 from .equity import compute_equity, update_daily_equity_baseline

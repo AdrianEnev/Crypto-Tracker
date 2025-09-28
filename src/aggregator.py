@@ -1,13 +1,14 @@
 from __future__ import annotations
+
+import time
 from statistics import median
 from typing import Dict, List, Optional, Tuple
-import time
 
 from rich.console import Console
 
 from .fetcher import PriceFetcher  # CMC
-from .fetcher_coingecko import CoingeckoFetcher  # Coingecko
 from .fetcher_ccxt import CCXTPriceFetcher  # CCXT spot
+from .fetcher_coingecko import CoingeckoFetcher  # Coingecko
 from .fetcher_websocket import WebSocketPriceFetcher
 
 console = Console()

@@ -1,8 +1,10 @@
 from __future__ import annotations
-import requests
-import time
+
 import random
-from typing import Dict, Optional, Iterable
+import time
+from typing import Dict, Iterable, Optional
+
+import requests
 from rich.console import Console
 
 console = Console()

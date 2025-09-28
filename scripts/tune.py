@@ -1,7 +1,9 @@
+from pathlib import Path
+
 import optuna
 import yaml
-from pathlib import Path
-from src.backtest.optimizer import _fetch_series, _eval_params
+
+from src.backtest.optimizer import _eval_params, _fetch_series
 
 
 def objective(

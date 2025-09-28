@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 from typing import Any, Dict, Optional
 
 import pandas as pd
 import yaml
 
-from .strategies.factory import get_strategy
 from .models import Decision
+from .strategies.factory import get_strategy
 
 
 def _load_full_config(config_path: str) -> Dict[str, Any]:

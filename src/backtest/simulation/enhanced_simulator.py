@@ -6,19 +6,23 @@ with detailed cost analysis and execution simulation.
 """
 
 from __future__ import annotations
-from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime
-from dataclasses import dataclass, field
 
-from .models import Trade, BacktestResult
-from .metrics import MetricsCalculator
-from src.indicators.core import rsi as rsi_series, ema as ema_series, atr as atr_series
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
 from src.decision import compute_confidence, recommend_action
-from src.risk import ATRRiskParams, compute_stop_levels_atr, compute_stop_levels
 
 # Import our new fee and slippage models
 from src.fees import BacktestFeeCalculator, FeeCalculationMode, OrderFeeContext
+from src.indicators.core import atr as atr_series
+from src.indicators.core import ema as ema_series
+from src.indicators.core import rsi as rsi_series
+from src.risk import ATRRiskParams, compute_stop_levels, compute_stop_levels_atr
 from src.slippage import BacktestSlippageCalculator, SlippageContext, SlippageType
+
+from .metrics import MetricsCalculator
+from .models import BacktestResult, Trade
 
 
 @dataclass

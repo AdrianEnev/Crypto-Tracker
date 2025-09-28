@@ -5,11 +5,12 @@ Uses the new modular simulation structure.
 
 import argparse
 from pathlib import Path
+
 from rich.console import Console
 from rich.table import Table
 
-from .simulation import BacktestDataLoader, TradingSimulator, MetricsCalculator
 from ..risk import ATRRiskParams
+from .simulation import BacktestDataLoader, MetricsCalculator, TradingSimulator
 
 
 def main():

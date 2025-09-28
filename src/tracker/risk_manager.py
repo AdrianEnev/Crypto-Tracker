@@ -4,20 +4,21 @@ Handles risk controls, protection mechanisms, and safety checks.
 """
 
 import json
-import yaml
-from pathlib import Path
-from typing import Dict, Any, Optional
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, Optional
 
+import yaml
+
+from src.logger import log_event
 from src.risk import (
+    ATRRiskParams,
     RiskParams,
     compute_stop_levels,
-    compute_trailing_stop,
-    ATRRiskParams,
     compute_stop_levels_atr,
+    compute_trailing_stop,
     compute_trailing_stop_atr,
 )
-from src.logger import log_event
 
 
 class RiskManager:

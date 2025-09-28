@@ -6,12 +6,13 @@ statistics tracking and performance analysis.
 """
 
 from __future__ import annotations
-from typing import Dict, List, Optional, Tuple
-from datetime import datetime, timedelta
+
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
 
 # Note: SlippageCalculator is not implemented yet, using individual calculators directly
-from .models import SlippageResult, SlippageContext, SlippageType, MarketCondition
+from .models import MarketCondition, SlippageContext, SlippageResult, SlippageType
 
 
 @dataclass
@@ -259,8 +260,8 @@ class BacktestSlippageCalculator:
     ) -> Dict[SlippageType, SlippageResult]:
         """Compare slippage across different models for the same order."""
         from .depth_based import DepthBasedSlippage
-        from .volume_based import VolumeBasedSlippage
         from .market_impact import MarketImpactCalculator
+        from .volume_based import VolumeBasedSlippage
 
         results = {}
 

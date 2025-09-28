@@ -1,6 +1,8 @@
-from pathlib import Path
 import sys
+from pathlib import Path
+
 import yaml
+
 from src.config.validator import validate_config
 from src.tracker.core import CryptoTracker
 
@@ -31,8 +33,8 @@ def main():
     tracker = CryptoTracker(str(config_path))
     # Bind helper modules (no direct edits to tracker.py required)
     try:
-        from .modules.equity import compute_equity, update_daily_equity_baseline
         from .modules.banner import render_banner
+        from .modules.equity import compute_equity, update_daily_equity_baseline
 
         # Attach helpers for Phase 3 equity/DD usage
         tracker.compute_equity = lambda sym_to_price: compute_equity(tracker, sym_to_price)
@@ -54,9 +56,10 @@ def main():
         pass
     # Bind exits/protection wrappers capturing originals first
     try:
-        from .modules.exits import manage_live_exits
-        from .modules.protection import reconcile_live_protection, cancel_orphan_sell_orders
         import types
+
+        from .modules.exits import manage_live_exits
+        from .modules.protection import cancel_orphan_sell_orders, reconcile_live_protection
 
         # Capture originals if not captured yet
         if getattr(tracker, "_manage_live_exits_orig", None) is None and hasattr(
@@ -79,8 +82,9 @@ def main():
         pass
     # Bind history wrappers capturing originals first
     try:
-        from .modules.history import preload_history, refresh_history_tail
         import types as _types
+
+        from .modules.history import preload_history, refresh_history_tail
 
         if getattr(tracker, "_preload_history_orig", None) is None and hasattr(
             tracker, "_preload_history"
@@ -96,8 +100,9 @@ def main():
         pass
     # Kill-switch DD guard using equity helper (runs alongside tracker loop)
     try:
-        import schedule
         from datetime import datetime, timezone
+
+        import schedule
 
         # Equity snapshot every 60s into SQLite
         def _equity_snapshot_job():

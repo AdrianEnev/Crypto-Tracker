@@ -6,9 +6,10 @@ features like historical fee tracking and strategy performance analysis.
 """
 
 from __future__ import annotations
-from typing import Dict, List, Optional, Tuple
-from datetime import datetime, timedelta
+
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
 
 from .calculator import FeeCalculator
 from .models import FeeBreakdown, FeeCalculationMode, OrderFeeContext

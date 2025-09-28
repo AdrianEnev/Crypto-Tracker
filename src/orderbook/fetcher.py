@@ -6,14 +6,15 @@ and other data sources for historical replay and simulation.
 """
 
 from __future__ import annotations
-from typing import Dict, List, Optional, AsyncGenerator
-from datetime import datetime, timedelta
+
 import asyncio
 import time
+from datetime import datetime, timedelta
+from typing import AsyncGenerator, Dict, List, Optional
 
 import ccxt  # type: ignore
 
-from .models import OrderBookSnapshot, OrderBookEvent, OrderBookEventType
+from .models import OrderBookEvent, OrderBookEventType, OrderBookSnapshot
 
 
 class OrderBookFetcher:

@@ -1,9 +1,10 @@
 from __future__ import annotations
+
 import pandas as pd
 
-from src.strategies.momentum import MomentumStrategy
-from src.strategies.mean_reversion import MeanReversionStrategy
 from src.strategies.breakout import BreakoutStrategy
+from src.strategies.mean_reversion import MeanReversionStrategy
+from src.strategies.momentum import MomentumStrategy
 
 
 def _df_from_series(closes, volumes=None):

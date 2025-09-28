@@ -3,8 +3,9 @@ Refactored optimizer entry point.
 Uses the new modular optimization structure.
 """
 
-from pathlib import Path
 import argparse
+from pathlib import Path
+
 from rich.console import Console
 
 from .optimization import OptimizationRunner

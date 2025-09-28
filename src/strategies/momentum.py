@@ -1,6 +1,8 @@
 import pandas as pd
+
+from src.indicators.core import ema, macd, rsi
+
 from .base import BaseStrategy
-from src.indicators.core import ema, rsi, macd
 
 
 class MomentumStrategy(BaseStrategy):

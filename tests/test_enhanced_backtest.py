@@ -5,40 +5,43 @@ Comprehensive tests for Phase 3 & 4 implementation including
 fee models, slippage calculation, and order book simulation.
 """
 
-import pytest
 import sys
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
+
+import pytest
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
+from backtest.simulation.enhanced_simulator import EnhancedTradingSimulator
 from fees import (
-    FeeCalculator,
-    FeeCalculationMode,
-    OrderFeeContext,
     ExchangeFeeRegistry,
+    FeeCalculationMode,
+    FeeCalculator,
+    OrderFeeContext,
     get_exchange_fees,
+)
+from orderbook import (
+    OrderBookReplayEngine,
+    OrderBookSimulator,
+    OrderBookSnapshot,
+    SimulatedOrder,
+    SQLiteOrderBookStorage,
 )
 from slippage import (
     DepthBasedSlippage,
-    VolumeBasedSlippage,
+    MarketCondition,
+    MarketDepth,
     MarketImpactCalculator,
+)
+from slippage import OrderBookSnapshot as SlippageOrderBookSnapshot
+from slippage import (
+    OrderLevel,
     SlippageContext,
     SlippageType,
-    MarketCondition,
-    OrderLevel,
-    MarketDepth,
-    OrderBookSnapshot as SlippageOrderBookSnapshot,
+    VolumeBasedSlippage,
 )
-from orderbook import (
-    OrderBookSnapshot,
-    OrderBookSimulator,
-    SimulatedOrder,
-    SQLiteOrderBookStorage,
-    OrderBookReplayEngine,
-)
-from backtest.simulation.enhanced_simulator import EnhancedTradingSimulator
 
 
 class TestFeeModels:

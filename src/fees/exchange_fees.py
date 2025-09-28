@@ -6,7 +6,8 @@ volume tiers, maker/taker rates, and asset-specific fees.
 """
 
 from typing import Dict, List, Optional
-from .models import ExchangeFeeStructure, FeeTier, AssetSpecificFee
+
+from .models import AssetSpecificFee, ExchangeFeeStructure, FeeTier
 
 
 class ExchangeFeeRegistry:

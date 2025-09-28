@@ -14,11 +14,11 @@ from typing import Optional
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from security import (
-    SecurityManager,
+    APIKeyValidator,
+    SecretBackend,
     SecretsConfigManager,
     SecretsManagerFactory,
-    SecretBackend,
-    APIKeyValidator,
+    SecurityManager,
 )
 from tracker.config_manager import ConfigManager
 
