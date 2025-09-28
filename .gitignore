@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *$py.class
 *.so
@@ -32,3 +33,12 @@ wheels/
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+logs/
+
+# Cache
+data_cache/
+
+# Backup
+backup/
