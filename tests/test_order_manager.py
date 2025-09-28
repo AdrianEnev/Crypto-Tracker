@@ -338,8 +338,6 @@ class TestRetryLogic:
         assert not circuit_breaker.can_execute()
 
         # Wait for timeout to allow reset
-        import time
-
         time.sleep(1.1)  # Wait longer than timeout
 
         # Should be able to execute again (HALF_OPEN state)

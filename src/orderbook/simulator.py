@@ -165,8 +165,6 @@ class OrderBookSimulator:
         time.sleep(self.latency_ms / 1000.0)
 
         # Check for order rejection
-        import random
-
         if random.random() < self.rejection_probability:
             return self._create_rejected_fill(order, execution_start)
 

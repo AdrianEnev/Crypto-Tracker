@@ -134,10 +134,10 @@ class SecurityManager:
 
     def _send_critical_alert(self, exchange_name: str, result: APIKeyValidationResult):
         """Send critical security alert."""
-        message = f"🚨 CRITICAL SECURITY ALERT 🚨\n"
+        message = "🚨 CRITICAL SECURITY ALERT 🚨\n"
         message += f"Exchange: {exchange_name}\n"
         message += f"Issues: {', '.join(result.errors)}\n"
-        message += f"Trading has been BLOCKED for safety."
+        message += "Trading has been BLOCKED for safety."
 
         if self.notifier:
             self.notifier.alert("Security Alert", message, "red", "error")
@@ -146,10 +146,10 @@ class SecurityManager:
 
     def _send_unsafe_alert(self, exchange_name: str, result: APIKeyValidationResult):
         """Send unsafe configuration alert."""
-        message = f"⚠️ UNSAFE API KEY CONFIGURATION ⚠️\n"
+        message = "⚠️ UNSAFE API KEY CONFIGURATION ⚠️\n"
         message += f"Exchange: {exchange_name}\n"
         message += f"Issues: {', '.join(result.errors)}\n"
-        message += f"Please review API key permissions."
+        message += "Please review API key permissions."
 
         if self.notifier:
             self.notifier.alert("Security Warning", message, "yellow", "warning")
@@ -158,10 +158,10 @@ class SecurityManager:
 
     def _send_warning_alert(self, exchange_name: str, result: APIKeyValidationResult):
         """Send warning alert."""
-        message = f"⚠️ API KEY WARNING ⚠️\n"
+        message = "⚠️ API KEY WARNING ⚠️\n"
         message += f"Exchange: {exchange_name}\n"
         message += f"Warnings: {', '.join(result.warnings)}\n"
-        message += f"Trading continues but please review configuration."
+        message += "Trading continues but please review configuration."
 
         if self.notifier:
             self.notifier.alert("Security Notice", message, "yellow", "info")

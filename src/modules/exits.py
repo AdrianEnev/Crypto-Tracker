@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+import time
+import yaml
+from datetime import datetime, timezone
+
+from src.risk import (
+    compute_stop_levels,
+    compute_stop_levels_atr,
+    compute_trailing_stop,
+    compute_trailing_stop_atr,
+)
+from src.logger import log_event
+
 
 def manage_live_exits(tracker) -> None:
     """Best-effort manager for live positions: if SL/TP/trailing is hit, submit a market sell via CCXT and persist state.

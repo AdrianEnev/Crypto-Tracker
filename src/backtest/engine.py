@@ -548,11 +548,7 @@ def main():
         cfg = yaml.safe_load(f) or {}
     all_tracked = cfg.get("tracked_coins") or {}
 
-    target_ids = (
-        [c.strip() for c in args.coins.split(",") if c.strip()]
-        if args.coins
-        else list(all_tracked.keys())
-    )
+    target_ids = list(all_tracked.keys())
 
     # Indicator/risk defaults
     ind_cfg = cfg.get("indicators") or {}
@@ -584,14 +580,14 @@ def main():
             coin_id=coin_id,
             cg_id=cg_id,
             threshold=threshold,
-            days=args.days,
-            timeframe=args.timeframe,
+            days=days,
+            timeframe=timeframe,
             rsi_period=rsi_p,
             ema_fast=ema_fast,
             ema_slow=ema_slow,
             atr_params=atr_params,
-            slippage_bps=args.slippage_bps,
-            fee_bps=args.fee_bps,
+            slippage_bps=slippage_bps,
+            fee_bps=fee_bps,
             export_dir=export_dir,
         )
         summary[coin_id] = res
