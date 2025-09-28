@@ -124,7 +124,7 @@ def simulate_on_series(
 
         if action_rec == "Buy" and pos_qty == 0.0:
             # Regime filter gating
-            if (use_regime_filter and ef is not None and es is not None and ef <= es):
+            if use_regime_filter and ef is not None and es is not None and ef <= es:
                 # still compute regime-aware threshold check below — but if regime filter is ON and strictly forbids, skip
                 pass  # skip entry
             else:
