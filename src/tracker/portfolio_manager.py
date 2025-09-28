@@ -21,12 +21,13 @@ class PortfolioManager:
         self.app_config = app_config
         
         # Portfolio state
-        self.state_path = Path(config_manager.config_path).parent.parent / 'logs' / 'state.json'
+        config_path = Path(config_manager.config_path)
+        self.state_path = config_path.parent.parent / 'logs' / 'state.json'
         self.portfolio = self._load_portfolio()
         
         # SQLite persistence store
         try:
-            db_path = Path(config_manager.config_path).parent.parent / 'logs' / 'tracker.db'
+            db_path = config_path.parent.parent / 'logs' / 'tracker.db'
             self.store = SQLiteStore(db_path)
         except Exception:
             self.store = None
@@ -53,7 +54,10 @@ class PortfolioManager:
     def _load_portfolio(self) -> Portfolio:
         """Load portfolio from saved state or create new one."""
         try:
-            return Portfolio.load_state(self.state_path)
+            if self.state_path.exists():
+                return Portfolio.load_state(self.state_path)
+            else:
+                return Portfolio(initial_cash_usd=10000.0)
         except Exception:
             return Portfolio(initial_cash_usd=10000.0)
     

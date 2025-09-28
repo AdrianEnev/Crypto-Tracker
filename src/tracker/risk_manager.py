@@ -34,7 +34,8 @@ class RiskManager:
         
         # Protection state
         self._protection: Dict[str, Any] = {}
-        self._protection_state_path = Path(config_manager.config_path).parent.parent / 'logs' / 'protection_state.json'
+        config_path = Path(config_manager.config_path)
+        self._protection_state_path = config_path.parent.parent / 'logs' / 'protection_state.json'
         
         # Execution limits
         self.max_open_positions: int = 999999
@@ -91,7 +92,7 @@ class RiskManager:
             atr_config = risk_config.get('atr', {})
             if atr_config:
                 self.atr_params = ATRRiskParams(
-                    period=atr_config.get('period', 14),
+                    atr_period=atr_config.get('period', 14),
                     sl_mult=atr_config.get('sl_mult', 1.5),
                     tp_mult=atr_config.get('tp_mult', 3.0),
                     trail_mult=atr_config.get('trail_mult', 2.0)
@@ -103,7 +104,7 @@ class RiskManager:
                 if coin_risk and 'atr' in coin_risk:
                     atr_cfg = coin_risk['atr']
                     self.atr_params_map[coin_id] = ATRRiskParams(
-                        period=atr_cfg.get('period', 14),
+                        atr_period=atr_cfg.get('period', 14),
                         sl_mult=atr_cfg.get('sl_mult', 1.5),
                         tp_mult=atr_cfg.get('tp_mult', 3.0),
                         trail_mult=atr_cfg.get('trail_mult', 2.0)
