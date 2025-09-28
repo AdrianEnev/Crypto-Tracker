@@ -3265,6 +3265,7 @@ if __name__ == "__main__":
     # Get the directory of the current script
     script_dir = Path(__file__).parent
     config_path = script_dir.parent / "config" / "config.yaml"
-    # Initialize and run the tracker
+    # Initialize and run the tracker using the new refactored structure
+    from .tracker.core import CryptoTracker
     tracker = CryptoTracker(str(config_path))
     tracker.run()
