@@ -546,6 +546,27 @@ testing:
     test_secrets_rotation: false
 
 # =============================================================================
+# BACKTESTING CONFIGURATION
+# =============================================================================
+backtest:
+  # Default backtest settings
+  initial_capital: 10000.0
+  commission: 0.001  # 0.1% commission
+  slippage: 0.0005   # 0.05% slippage
+  
+  # Data settings
+  start_date: "2023-01-01"
+  end_date: "2024-01-01"
+  
+  # Strategy settings
+  strategy: "rsi_ema"
+  
+  # Risk management
+  max_position_size: 0.1  # 10% of capital per position
+  stop_loss: 0.02  # 2% stop loss
+  take_profit: 0.04  # 4% take profit
+
+# =============================================================================
 # QUICK START GUIDE FOR SECURITY FEATURES
 # =============================================================================
 
