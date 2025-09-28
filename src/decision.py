@@ -33,6 +33,62 @@ def _build_df_from_history(tracker, coin_id: str) -> Optional[pd.DataFrame]:
     return df
 
 
+def compute_confidence(price: float, threshold: float, rsi: Optional[float], ma_short: Optional[float], ma_long: Optional[float]) -> float:
+    """
+    Backwards-compatible confidence heuristic used by tests and backtests.
+    Rough intuition:
+    - Price below threshold -> bullish bias
+    - RSI oversold (<30) -> stronger bullish bias
+    - Trend filter (MA short > MA long) -> minor boost
+    """
+    try:
+        conf = 0.5
+        if price is not None and threshold is not None and float(price) < float(threshold):
+            conf += 0.2
+        if rsi is not None:
+            r = float(rsi)
+            if r < 30.0:
+                conf += 0.2
+            elif r > 70.0:
+                conf -= 0.1
+        if ma_short is not None and ma_long is not None:
+            if float(ma_short) > float(ma_long):
+                conf += 0.1
+            else:
+                conf -= 0.05
+        return max(0.0, min(1.0, float(conf)))
+    except Exception:
+        return 0.0
+
+
+def recommend_action(price: float, threshold: float, rsi: Optional[float], confidence: float, suggestion_threshold: float = 0.5) -> tuple[str, str, str]:
+    """
+    Backwards-compatible signal/action recommendation used by tests and backtests.
+    Returns (signal, action, reason).
+    """
+    try:
+        signal = "threshold_check"
+        action = "Hold"
+        reason_parts = []
+        if price is not None and threshold is not None and float(price) < float(threshold):
+            reason_parts.append("price<threshold")
+            # Only allow Buy when RSI confirms oversold (<30) AND confidence gate passes
+            if rsi is not None and float(rsi) < 30.0:
+                signal = "threshold_rsi"
+                reason_parts.append("RSI<30")
+                if float(confidence) >= float(suggestion_threshold):
+                    action = "Buy"
+            else:
+                # RSI not oversold -> Hold
+                action = "Hold"
+        else:
+            # Over threshold or missing inputs → Hold
+            action = "Hold"
+        return signal, action, ", ".join(reason_parts) if reason_parts else ""
+    except Exception:
+        return "error", "Hold", "exception"
+
+
 def make_decision(tracker, coin_id: str) -> Decision:
     """
     Orchestrate strategy evaluation for a coin and return a Decision.
