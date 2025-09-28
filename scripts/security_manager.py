@@ -13,13 +13,8 @@ from typing import Optional
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from security import (
-    APIKeyValidator,
-    SecretBackend,
-    SecretsConfigManager,
-    SecretsManagerFactory,
-    SecurityManager,
-)
+# Import after path setup
+from security import SecurityManager, SecretsConfigManager
 from tracker.config_manager import ConfigManager
 
 
@@ -38,9 +33,6 @@ def main():
     store_parser.add_argument("exchange", help="Exchange name")
     store_parser.add_argument("--api-key", help="API key")
     store_parser.add_argument("--secret", help="API secret")
-
-    # List secrets command
-    list_parser = subparsers.add_parser("list", help="List stored secrets")
 
     # Rotate secrets command
     rotate_parser = subparsers.add_parser("rotate", help="Rotate API credentials")

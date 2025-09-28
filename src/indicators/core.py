@@ -75,9 +75,9 @@ def atr(
     trs: List[float] = []
     for i in range(len(high)):
         h = float(high[i])
-        l = float(low[i])
+        low_price = float(low[i])
         c_prev = float(prev_close) if prev_close is not None else float(close[i])
-        tr = max(h - l, abs(h - c_prev), abs(l - c_prev))
+        tr = max(h - low_price, abs(h - c_prev), abs(low_price - c_prev))
         trs.append(tr)
         prev_close = float(close[i])
     # Wilder's ATR
