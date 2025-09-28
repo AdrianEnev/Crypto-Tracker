@@ -1,0 +1,16 @@
+{
+  "model_name": "demo_model",
+  "version": "1.0.0",
+  "model_path": "demo_deployment_registry/models/demo_model/1.0.0/demo_model.pkl",
+  "metadata": {},
+  "created_at": "2025-09-28T18:13:22.394741+00:00",
+  "created_by": "system",
+  "description": "Demo model for deployment",
+  "tags": [],
+  "size_bytes": 35,
+  "checksum": "e22826e658cf08fa49f4277f4a96f4bc",
+  "dependencies": {},
+  "performance_metrics": {},
+  "training_config": {},
+  "validation_metrics": {}
+}
