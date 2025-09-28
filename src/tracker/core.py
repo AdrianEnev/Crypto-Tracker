@@ -17,6 +17,7 @@ from .display_manager import DisplayManager
 from src.notifier import Notifier
 from src.decision import make_decision
 from src.logger import log_event, configure_file_logging, log_decision_csv
+from src.risk import RobustRiskManager
 
 
 class CryptoTracker:
@@ -31,6 +32,13 @@ class CryptoTracker:
         # Initialize core components
         self.portfolio_manager = PortfolioManager(self.config_manager, self.config)
         self.risk_manager = RiskManager(self.config_manager, self.portfolio_manager)
+        
+        # Initialize robust risk manager
+        self.robust_risk_manager = RobustRiskManager(
+            self.config_manager, 
+            self.portfolio_manager
+        )
+        
         self.execution_manager = ExecutionManager(
             self.config_manager, 
             self.portfolio_manager, 
@@ -156,6 +164,17 @@ class CryptoTracker:
         except Exception as ex:
             log_event('coin_price_check_error', {'coin': coin_id, 'error': str(ex)})
     
+    def get_risk_summary(self) -> Dict[str, Any]:
+        """Get comprehensive risk management summary."""
+        try:
+            if not hasattr(self, 'robust_risk_manager') or not self.robust_risk_manager:
+                return {}
+            
+            return self.robust_risk_manager.get_risk_summary()
+        except Exception as e:
+            log_event('risk_summary_error', {'error': str(e)})
+            return {}
+    
     def check_all_prices(self):
         """Check prices for all enabled coins and make trading decisions."""
         try:
@@ -200,7 +219,10 @@ class CryptoTracker:
             equity_now = self.portfolio_manager.calculate_equity(sym_to_price)
             self.portfolio_manager.update_equity_tracking(equity_now)
             
-            # Check exposure limits
+            # Perform robust risk assessment
+            risk_status = self.robust_risk_manager.perform_risk_assessment(sym_to_price)
+            
+            # Check exposure limits (legacy)
             max_exposure_hit, daily_loss_hit = self.portfolio_manager.check_exposure_limits(equity_now)
             
             # Apply testing price offsets if enabled

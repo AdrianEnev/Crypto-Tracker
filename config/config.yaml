@@ -360,3 +360,64 @@ order_manager:
     max_order_size_usd: 10000
     max_daily_orders: 100
     position_size_limit_pct: 0.1  # 10% of portfolio
+
+# Robust Risk Management Configuration
+robust_risk:
+  enabled: true
+  strict_mode: false  # If true, blocks all trading on any violation
+  
+  # Portfolio-level risk limits
+  portfolio_limits:
+    max_exposure_per_coin_pct: 15.0      # Max 15% per coin
+    max_total_exposure_pct: 80.0         # Max 80% total exposure
+    max_open_positions: 8                # Max concurrent positions
+    max_correlation_exposure_pct: 25.0   # Max exposure to correlated assets
+  
+  # Per-trade risk limits
+  per_trade_limits:
+    max_loss_pct_equity: 2.0             # Max 2% equity risk per trade
+    max_position_size_pct: 10.0          # Max 10% of equity per position
+    min_risk_reward_ratio: 1.5           # Minimum R:R ratio
+  
+  # Drawdown limits
+  drawdown_limits:
+    daily_max_drawdown_pct: 5.0          # 5% daily limit
+    weekly_max_drawdown_pct: 12.0        # 12% weekly limit
+    max_drawdown_pct: 20.0               # 20% absolute limit
+    kill_switch_drawdown_pct: 15.0       # Kill switch at 15%
+  
+  # Leverage and margin limits
+  leverage_limits:
+    max_leverage: 3.0                    # Max 3x leverage
+    margin_requirement_buffer: 1.2       # 20% buffer above margin req
+    max_margin_utilization_pct: 75.0     # Max 75% margin used
+  
+  # Funding rate exposure limits
+  funding_rate_limits:
+    max_funding_rate_exposure: 0.01      # Max 1% funding rate cost
+    funding_rate_cost_limit_daily: 0.005 # Max 0.5% daily funding cost
+    perpetual_exposure_limit_pct: 50.0   # Max 50% in perpetuals
+  
+  # Risk monitoring configuration
+  monitoring:
+    risk_check_interval_seconds: 30      # Risk checks every 30s
+    alert_thresholds:
+      exposure_warning_pct: 70.0         # Warn at 70% exposure
+      drawdown_warning_pct: 10.0         # Warn at 10% drawdown
+      leverage_warning_pct: 80.0         # Warn at 80% leverage
+  
+  # Asset correlation matrix (example)
+  correlation_matrix:
+    BTC: {ETH: 0.8, LTC: 0.7, BCH: 0.6}
+    ETH: {BTC: 0.8, DOT: 0.5, LINK: 0.6}
+    LTC: {BTC: 0.7, BCH: 0.8}
+    BCH: {BTC: 0.6, LTC: 0.8}
+    DOT: {ETH: 0.5, LINK: 0.4}
+    LINK: {ETH: 0.6, DOT: 0.4}
+  
+  # Asset categories for group risk management
+  asset_categories:
+    major_crypto: [BTC, ETH, LTC, BCH]
+    altcoins: [DOT, LINK, UNI, AAVE]
+    memecoins: [DOGE, SHIB]
+    stablecoins: [USDT, USDC]
