@@ -84,22 +84,22 @@ def validate_api_key(
     print(f"Safe for Trading: {'✅ YES' if result.is_safe else '❌ NO'}")
 
     if result.warnings:
-        print(f"\n⚠️  Warnings:")
+        print("\n⚠️  Warnings:")
         for warning in result.warnings:
             print(f"  - {warning}")
 
     if result.errors:
-        print(f"\n🚨 Errors:")
+        print("\n🚨 Errors:")
         for error in result.errors:
             print(f"  - {error}")
 
     if result.withdrawal_addresses:
-        print(f"\n💰 Withdrawal Addresses:")
+        print("\n💰 Withdrawal Addresses:")
         for addr in result.withdrawal_addresses:
             print(f"  - {addr}")
 
     if result.ip_whitelist:
-        print(f"\n🌐 IP Whitelist:")
+        print("\n🌐 IP Whitelist:")
         for ip in result.ip_whitelist:
             print(f"  - {ip}")
 
@@ -130,7 +130,7 @@ def list_secrets(secrets_config_manager: SecretsConfigManager):
 
     secrets = secrets_config_manager.secrets_manager.list_secrets()
 
-    print(f"\n🔐 Stored Secrets")
+    print("\n🔐 Stored Secrets")
     print("=" * 30)
 
     if not secrets:

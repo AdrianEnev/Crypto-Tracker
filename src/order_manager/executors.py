@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from .models import Order, OrderRequest, OrderResult, OrderState
+from .models import Order, OrderRequest, OrderResult, OrderState, OrderType
 
 
 class BaseExecutor(ABC):
