@@ -10,9 +10,10 @@ from .monitoring import ModelPerformanceMonitor, PerformanceMetrics, ConceptDrif
 from .optimization import HyperparameterOptimizer, OptimizationConfig, OptimizationResult, BayesianOptimizer, AcquisitionFunction, MultiObjectiveOptimizer, ParetoFront, Objective, CrossValidator, ValidationStrategy, ModelOptimizer, ModelOptimizationConfig, OptimizationObjective
 from .deployment import ModelServer, ServerConfig, InferenceRequest, InferenceResponse, ModelRegistry, ModelVersion, DeploymentStatus, LoadBalancer, LoadBalancingStrategy, HealthCheck, AutoScaler, ScalingPolicy, ScalingRule, ScalingAction, DeploymentManager, DeploymentConfig, DeploymentStrategy, ModelCache, CachePolicy, APIGateway, GatewayConfig, RateLimit, Authentication
 from .observability import Dashboard, DashboardWidget, DashboardConfig, WidgetType, MetricType, AlertManager, AlertRule, AlertChannel, AlertSeverity, AlertStatus, StructuredLogger, LogLevel, LogContext, AuditLogger, MetricsAggregator, MetricsQuery, TimeSeriesData, AggregationType
+from .risk import RiskAssessor, RiskLevel, RiskCategory, RiskEvent, RiskMitigation, ComplianceMonitor, ComplianceRule, ComplianceViolation, ComplianceFramework, BiasDetector, BiasMetric, BiasReport, FairnessConstraint
 
-# Phase 5D.4: Advanced observability and dashboards implemented
-# Risk management and compliance monitoring will be added next
+# Phase 5D.5: Risk management and compliance monitoring implemented
+# Phase 5D is now complete with comprehensive ML observability and risk management
 
 __all__ = [
     'FeaturePipeline', 'TechnicalFeatures', 'OnChainFeatures',
@@ -26,5 +27,7 @@ __all__ = [
     'LoadBalancer', 'LoadBalancingStrategy', 'HealthCheck', 'AutoScaler', 'ScalingPolicy', 'ScalingRule', 'ScalingAction',
     'DeploymentManager', 'DeploymentConfig', 'DeploymentStrategy', 'ModelCache', 'CachePolicy', 'APIGateway', 'GatewayConfig', 'RateLimit', 'Authentication',
     'Dashboard', 'DashboardWidget', 'DashboardConfig', 'WidgetType', 'MetricType', 'AlertManager', 'AlertRule', 'AlertChannel', 'AlertSeverity', 'AlertStatus',
-    'StructuredLogger', 'LogLevel', 'LogContext', 'AuditLogger', 'MetricsAggregator', 'MetricsQuery', 'TimeSeriesData', 'AggregationType'
+    'StructuredLogger', 'LogLevel', 'LogContext', 'AuditLogger', 'MetricsAggregator', 'MetricsQuery', 'TimeSeriesData', 'AggregationType',
+    'RiskAssessor', 'RiskLevel', 'RiskCategory', 'RiskEvent', 'RiskMitigation', 'ComplianceMonitor', 'ComplianceRule', 'ComplianceViolation', 'ComplianceFramework',
+    'BiasDetector', 'BiasMetric', 'BiasReport', 'FairnessConstraint'
 ]
