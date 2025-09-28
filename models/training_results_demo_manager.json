@@ -1,0 +1,124 @@
+{
+  "strategies": {
+    "volatility_strategy_1": {
+      "regime_detector": {
+        "metrics": {
+          "silhouette_score": 0.4360615333089438,
+          "calinski_harabasz_score": 102.20141999140075,
+          "davies_bouldin_score": 1.5009225603003589
+        },
+        "hyperparameters": {
+          "algorithm": "viterbi",
+          "covariance_type": "full",
+          "covars_prior": 0.01,
+          "covars_weight": 1,
+          "implementation": "log",
+          "init_params": "stmc",
+          "means_prior": 0,
+          "means_weight": 0,
+          "min_covar": 0.001,
+          "n_components": 3,
+          "n_iter": 100,
+          "params": "stmc",
+          "random_state": 42,
+          "startprob_prior": 1.0,
+          "tol": 0.01,
+          "transmat_prior": 1.0,
+          "verbose": false
+        },
+        "n_regimes": 3,
+        "regime_labels": {
+          "0": {
+            "name": "high_volatility",
+            "stats": {
+              "count": "41",
+              "percentage": 14.642857142857144,
+              "avg_volatility": 0.03989789264653954,
+              "vol_std": 0.015972615458809968
+            }
+          },
+          "1": {
+            "name": "high_volatility",
+            "stats": {
+              "count": "36",
+              "percentage": 12.857142857142856,
+              "avg_volatility": 0.06432682067036993,
+              "vol_std": 0.008628901998108056
+            }
+          },
+          "2": {
+            "name": "medium_volatility",
+            "stats": {
+              "count": "203",
+              "percentage": 72.5,
+              "avg_volatility": 0.019018914525232265,
+              "vol_std": 0.0022990801168254614
+            }
+          }
+        }
+      }
+    },
+    "volatility_strategy_2": {
+      "regime_detector": {
+        "metrics": {
+          "silhouette_score": 0.4360615333089438,
+          "calinski_harabasz_score": 102.20141999140075,
+          "davies_bouldin_score": 1.5009225603003589
+        },
+        "hyperparameters": {
+          "algorithm": "viterbi",
+          "covariance_type": "full",
+          "covars_prior": 0.01,
+          "covars_weight": 1,
+          "implementation": "log",
+          "init_params": "stmc",
+          "means_prior": 0,
+          "means_weight": 0,
+          "min_covar": 0.001,
+          "n_components": 3,
+          "n_iter": 100,
+          "params": "stmc",
+          "random_state": 42,
+          "startprob_prior": 1.0,
+          "tol": 0.01,
+          "transmat_prior": 1.0,
+          "verbose": false
+        },
+        "n_regimes": 3,
+        "regime_labels": {
+          "0": {
+            "name": "high_volatility",
+            "stats": {
+              "count": "41",
+              "percentage": 14.642857142857144,
+              "avg_volatility": 0.03989789264653954,
+              "vol_std": 0.015972615458809968
+            }
+          },
+          "1": {
+            "name": "high_volatility",
+            "stats": {
+              "count": "36",
+              "percentage": 12.857142857142856,
+              "avg_volatility": 0.06432682067036993,
+              "vol_std": 0.008628901998108056
+            }
+          },
+          "2": {
+            "name": "medium_volatility",
+            "stats": {
+              "count": "203",
+              "percentage": 72.5,
+              "avg_volatility": 0.019018914525232265,
+              "vol_std": 0.0022990801168254614
+            }
+          }
+        }
+      }
+    }
+  },
+  "ensembles": {},
+  "training_timestamp": "2025-09-28T17:30:25.364633+00:00",
+  "training_periods": 300,
+  "validation_periods": 100
+}
