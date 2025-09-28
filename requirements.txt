@@ -6,3 +6,7 @@ rich==13.7.0  # For pretty console output
 ccxt==4.3.42
 pandas==2.2.2  # Cryptocurrency exchange trading library
 pytest>=7.4
+cryptography>=41.0.0  # For encrypted secrets storage
+hvac>=2.0.0  # HashiCorp Vault client (optional)
+boto3>=1.26.0  # AWS Secrets Manager (optional)
+google-cloud-secret-manager>=2.16.0  # GCP Secret Manager (optional)
