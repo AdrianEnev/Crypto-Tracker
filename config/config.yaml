@@ -177,6 +177,48 @@ risk:
     tp_mult: 3.0
     trail_mult: 2.0
 ui:
+  # Display mode: 'minimal', 'standard', 'detailed', 'verbose'
+  display_mode: 'standard'
+  
+  # What to show in the main display
+  show_indicators: true          # Show RSI, EMA values
+  show_market_structure: false   # Show HH/HL analysis
+  show_mtf_confirmation: false   # Show multi-timeframe confirmation
+  show_adaptive_baseline: false  # Show adaptive threshold calculations
+  show_oco_details: false        # Show stop-loss/take-profit placement
+  show_vol_gate_status: true     # Show volatility gate status
+  show_regime_filter: true       # Show regime filter status
+  
+  # Decision display options
+  decision_display:
+    show_confidence: true        # Show confidence levels
+    show_reasoning: true         # Show decision reasoning
+    show_strategy_details: false # Show detailed strategy analysis
+    max_reason_length: 100       # Max characters for reason display
+  
+  # Table display options
+  table_display:
+    enabled: true                # Enable table display (false = line-by-line format)
+    show_portfolio_summary: true # Show portfolio summary
+    show_risk_summary: true      # Show risk management info
+    show_execution_status: true  # Show execution system status
+    compact_mode: false          # Use compact table layout
+    show_pnl_details: true       # Show P&L information
+    table_format: 'standard'     # 'standard' or 'per_coin' - display format
+  
+  # Logging and output
+  output:
+    log_level: 'info'            # 'debug', 'info', 'warning', 'error'
+    show_timestamps: false       # Show timestamps in console output
+    color_output: true           # Use colored output
+    progress_bars: true          # Show progress bars for long operations
+  
+  # Refresh and update intervals
+  refresh:
+    status_table_interval: 60    # Seconds between status table updates
+    decision_display_interval: 5 # Seconds between decision updates
+    portfolio_summary_interval: 300 # Seconds between portfolio summaries
+  
   price_format:
     thresholds:
     - 1.0

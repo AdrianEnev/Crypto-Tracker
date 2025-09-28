@@ -1,0 +1,56 @@
+# Line-by-Line Display Configuration
+# This configuration displays decisions in the original line-by-line format without tables
+
+ui:
+  # Display mode: 'minimal', 'standard', 'detailed', 'verbose'
+  display_mode: 'standard'
+  
+  # What to show in the main display
+  show_indicators: false         # Hide RSI, EMA values
+  show_market_structure: false   # Hide HH/HL analysis
+  show_mtf_confirmation: false   # Hide multi-timeframe confirmation
+  show_adaptive_baseline: false  # Hide adaptive threshold calculations
+  show_oco_details: false        # Hide stop-loss/take-profit placement
+  show_vol_gate_status: false    # Hide volatility gate status
+  show_regime_filter: false      # Hide regime filter status
+  
+  # Decision display options
+  decision_display:
+    show_confidence: true        # Show confidence levels
+    show_reasoning: true         # Show decision reasoning
+    show_strategy_details: false # Hide detailed strategy analysis
+    max_reason_length: 100       # Max characters for reason display
+  
+  # Table display options
+  table_display:
+    enabled: false               # Disable table display (use line-by-line format)
+    show_portfolio_summary: false # Hide portfolio summary
+    show_risk_summary: false      # Hide risk management info
+    show_execution_status: false  # Hide execution system status
+    compact_mode: false          # Use full table layout (not applicable when disabled)
+    show_pnl_details: false       # Hide P&L information
+    table_format: 'standard'     # Not applicable when disabled
+  
+  # Logging and output
+  output:
+    log_level: 'info'            # Show info, warnings, and errors
+    show_timestamps: false       # Hide timestamps in console output
+    color_output: true           # Use colored output
+    progress_bars: false         # Hide progress bars
+  
+  # Refresh and update intervals
+  refresh:
+    status_table_interval: 60    # Not applicable when tables disabled
+    decision_display_interval: 5 # Seconds between decision updates
+    portfolio_summary_interval: 300 # Not applicable when portfolio summary disabled
+  
+  price_format:
+    thresholds:
+    - 1.0
+    - 0.1
+    - 0.01
+    precisions:
+    - 2
+    - 4
+    - 6
+    - 8
