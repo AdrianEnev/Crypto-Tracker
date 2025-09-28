@@ -1,6 +1,7 @@
 import sqlite3
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 
 def generate_reports(db_path: Path, output_dir: Path):

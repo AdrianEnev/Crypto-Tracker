@@ -6,15 +6,17 @@ slicing large orders into smaller pieces executed over time.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
-import time
+
 import logging
+import time
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
 import schedule
 
-from .models import Order, OrderRequest, OrderType, OrderState
 from .executors import BaseExecutor
+from .models import Order, OrderRequest, OrderState, OrderType
 
 
 @dataclass

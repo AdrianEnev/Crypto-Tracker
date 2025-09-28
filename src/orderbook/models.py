@@ -5,11 +5,12 @@ Defines data structures for order book management, replay, and simulation.
 """
 
 from __future__ import annotations
+
+import json
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
-from datetime import datetime
-import json
 
 
 class OrderBookEventType(Enum):

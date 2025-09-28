@@ -6,8 +6,9 @@ throughout the order lifecycle.
 """
 
 from __future__ import annotations
-from typing import Dict, Set, Optional
+
 from datetime import datetime, timezone
+from typing import Dict, Optional, Set
 
 from .models import Order, OrderState, OrderValidationError
 

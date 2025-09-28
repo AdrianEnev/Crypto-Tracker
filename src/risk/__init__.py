@@ -5,6 +5,7 @@ Provides comprehensive risk controls and portfolio protection.
 
 # Legacy risk management components (moved from src/risk.py)
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -57,21 +58,22 @@ def compute_trailing_stop_atr(
     return round(lvl, 6)
 
 
-# Import new robust risk management components
-from .robust_manager import RobustRiskManager
+from .drawdown_manager import DrawdownManager
+from .exposure_tracker import ExposureTracker
+from .kill_switch import KillSwitch
 from .models import (
+    DrawdownLimits,
+    FundingRateLimits,
+    LeverageLimits,
+    RiskCheckResult,
     RiskConfig,
     RiskLimits,
-    DrawdownLimits,
-    LeverageLimits,
-    FundingRateLimits,
     RiskViolation,
     RiskViolationType,
-    RiskCheckResult,
 )
-from .exposure_tracker import ExposureTracker
-from .drawdown_manager import DrawdownManager
-from .kill_switch import KillSwitch
+
+# Import new robust risk management components
+from .robust_manager import RobustRiskManager
 
 __all__ = [
     # Legacy components

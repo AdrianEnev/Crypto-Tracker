@@ -2,11 +2,11 @@
 Parameter evaluation for backtest optimization.
 """
 
-from dataclasses import dataclass
-from typing import Dict, List, Any, Optional, Tuple
 import os
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
-from ..engine import simulate_on_series, ATRRiskParams
+from ..engine import ATRRiskParams, simulate_on_series
 
 
 @dataclass

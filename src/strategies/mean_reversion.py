@@ -1,6 +1,8 @@
 import pandas as pd
+
+from src.indicators.core import bollinger, rsi
+
 from .base import BaseStrategy
-from src.indicators.core import rsi, bollinger
 
 
 class MeanReversionStrategy(BaseStrategy):

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Dict, List, Optional, Tuple
 
 # Lightweight scaffolding for cross-exchange arbitrage checks.

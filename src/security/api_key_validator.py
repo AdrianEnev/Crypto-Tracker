@@ -5,11 +5,12 @@ Validates API key permissions and safety controls before trading operations.
 """
 
 from __future__ import annotations
+
+import logging
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set
 from datetime import datetime, timezone
 from enum import Enum
-import logging
+from typing import Dict, List, Optional, Set
 
 # Conditional import for ccxt
 try:

@@ -6,18 +6,19 @@ This provides the most realistic slippage estimation for market orders.
 """
 
 from __future__ import annotations
-from typing import Optional, List, Tuple
+
 import math
+from typing import List, Optional, Tuple
 
 from .models import (
-    SlippageResult,
-    SlippageContext,
-    MarketDepth,
-    SlippageType,
-    MarketCondition,
-    SlippageCalculationError,
     InsufficientLiquidityError,
     InvalidOrderBookError,
+    MarketCondition,
+    MarketDepth,
+    SlippageCalculationError,
+    SlippageContext,
+    SlippageResult,
+    SlippageType,
 )
 
 

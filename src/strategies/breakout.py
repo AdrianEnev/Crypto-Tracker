@@ -1,7 +1,10 @@
-import pandas as pd
-from .base import BaseStrategy
-from src.indicators.core import bollinger, rolling_mean
 from typing import List, Optional
+
+import pandas as pd
+
+from src.indicators.core import bollinger, rolling_mean
+
+from .base import BaseStrategy
 
 
 def _rolling_percentile(

@@ -6,19 +6,20 @@ exchange, order type, volume tiers, and asset-specific rules.
 """
 
 from __future__ import annotations
-from typing import Optional, Dict, Any
-from datetime import datetime
 
+from datetime import datetime
+from typing import Any, Dict, Optional
+
+from .exchange_fees import get_exchange_fees
 from .models import (
     FeeBreakdown,
-    FeeType,
-    FeeCalculationMode,
-    OrderFeeContext,
     FeeCalculationError,
-    UnsupportedExchangeError,
+    FeeCalculationMode,
+    FeeType,
+    OrderFeeContext,
     UnsupportedAssetError,
+    UnsupportedExchangeError,
 )
-from .exchange_fees import get_exchange_fees
 
 
 class FeeCalculator:

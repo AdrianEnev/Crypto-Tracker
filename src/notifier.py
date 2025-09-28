@@ -1,10 +1,12 @@
+import json
+import os
+from typing import Dict, Optional
+
+import requests
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
-from typing import Dict, Optional
-import os
-import json
-import requests
+
 from .slack_adapter import SlackAdapter
 
 console = Console()

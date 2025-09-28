@@ -1,8 +1,9 @@
 import os
-import requests
-import time
 import random
+import time
 from typing import Dict, Optional
+
+import requests
 from rich.console import Console
 
 console = Console()

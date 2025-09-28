@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 import types
 
 import pytest
 
-from src.decision import make_decision
 from src.data.ohlcv import Candle
+from src.decision import make_decision
 
 
 class FakeTracker:

@@ -5,12 +5,13 @@ Replays historical order book data for realistic backtesting and simulation.
 """
 
 from __future__ import annotations
-from typing import Iterator, Optional, Dict, List, Callable, Any
-from datetime import datetime, timedelta
+
 import asyncio
 import time
+from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, Iterator, List, Optional
 
-from .models import OrderBookSnapshot, OrderBookEvent, OrderBookEventType, OrderBookState
+from .models import OrderBookEvent, OrderBookEventType, OrderBookSnapshot, OrderBookState
 from .storage import OrderBookStorage
 
 

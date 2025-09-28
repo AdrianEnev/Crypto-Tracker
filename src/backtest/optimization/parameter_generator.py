@@ -2,8 +2,8 @@
 Parameter generation for backtest optimization.
 """
 
-from typing import Dict, List, Any, Iterator
 from itertools import product
+from typing import Any, Dict, Iterator, List
 
 
 class ParameterGenerator:

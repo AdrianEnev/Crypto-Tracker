@@ -6,14 +6,15 @@ error classification, and circuit breaker patterns.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Callable, Any
-from datetime import datetime, timedelta
-import time
-import random
-import logging
 
-from .models import Order, OrderResult, ExchangeError, MaxRetriesExceededError
+import logging
+import random
+import time
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, List, Optional
+
+from .models import ExchangeError, MaxRetriesExceededError, Order, OrderResult
 
 
 @dataclass

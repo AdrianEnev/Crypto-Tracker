@@ -6,15 +6,16 @@ and market activity. This model is useful when order book data is not available.
 """
 
 from __future__ import annotations
-from typing import Optional, Dict, List, Tuple
+
 import math
+from typing import Dict, List, Optional, Tuple
 
 from .models import (
-    SlippageResult,
-    SlippageContext,
-    SlippageType,
     MarketCondition,
     SlippageCalculationError,
+    SlippageContext,
+    SlippageResult,
+    SlippageType,
 )
 
 

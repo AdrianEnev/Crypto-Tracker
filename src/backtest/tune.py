@@ -1,12 +1,14 @@
 from __future__ import annotations
+
 import argparse
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
 import yaml
 
-from .engine import simulate_coin
 from ..risk import ATRRiskParams
+from .engine import simulate_coin
 
 
 def grid(values):

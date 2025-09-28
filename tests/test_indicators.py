@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 import math
 
-from src.indicators.core import rsi, ema, sma, atr, bollinger, rolling_mean
+from src.indicators.core import atr, bollinger, ema, rolling_mean, rsi, sma
 
 
 def test_rsi_basic():

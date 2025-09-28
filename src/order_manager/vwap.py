@@ -6,14 +6,15 @@ slicing orders based on market volume patterns.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime, timedelta
+
 import logging
 import time
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
 
-from .models import Order, OrderRequest, OrderType, OrderState
 from .executors import BaseExecutor
+from .models import Order, OrderRequest, OrderState, OrderType
 
 
 @dataclass

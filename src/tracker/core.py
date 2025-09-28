@@ -3,21 +3,23 @@ Core crypto tracker orchestration.
 Main class that coordinates all components of the trading system.
 """
 
-import schedule
 import time
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+import schedule
+
+from src.decision import make_decision
+from src.logger import configure_file_logging, log_decision_csv, log_event
+from src.notifier import Notifier
+from src.risk import RobustRiskManager
 
 from .config_manager import ConfigManager
-from .price_manager import PriceManager
-from .portfolio_manager import PortfolioManager
-from .risk_manager import RiskManager
-from .execution_manager import ExecutionManager
 from .display_manager import DisplayManager
-from src.notifier import Notifier
-from src.decision import make_decision
-from src.logger import log_event, configure_file_logging, log_decision_csv
-from src.risk import RobustRiskManager
+from .execution_manager import ExecutionManager
+from .portfolio_manager import PortfolioManager
+from .price_manager import PriceManager
+from .risk_manager import RiskManager
 
 
 class CryptoTracker:

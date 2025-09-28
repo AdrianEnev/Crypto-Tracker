@@ -6,31 +6,32 @@ order models, state machine, executors, routing, retry logic,
 cancellation, reconciliation, and integration.
 """
 
-import pytest
 import time
 from datetime import datetime, timedelta
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 from src.order_manager import (
+    MaxRetriesExceededError,
     OrderManager,
     OrderManagerConfig,
+    OrderNotFoundError,
     OrderRequest,
-    OrderType,
     OrderState,
-    TimeInForce,
+    OrderType,
+    OrderValidationError,
     RetryConfig,
+    TimeInForce,
     TWAPConfig,
     VWAPConfig,
-    OrderValidationError,
-    OrderNotFoundError,
-    MaxRetriesExceededError,
 )
-from src.order_manager.executors import EnhancedPaperExecutor, BaseExecutor
-from src.order_manager.state_machine import OrderStateMachine
-from src.order_manager.routing import SmartOrderRouter
-from src.order_manager.retry import OrderRetryManager, CircuitBreaker
 from src.order_manager.cancellation import OrderCancellationManager
+from src.order_manager.executors import BaseExecutor, EnhancedPaperExecutor
 from src.order_manager.reconciliation import OrderReconciler
+from src.order_manager.retry import CircuitBreaker, OrderRetryManager
+from src.order_manager.routing import SmartOrderRouter
+from src.order_manager.state_machine import OrderStateMachine
 from src.order_manager.twap import TWAPSlicer
 from src.order_manager.vwap import VWAPSlicer
 

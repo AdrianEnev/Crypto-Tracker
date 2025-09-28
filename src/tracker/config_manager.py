@@ -4,9 +4,10 @@ Handles loading and validation of configuration settings.
 """
 
 import os
-import yaml
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
+import yaml
 from dotenv import load_dotenv
 
 from src.models import AppConfig, CoinConfig

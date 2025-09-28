@@ -4,14 +4,15 @@ Main optimization runner for backtest optimization.
 
 import csv
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
+
 from rich.console import Console
 from rich.progress import track
 
 from .config_loader import ConfigLoader
 from .data_fetcher import DataFetcher
+from .evaluator import EvalResult, ParameterEvaluator
 from .parameter_generator import ParameterGenerator
-from .evaluator import ParameterEvaluator, EvalResult
 
 
 class OptimizationRunner:

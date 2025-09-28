@@ -1,7 +1,8 @@
-import websocket
 import json
 import threading
 from typing import Dict, List
+
+import websocket
 
 
 class WebSocketPriceFetcher:

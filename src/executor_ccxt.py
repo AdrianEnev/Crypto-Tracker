@@ -78,7 +78,8 @@ class CCXTLiveExecutor:
             return False
 
     def _retry(self, fn, endpoint: str, *args, **kwargs):
-        import random, time
+        import random
+        import time
 
         attempts = 0
         last_exc = None

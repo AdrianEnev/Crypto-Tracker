@@ -3,10 +3,12 @@ Data fetching for backtest optimization.
 """
 
 import os
-from typing import Dict, Any, Optional, Tuple, List
-from .config_loader import ConfigLoader
-from src.data.ohlcv import get_candles
+from typing import Any, Dict, List, Optional, Tuple
+
 from src.data.ccxt_ohlcv import get_candles_ccxt
+from src.data.ohlcv import get_candles
+
+from .config_loader import ConfigLoader
 
 
 class DataFetcher:

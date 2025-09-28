@@ -6,15 +6,16 @@ for historical replay and analysis.
 """
 
 from __future__ import annotations
-from typing import Dict, List, Optional, Iterator, Tuple
-from datetime import datetime, timedelta
-from pathlib import Path
-import json
+
 import gzip
+import json
 import sqlite3
 from dataclasses import asdict
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Dict, Iterator, List, Optional, Tuple
 
-from .models import OrderBookSnapshot, OrderBookEvent, OrderBookMetrics
+from .models import OrderBookEvent, OrderBookMetrics, OrderBookSnapshot
 
 
 class OrderBookStorage:

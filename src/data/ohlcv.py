@@ -1,11 +1,12 @@
 from __future__ import annotations
-import time
+
 import json
 import math
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
 
 import requests
 
