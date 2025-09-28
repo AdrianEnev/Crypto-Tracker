@@ -152,11 +152,13 @@ class OrderBookSnapshot:
         """Initialize bid/ask depths if not provided."""
         if isinstance(self.bids, list):
             self.bids = BidDepth([OrderLevel(price, qty) for price, qty in self.bids])
+            self.bids.sort_levels()
         elif not isinstance(self.bids, BidDepth):
             self.bids = BidDepth()
 
         if isinstance(self.asks, list):
             self.asks = AskDepth([OrderLevel(price, qty) for price, qty in self.asks])
+            self.asks.sort_levels()
         elif not isinstance(self.asks, AskDepth):
             self.asks = AskDepth()
 
