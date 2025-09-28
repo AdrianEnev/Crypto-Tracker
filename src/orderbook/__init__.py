@@ -15,11 +15,13 @@ from .models import (
     OrderBookMetrics,
     OrderBookEventType,
     BidDepth,
-    AskDepth
+    AskDepth,
 )
+
 # Note: OrderBookFetcher requires ccxt, so we'll import it conditionally
 try:
     from .fetcher import OrderBookFetcher, MultiExchangeOrderBookFetcher
+
     FETCHER_AVAILABLE = True
 except ImportError:
     FETCHER_AVAILABLE = False
@@ -31,25 +33,25 @@ from .replay_engine import OrderBookReplayEngine
 from .simulator import OrderBookSimulator, SimulatedOrder, SimulatedFill
 
 __all__ = [
-    'OrderBookSnapshot',
-    'OrderLevel',
-    'MarketDepth',
-    'OrderBookEvent',
-    'FillResult',
-    'OrderBookState',
-    'OrderBookMetrics',
-    'OrderBookEventType',
-    'BidDepth',
-    'AskDepth',
-    'OrderBookStorage',
-    'JSONLOrderBookStorage',
-    'SQLiteOrderBookStorage',
-    'OrderBookReplayEngine',
-    'OrderBookSimulator',
-    'SimulatedOrder',
-    'SimulatedFill',
-    'FETCHER_AVAILABLE'
+    "OrderBookSnapshot",
+    "OrderLevel",
+    "MarketDepth",
+    "OrderBookEvent",
+    "FillResult",
+    "OrderBookState",
+    "OrderBookMetrics",
+    "OrderBookEventType",
+    "BidDepth",
+    "AskDepth",
+    "OrderBookStorage",
+    "JSONLOrderBookStorage",
+    "SQLiteOrderBookStorage",
+    "OrderBookReplayEngine",
+    "OrderBookSimulator",
+    "SimulatedOrder",
+    "SimulatedFill",
+    "FETCHER_AVAILABLE",
 ]
 
 if FETCHER_AVAILABLE:
-    __all__.extend(['OrderBookFetcher', 'MultiExchangeOrderBookFetcher'])
+    __all__.extend(["OrderBookFetcher", "MultiExchangeOrderBookFetcher"])

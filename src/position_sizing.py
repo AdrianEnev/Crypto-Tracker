@@ -36,7 +36,11 @@ def compute_size_usd(
             return float(min_size_usd) if (min_size_usd is not None) else 0.0
         units = risk_budget / dollar_risk_per_unit
         size_usd = units * float(entry_price)
-        size_usd = _clamp(size_usd, float(min_size_usd) if min_size_usd is not None else None, float(max_size_usd) if max_size_usd is not None else None)
+        size_usd = _clamp(
+            size_usd,
+            float(min_size_usd) if min_size_usd is not None else None,
+            float(max_size_usd) if max_size_usd is not None else None,
+        )
         return round(size_usd, 2)
     except Exception:
         return float(min_size_usd) if (min_size_usd is not None) else 0.0

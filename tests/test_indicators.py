@@ -19,7 +19,7 @@ def test_ema_monotonicity():
     # EMA should be strictly increasing for strictly increasing series
     # Filter out None values before comparison
     valid_values = [val for val in e if val is not None]
-    assert all(valid_values[i] >= valid_values[i-1] for i in range(1, len(valid_values)))
+    assert all(valid_values[i] >= valid_values[i - 1] for i in range(1, len(valid_values)))
 
 
 def test_atr_nonnegative():

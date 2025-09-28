@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from src.risk import RiskParams, compute_stop_levels, compute_trailing_stop, ATRRiskParams, compute_stop_levels_atr, compute_trailing_stop_atr
+from src.risk import (
+    RiskParams,
+    compute_stop_levels,
+    compute_trailing_stop,
+    ATRRiskParams,
+    compute_stop_levels_atr,
+    compute_trailing_stop_atr,
+)
 
 
 def test_percent_stops():

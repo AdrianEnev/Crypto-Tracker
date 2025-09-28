@@ -7,6 +7,7 @@ from rich.console import Console
 
 console = Console()
 
+
 class PriceFetcher:
     def __init__(self, base_url: str, timeout: int = 10):
         self.base_url = base_url
@@ -27,12 +28,12 @@ class PriceFetcher:
             except requests.RequestException as e:
                 last_exc = e
                 if attempt < self.max_retries:
-                    sleep_s = self.backoff_base * (2 ** attempt) + random.uniform(0, 0.2)
+                    sleep_s = self.backoff_base * (2**attempt) + random.uniform(0, 0.2)
                     time.sleep(sleep_s)
                 else:
                     break
         raise last_exc
-        
+
     def get_prices_by_symbols(self, id_to_symbol: Dict[str, str]) -> Dict[str, Optional[float]]:
         """Fetch current USD prices for the given mapping of coin IDs to symbols.
 
@@ -47,25 +48,22 @@ class PriceFetcher:
         missing_key_result = {cid: None for cid in id_to_symbol.keys()}
 
         if not self.api_key:
-            console.print("[red]COINMARKETCAP_API_KEY is not set. Please set it in .env file in project root[/red]")
+            console.print(
+                "[red]COINMARKETCAP_API_KEY is not set. Please set it in .env file in project root[/red]"
+            )
             return missing_key_result
 
         try:
             # Build symbols comma-separated, CoinMarketCap expects uppercase symbols
             symbols = ",".join(sorted({sym.upper() for sym in id_to_symbol.values()}))
             url = f"{self.base_url}/v2/cryptocurrency/quotes/latest"
-            headers = {
-                'X-CMC_PRO_API_KEY': self.api_key
-            }
-            params = {
-                'symbol': symbols,
-                'convert': 'USD'
-            }
+            headers = {"X-CMC_PRO_API_KEY": self.api_key}
+            params = {"symbol": symbols, "convert": "USD"}
             response = self._request_with_retries(url, headers, params)
             data = response.json()
 
             # Data shape: { 'data': { 'BTC': [{...}], 'ETH': [{...}], ... } }
-            quotes = data.get('data', {})
+            quotes = data.get("data", {})
             out: Dict[str, Optional[float]] = {}
             for cid, sym in id_to_symbol.items():
                 sym_up = sym.upper()
@@ -73,12 +71,12 @@ class PriceFetcher:
                 price = None
                 if isinstance(entry, list) and entry:
                     # Some plans return a list with one dict
-                    quote = entry[0].get('quote', {}).get('USD', {})
-                    price = quote.get('price')
+                    quote = entry[0].get("quote", {}).get("USD", {})
+                    price = quote.get("price")
                 elif isinstance(entry, dict):
                     # Some responses may return a dict directly
-                    quote = entry.get('quote', {}).get('USD', {})
-                    price = quote.get('price')
+                    quote = entry.get("quote", {}).get("USD", {})
+                    price = quote.get("price")
                 out[cid] = price
             return out
 

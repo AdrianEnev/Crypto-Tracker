@@ -22,7 +22,9 @@ class ModelLoader:
         return None
 
 
-def predict_move(features: Dict[str, Any], min_score: float = 0.5, model: Optional[ModelLoader] = None) -> Optional[float]:
+def predict_move(
+    features: Dict[str, Any], min_score: float = 0.5, model: Optional[ModelLoader] = None
+) -> Optional[float]:
     """
     Return a score (0..1) for upward move; None if model/score unavailable.
     """

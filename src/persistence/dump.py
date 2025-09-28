@@ -5,7 +5,7 @@ import sqlite3
 from pathlib import Path
 from typing import Optional
 
-DEFAULT_DB = Path(__file__).resolve().parents[2] / 'logs' / 'tracker.db'
+DEFAULT_DB = Path(__file__).resolve().parents[2] / "logs" / "tracker.db"
 
 
 def dump_table(conn: sqlite3.Connection, table: str, limit: int) -> None:
@@ -14,7 +14,7 @@ def dump_table(conn: sqlite3.Connection, table: str, limit: int) -> None:
     if table not in {"orders", "trades", "equity"}:
         print(f"Unknown table '{table}'. Use one of: orders, trades, equity")
         return
-    
+
     # Use parameterized query with table name validation
     # Table name is validated against whitelist above, so this is safe
     query = f"SELECT * FROM {table} ORDER BY id DESC LIMIT ?"  # nosec B608
@@ -34,7 +34,9 @@ def main():
     ap = argparse.ArgumentParser(description="Dump recent rows from SQLite store")
     ap.add_argument("--db", type=str, default=str(DEFAULT_DB), help="Path to tracker.db")
     ap.add_argument("--last", type=int, default=20, help="How many recent rows to show")
-    ap.add_argument("--table", type=str, default="orders", help="Table to dump: orders|trades|equity")
+    ap.add_argument(
+        "--table", type=str, default="orders", help="Table to dump: orders|trades|equity"
+    )
     args = ap.parse_args()
 
     db_path = Path(args.db)

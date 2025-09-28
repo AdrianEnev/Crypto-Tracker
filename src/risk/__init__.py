@@ -36,7 +36,9 @@ class ATRRiskParams:
     trail_mult: float = 2.0
 
 
-def compute_stop_levels_atr(entry_price: float, atr_value: Optional[float], atr_params: ATRRiskParams) -> tuple[Optional[float], Optional[float]]:
+def compute_stop_levels_atr(
+    entry_price: float, atr_value: Optional[float], atr_params: ATRRiskParams
+) -> tuple[Optional[float], Optional[float]]:
     """ATR-based stops and targets. Returns (sl, tp) or (None, None) if ATR missing."""
     if atr_value is None or atr_value <= 0:
         return None, None
@@ -45,7 +47,9 @@ def compute_stop_levels_atr(entry_price: float, atr_value: Optional[float], atr_
     return round(sl, 6), round(tp, 6)
 
 
-def compute_trailing_stop_atr(peak_price: float, atr_value: Optional[float], atr_params: ATRRiskParams) -> Optional[float]:
+def compute_trailing_stop_atr(
+    peak_price: float, atr_value: Optional[float], atr_params: ATRRiskParams
+) -> Optional[float]:
     """ATR-based trailing: peak - k*ATR. Returns None if ATR missing."""
     if atr_value is None or atr_value <= 0:
         return None
@@ -63,7 +67,7 @@ from .models import (
     FundingRateLimits,
     RiskViolation,
     RiskViolationType,
-    RiskCheckResult
+    RiskCheckResult,
 )
 from .exposure_tracker import ExposureTracker
 from .drawdown_manager import DrawdownManager
@@ -71,23 +75,23 @@ from .kill_switch import KillSwitch
 
 __all__ = [
     # Legacy components
-    'RiskParams',
-    'ATRRiskParams',
-    'compute_stop_levels',
-    'compute_trailing_stop',
-    'compute_stop_levels_atr',
-    'compute_trailing_stop_atr',
+    "RiskParams",
+    "ATRRiskParams",
+    "compute_stop_levels",
+    "compute_trailing_stop",
+    "compute_stop_levels_atr",
+    "compute_trailing_stop_atr",
     # New robust components
-    'RobustRiskManager',
-    'RiskConfig',
-    'RiskLimits', 
-    'DrawdownLimits',
-    'LeverageLimits',
-    'FundingRateLimits',
-    'RiskViolation',
-    'RiskViolationType',
-    'RiskCheckResult',
-    'ExposureTracker',
-    'DrawdownManager',
-    'KillSwitch'
+    "RobustRiskManager",
+    "RiskConfig",
+    "RiskLimits",
+    "DrawdownLimits",
+    "LeverageLimits",
+    "FundingRateLimits",
+    "RiskViolation",
+    "RiskViolationType",
+    "RiskCheckResult",
+    "ExposureTracker",
+    "DrawdownManager",
+    "KillSwitch",
 ]

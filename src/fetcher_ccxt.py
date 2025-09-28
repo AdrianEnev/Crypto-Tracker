@@ -15,9 +15,11 @@ class CCXTPriceFetcher:
         self.exchange_name = exchange_name
         self.symbol_to_market = symbol_to_market
         ex_cls = getattr(ccxt, exchange_name)
-        self.ex = ex_cls({
-            "enableRateLimit": True,
-        })
+        self.ex = ex_cls(
+            {
+                "enableRateLimit": True,
+            }
+        )
 
     def get_prices_by_symbols(self, id_to_symbol: Dict[str, str]) -> Dict[str, Optional[float]]:
         out: Dict[str, Optional[float]] = {}
@@ -25,7 +27,12 @@ class CCXTPriceFetcher:
             market = self.symbol_to_market.get(sym.upper()) or f"{sym.upper()}/USDT"
             try:
                 ticker = self.ex.fetch_ticker(market)
-                price = ticker.get("last") or ticker.get("close") or ticker.get("ask") or ticker.get("bid")
+                price = (
+                    ticker.get("last")
+                    or ticker.get("close")
+                    or ticker.get("ask")
+                    or ticker.get("bid")
+                )
                 out[cid] = float(price) if price is not None else None
             except Exception:
                 out[cid] = None

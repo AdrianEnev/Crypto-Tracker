@@ -15,13 +15,17 @@ def grid(values):
 
 def main():
     parser = argparse.ArgumentParser(description="Parameter tuning over 1y history")
-    parser.add_argument("--coins", type=str, default="", help="Comma-separated coin ids (default: all tracked)")
+    parser.add_argument(
+        "--coins", type=str, default="", help="Comma-separated coin ids (default: all tracked)"
+    )
     parser.add_argument("--days", type=int, default=365)
     parser.add_argument("--timeframe", type=str, default="1d")
     parser.add_argument("--slippage_bps", type=int, default=10)
     parser.add_argument("--fee_bps", type=int, default=5)
     parser.add_argument("--min_trades", type=int, default=5)
-    parser.add_argument("--write", action="store_true", help="Write best params back to config/config.yaml per-coin")
+    parser.add_argument(
+        "--write", action="store_true", help="Write best params back to config/config.yaml per-coin"
+    )
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parents[2]
@@ -30,15 +34,19 @@ def main():
         cfg = yaml.safe_load(f) or {}
 
     tracked = cfg.get("tracked_coins") or {}
-    target_ids = [c.strip() for c in args.coins.split(",") if c.strip()] if args.coins else list(tracked.keys())
+    target_ids = (
+        [c.strip() for c in args.coins.split(",") if c.strip()]
+        if args.coins
+        else list(tracked.keys())
+    )
 
     # Global defaults
-    ind_cfg = (cfg.get("indicators") or {})
+    ind_cfg = cfg.get("indicators") or {}
     g_rsi = int(ind_cfg.get("rsi_period", 14))
     g_ef = int(ind_cfg.get("ema_fast", 20))
     g_es = int(ind_cfg.get("ema_slow", 50))
-    risk_cfg = (cfg.get("risk") or {})
-    atr_cfg = (risk_cfg.get("atr") or {})
+    risk_cfg = cfg.get("risk") or {}
+    atr_cfg = risk_cfg.get("atr") or {}
 
     # Grids (conservative sizes to keep runtime down)
     rsi_grid = grid([10, 14, 21, 28])
@@ -72,7 +80,14 @@ def main():
                     for slm in atr_sl_grid:
                         for tpm in atr_tp_grid:
                             atrp = int(atr_cfg.get("period", 14)) if atr_cfg else 14
-                            atr_params = ATRRiskParams(atr_period=atrp, sl_mult=slm, tp_mult=tpm, trail_mult=float(atr_cfg.get("trail_mult", 2.0)) if atr_cfg else 2.0)
+                            atr_params = ATRRiskParams(
+                                atr_period=atrp,
+                                sl_mult=slm,
+                                tp_mult=tpm,
+                                trail_mult=(
+                                    float(atr_cfg.get("trail_mult", 2.0)) if atr_cfg else 2.0
+                                ),
+                            )
                             res = simulate_coin(
                                 coin_id=coin_id,
                                 cg_id=cg_id,
@@ -92,23 +107,27 @@ def main():
                             # Score: prioritize PF, penalize drawdown
                             score = res.profit_factor - (res.max_drawdown / 100.0)
                             if score > best["score"]:
-                                best.update({
-                                    "score": score,
-                                    "pf": res.profit_factor,
-                                    "win": res.win_rate,
-                                    "dd": res.max_drawdown,
-                                    "rsi": int(rsi_p),
-                                    "ef": int(ef),
-                                    "es": int(es),
-                                    "sl": float(slm),
-                                    "tp": float(tpm),
-                                })
+                                best.update(
+                                    {
+                                        "score": score,
+                                        "pf": res.profit_factor,
+                                        "win": res.win_rate,
+                                        "dd": res.max_drawdown,
+                                        "rsi": int(rsi_p),
+                                        "ef": int(ef),
+                                        "es": int(es),
+                                        "sl": float(slm),
+                                        "tp": float(tpm),
+                                    }
+                                )
         if best["score"] <= -1e8:
             print(f"No viable params for {coin_id} (not enough trades). Skipping.")
             continue
 
         results_summary[coin_id] = best
-        print(f"\n>>> {coin_id} best: PF={best['pf']:.2f} Win%={best['win']:.1f}% MaxDD={best['dd']:.1f}% RSI={best['rsi']} EF={best['ef']} ES={best['es']} SLx={best['sl']} TPx={best['tp']}")
+        print(
+            f"\n>>> {coin_id} best: PF={best['pf']:.2f} Win%={best['win']:.1f}% MaxDD={best['dd']:.1f}% RSI={best['rsi']} EF={best['ef']} ES={best['es']} SLx={best['sl']} TPx={best['tp']}"
+        )
 
     if args.write and results_summary:
         # Write per-coin overrides back to config

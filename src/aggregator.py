@@ -18,8 +18,16 @@ class PriceAggregator:
     with an agreement metric.
     """
 
-    def __init__(self, cmc: PriceFetcher, cg: CoingeckoFetcher, agreement_max_diff_pct: float = 0.5,
-                 enabled_sources: Optional[List[str]] = None, ccxt: CCXTPriceFetcher | None = None, websocket: WebSocketPriceFetcher | None = None, cache_ttl: int = 2):
+    def __init__(
+        self,
+        cmc: PriceFetcher,
+        cg: CoingeckoFetcher,
+        agreement_max_diff_pct: float = 0.5,
+        enabled_sources: Optional[List[str]] = None,
+        ccxt: CCXTPriceFetcher | None = None,
+        websocket: WebSocketPriceFetcher | None = None,
+        cache_ttl: int = 2,
+    ):
         self.cmc = cmc
         self.cg = cg
         self.ccxt = ccxt
@@ -33,7 +41,9 @@ class PriceAggregator:
         self.cache = {}
         self.cache_ttl = cache_ttl
 
-    def aggregate_prices(self, id_to_symbol: Dict[str, str], cg_ids: Optional[Dict[str, str]] = None) -> Dict[str, Dict[str, Optional[object]]]:
+    def aggregate_prices(
+        self, id_to_symbol: Dict[str, str], cg_ids: Optional[Dict[str, str]] = None
+    ) -> Dict[str, Dict[str, Optional[object]]]:
         """Return a mapping coin_id -> {
             'price': float|None,            # aggregated price
             'providers': List[str],         # providers that returned a price
@@ -47,8 +57,8 @@ class PriceAggregator:
         uncached_id_to_symbol = {}
 
         for cid, symbol in id_to_symbol.items():
-            if cid in self.cache and (now - self.cache[cid]['timestamp']) < self.cache_ttl:
-                cached_results[cid] = self.cache[cid]['data']
+            if cid in self.cache and (now - self.cache[cid]["timestamp"]) < self.cache_ttl:
+                cached_results[cid] = self.cache[cid]["data"]
             else:
                 uncached_id_to_symbol[cid] = symbol
 
@@ -117,10 +127,10 @@ class PriceAggregator:
 
             if not vals:
                 out[cid] = {
-                    'price': None,
-                    'providers': providers,
-                    'agreement_diff_pct': None,
-                    'stability_score': 0.0,
+                    "price": None,
+                    "providers": providers,
+                    "agreement_diff_pct": None,
+                    "stability_score": 0.0,
                 }
                 continue
 
@@ -133,7 +143,7 @@ class PriceAggregator:
                 enabled_sources_list = list(self.enabled_sources)
                 if enabled_sources_list:
                     primary_source_key = enabled_sources_list[0]
-            
+
             primary_price = next((p for s, p in vals if s == primary_source_key), None)
             med = median(prices_only)
             final_price = primary_price if primary_price is not None else med
@@ -163,13 +173,13 @@ class PriceAggregator:
                 stability_score = 0.0
 
             out[cid] = {
-                'price': float(med),
-                'providers': providers,
-                'agreement_diff_pct': diff_pct_val,
-                'stability_score': float(stability_score),
+                "price": float(med),
+                "providers": providers,
+                "agreement_diff_pct": diff_pct_val,
+                "stability_score": float(stability_score),
             }
         for cid, data in out.items():
-            self.cache[cid] = {'timestamp': now, 'data': data}
+            self.cache[cid] = {"timestamp": now, "data": data}
 
         out.update(cached_results)
         return out

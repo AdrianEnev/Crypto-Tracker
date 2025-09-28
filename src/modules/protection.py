@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 def reconcile_live_protection(tracker) -> None:
     """Wrapper to allow future extraction of logic without tracker.py edits."""
     try:

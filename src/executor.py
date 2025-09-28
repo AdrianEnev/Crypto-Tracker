@@ -31,7 +31,9 @@ class PaperExecutor:
         self._counter += 1
         return f"paper-{self._counter}"
 
-    def place_order(self, symbol: str, side: str, size_usd: float, order_type: str = "limit") -> Order:
+    def place_order(
+        self, symbol: str, side: str, size_usd: float, order_type: str = "limit"
+    ) -> Order:
         now = datetime.now(timezone.utc)
         oid = self._next_id()
         # For Phase 3, we just mark as Placed and immediately Filled (simplest model)
@@ -44,6 +46,6 @@ class PaperExecutor:
             status="Filled",
             created_at=now,
             filled_price=None,
-            note="paper-fill"
+            note="paper-fill",
         )
         return order

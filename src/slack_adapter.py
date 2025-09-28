@@ -3,6 +3,7 @@ import json
 import requests
 from typing import Optional
 
+
 class SlackAdapter:
     def __init__(self):
         self.webhook_url: Optional[str] = os.environ.get("SLACK_WEBHOOK_URL")

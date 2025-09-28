@@ -64,7 +64,9 @@ def rsi(values: List[float], period: int = 14) -> List[Optional[float]]:
     return out
 
 
-def atr(high: List[float], low: List[float], close: List[float], period: int = 14) -> List[Optional[float]]:
+def atr(
+    high: List[float], low: List[float], close: List[float], period: int = 14
+) -> List[Optional[float]]:
     out: List[Optional[float]] = []
     if period <= 0 or not high:
         return [None for _ in high]
@@ -92,7 +94,10 @@ def atr(high: List[float], low: List[float], close: List[float], period: int = 1
             atr_vals.append(None)
     return atr_vals
 
-def macd(values: List[float], fast_period: int = 12, slow_period: int = 26, signal_period: int = 9) -> Tuple[List[Optional[float]], List[Optional[float]], List[Optional[float]]]:
+
+def macd(
+    values: List[float], fast_period: int = 12, slow_period: int = 26, signal_period: int = 9
+) -> Tuple[List[Optional[float]], List[Optional[float]], List[Optional[float]]]:
     """
     Compute MACD, Signal Line, and Histogram.
     Returns (macd_line, signal_line, histogram)
@@ -113,7 +118,7 @@ def macd(values: List[float], fast_period: int = 12, slow_period: int = 26, sign
     # The signal line is an EMA of the MACD line.
     # We need to handle the None values in the MACD line before passing to ema.
     macd_line_non_none = [v for v in macd_line if v is not None]
-    
+
     if not macd_line_non_none:
         return macd_line, [None] * len(values), [None] * len(values)
 
@@ -161,7 +166,11 @@ def rolling_mean(values: List[float], period: int) -> List[Optional[float]]:
     return out
 
 
-def bollinger(values: List[float], period: int = 20, stddev: float = 2.0) -> Tuple[List[Optional[float]], List[Optional[float]], List[Optional[float]], List[Optional[float]]]:
+def bollinger(
+    values: List[float], period: int = 20, stddev: float = 2.0
+) -> Tuple[
+    List[Optional[float]], List[Optional[float]], List[Optional[float]], List[Optional[float]]
+]:
     """
     Compute Bollinger Bands: middle (SMA), upper, lower, and width (upper-lower).
     Returns 4 lists aligned with input values. Entries are None until enough data.
@@ -175,6 +184,7 @@ def bollinger(values: List[float], period: int = 20, stddev: float = 2.0) -> Tup
     width: List[Optional[float]] = []
     # Use a rolling window to compute stddev; O(n*period) which is fine for typical sizes
     import math
+
     for i in range(n):
         if i + 1 < period:
             upper.append(None)

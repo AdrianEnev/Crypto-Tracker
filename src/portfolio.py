@@ -45,7 +45,14 @@ class Portfolio:
         usd_alloc = min(float(usd_size), float(self.cash_usd))
         fee_mult = 1.0 + (float(fee_bps) / 10000.0)
         units = usd_alloc / price
-        pos = Position(symbol=symbol, units=units, entry_price=price, peak_price=price, adds_count=0, last_add_price=price)
+        pos = Position(
+            symbol=symbol,
+            units=units,
+            entry_price=price,
+            peak_price=price,
+            adds_count=0,
+            last_add_price=price,
+        )
         self.positions[symbol] = pos
         # Deduct notional + fee from cash
         self.cash_usd -= usd_alloc * fee_mult
@@ -57,7 +64,7 @@ class Portfolio:
             return None
         proceeds = float(pos.units) * float(price)
         fee = proceeds * (float(fee_bps) / 10000.0)
-        self.cash_usd += (proceeds - fee)
+        self.cash_usd += proceeds - fee
         pnl_usd = (float(price) - float(pos.entry_price)) * float(pos.units)
         pnl_pct = pos.pnl_pct(float(price))
         return {
@@ -120,7 +127,9 @@ class Portfolio:
         except Exception:
             pass
 
-    def add_to_position(self, symbol: str, usd_size: float, price: float, fee_bps: float = 0.0) -> Optional[Position]:
+    def add_to_position(
+        self, symbol: str, usd_size: float, price: float, fee_bps: float = 0.0
+    ) -> Optional[Position]:
         """Increase an existing position by investing additional USD at current price.
         Updates weighted average entry, peak, cash, and pyramiding metadata.
         """

@@ -32,17 +32,21 @@ class CoingeckoFetcher:
                 last_exc = e
                 # If 429, set/extend provider backoff
                 try:
-                    status = getattr(e.response, 'status_code', None)
+                    status = getattr(e.response, "status_code", None)
                 except Exception:
                     status = None
                 if status == 429:
                     # Exponential backoff starting at 120s
-                    self.backoff_seconds = min(max(120, self.backoff_seconds * 2 or 120), self.backoff_cap)
+                    self.backoff_seconds = min(
+                        max(120, self.backoff_seconds * 2 or 120), self.backoff_cap
+                    )
                     self.backoff_until_ts = time.time() + self.backoff_seconds
-                    console.print(f"[yellow]Coingecko rate-limited. Backing off for {self.backoff_seconds}s.[/yellow]")
+                    console.print(
+                        f"[yellow]Coingecko rate-limited. Backing off for {self.backoff_seconds}s.[/yellow]"
+                    )
                     break
                 if attempt < self.max_retries:
-                    sleep_s = self.backoff_base * (2 ** attempt) + random.uniform(0, 0.2)
+                    sleep_s = self.backoff_base * (2**attempt) + random.uniform(0, 0.2)
                     time.sleep(sleep_s)
                 else:
                     break

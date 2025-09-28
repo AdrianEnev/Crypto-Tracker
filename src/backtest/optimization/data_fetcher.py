@@ -11,11 +11,13 @@ from src.data.ccxt_ohlcv import get_candles_ccxt
 
 class DataFetcher:
     """Fetches market data for optimization."""
-    
+
     def __init__(self, config_loader: ConfigLoader):
         self.config_loader = config_loader
-    
-    def fetch_series(self, coin_id: str, timeframe: str, days: int) -> Optional[Tuple[List[float], List[float], List[float], List[int]]]:
+
+    def fetch_series(
+        self, coin_id: str, timeframe: str, days: int
+    ) -> Optional[Tuple[List[float], List[float], List[float], List[int]]]:
         """Fetch OHLCV data series for a coin."""
         try:
             cfg_all = self.config_loader.load_config()
@@ -25,12 +27,12 @@ class DataFetcher:
             tracked = cfg_all.get("tracked_coins", {})
             per = tracked.get(coin_id, {})
             cg_id = per.get("coingecko_id", coin_id)
-            
+
             if provider == "ccxt":
                 providers_cfg = cfg_all.get("providers", {})
                 exchange_name = str(providers_cfg.get("exchange", "binance")).lower()
                 market = per.get("market") or f"{per.get('symbol', coin_id).upper()}/USDT"
-                
+
                 # Avoid invalid self-quoted markets (e.g., USDT/USDT) by falling back to CoinGecko
                 try:
                     base, quote = market.split("/")
@@ -38,7 +40,7 @@ class DataFetcher:
                     base, quote = market, "USDT"
                 if base.upper() == quote.upper():
                     provider = "coingecko"
-            
+
             # Calculate limit based on timeframe
             if timeframe == "1d":
                 limit = min(int(days), 2000)
@@ -48,42 +50,45 @@ class DataFetcher:
                 limit = min(int(days) * 24, 2000)
             else:
                 limit = 1000
-            
+
             # Fetch candles
             if provider == "ccxt":
                 candles = get_candles_ccxt(
-                    exchange_name, market, 
-                    timeframe=timeframe, 
-                    cache_dir="./data_cache", 
-                    limit=limit, 
-                    use_cache=True
+                    exchange_name,
+                    market,
+                    timeframe=timeframe,
+                    cache_dir="./data_cache",
+                    limit=limit,
+                    use_cache=True,
                 )
             else:
                 candles = get_candles(
-                    cg_id, 
-                    timeframe=timeframe, 
-                    days=days, 
-                    cache_dir="./data_cache", 
-                    use_cache=True, 
-                    api_key=api_key
+                    cg_id,
+                    timeframe=timeframe,
+                    days=days,
+                    cache_dir="./data_cache",
+                    use_cache=True,
+                    api_key=api_key,
                 )
-            
+
             if not candles:
                 return None
-            
+
             # Extract OHLCV data
             closes = [c.c for c in candles]
             highs = [c.h for c in candles]
             lows = [c.l for c in candles]
-            times = [getattr(c, 'ts', i) for i, c in enumerate(candles)]
-            
+            times = [getattr(c, "ts", i) for i, c in enumerate(candles)]
+
             return closes, highs, lows, times
-            
+
         except Exception as ex:
             print(f"  Data fetch failed for {coin_id}: {ex} (skipping).")
             return None
-    
-    def fetch_multiple_series(self, coin_ids: List[str], timeframe: str, days: int) -> Dict[str, Tuple[List[float], List[float], List[float], List[int]]]:
+
+    def fetch_multiple_series(
+        self, coin_ids: List[str], timeframe: str, days: int
+    ) -> Dict[str, Tuple[List[float], List[float], List[float], List[int]]]:
         """Fetch series for multiple coins."""
         results = {}
         for coin_id in coin_ids:
