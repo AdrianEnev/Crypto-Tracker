@@ -1,105 +1,181 @@
 from __future__ import annotations
-from collections import deque
-from typing import Deque, List, Optional
+from typing import Any, Dict, Optional
+
+import pandas as pd
+import yaml
+
+from .strategies.factory import get_strategy
+from .models import Decision
 
 
-def compute_rsi(prices: List[float], period: int = 14) -> Optional[float]:
-    """Compute RSI (Relative Strength Index) using simple Wilder's smoothing.
-    Returns None if insufficient data.
-    """
-    if len(prices) < period + 1:
+def _load_full_config(config_path: str) -> Dict[str, Any]:
+    try:
+        with open(config_path, "r") as f:
+            return yaml.safe_load(f) or {}
+    except Exception:
+        return {}
+
+
+def _build_df_from_history(tracker, coin_id: str) -> Optional[pd.DataFrame]:
+    h = (tracker.history.get(coin_id) or {})
+    candles = h.get("candles") or []
+    if not candles:
         return None
-    gains = []
-    losses = []
-    for i in range(1, period + 1):
-        change = prices[i] - prices[i - 1]
-        gains.append(max(change, 0.0))
-        losses.append(max(-change, 0.0))
-    avg_gain = sum(gains) / period
-    avg_loss = sum(losses) / period
-
-    # Continue smoothing over the rest of the series
-    for i in range(period + 1, len(prices)):
-        change = prices[i] - prices[i - 1]
-        gain = max(change, 0.0)
-        loss = max(-change, 0.0)
-        avg_gain = (avg_gain * (period - 1) + gain) / period
-        avg_loss = (avg_loss * (period - 1) + loss) / period
-
-    if avg_loss == 0:
-        return 100.0  # No losses -> RSI at 100
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
+    df = pd.DataFrame({
+        "open": [c.o for c in candles],
+        "high": [c.h for c in candles],
+        "low": [c.l for c in candles],
+        "close": [c.c for c in candles],
+        "volume": [c.v for c in candles],
+        "ts": [c.ts for c in candles],
+    })
+    df.index = pd.to_datetime(df["ts"], unit="ms")
+    return df
 
 
-def compute_ma(prices: List[float], window: int) -> Optional[float]:
-    """Simple moving average. Returns None if insufficient data."""
-    if len(prices) < window:
-        return None
-    return sum(prices[-window:]) / float(window)
-
-
-def price_distance_score(price: float, threshold: float) -> float:
-    """Score in [0,1] higher when price is below threshold (for buys).
-    If price >= threshold, score declines to 0.
+def compute_confidence(price: float, threshold: float, rsi: Optional[float], ma_short: Optional[float], ma_long: Optional[float]) -> float:
     """
-    if threshold <= 0:
-        return 0.0
-    if price >= threshold:
-        return 0.0
-    # Closer to zero -> higher score; cap at 1.0 when price is 0
-    return max(0.0, min(1.0, (threshold - price) / threshold))
-
-
-def rsi_buy_score(rsi: Optional[float]) -> float:
-    """Map RSI to a [0,1] buy score: lower RSI -> higher score.
-    Using 30 as strong buy region, 50 as neutral.
+    Backwards-compatible confidence heuristic used by tests and backtests.
+    Rough intuition:
+    - Price below threshold -> bullish bias
+    - RSI oversold (<30) -> stronger bullish bias
+    - Trend filter (MA short > MA long) -> minor boost
     """
-    if rsi is None:
+    try:
+        conf = 0.5
+        if price is not None and threshold is not None and float(price) < float(threshold):
+            conf += 0.2
+        if rsi is not None:
+            r = float(rsi)
+            if r < 30.0:
+                conf += 0.2
+            elif r > 70.0:
+                conf -= 0.1
+        if ma_short is not None and ma_long is not None:
+            if float(ma_short) > float(ma_long):
+                conf += 0.1
+            else:
+                conf -= 0.05
+        return max(0.0, min(1.0, float(conf)))
+    except Exception:
         return 0.0
-    if rsi <= 30:
-        return 1.0
-    if rsi >= 50:
-        return 0.0
-    # Linear scale between 30 and 50
-    return max(0.0, min(1.0, (50 - rsi) / 20.0))
 
 
-def ma_alignment_score(short_ma: Optional[float], long_ma: Optional[float], price: float) -> float:
-    """Score in [0,1] when price is below short MA and short MA < long MA (down trend -> dip buys more cautious).
-    This is a soft component for Phase 2; returns 0 if missing.
+def recommend_action(price: float, threshold: float, rsi: Optional[float], confidence: float, suggestion_threshold: float = 0.5) -> tuple[str, str, str]:
     """
-    if short_ma is None or long_ma is None:
-        return 0.0
-    score = 0.0
-    if price < short_ma:
-        score += 0.5
-    if short_ma < long_ma:
-        score += 0.5
-    return min(1.0, score)
-
-
-def compute_confidence(price: float, threshold: float, rsi: Optional[float],
-                       short_ma: Optional[float], long_ma: Optional[float]) -> float:
-    """Weighted sum of independent signals into [0,1]."""
-    p_score = price_distance_score(price, threshold)
-    r_score = rsi_buy_score(rsi)
-    m_score = ma_alignment_score(short_ma, long_ma, price)
-    # Weights can be tuned; start conservative
-    confidence = 0.5 * p_score + 0.35 * r_score + 0.15 * m_score
-    return round(max(0.0, min(1.0, confidence)), 4)
-
-
-def recommend_action(price: float, threshold: float, rsi: Optional[float],
-                     confidence: float, suggestion_threshold: float = 0.5) -> (str, str, str):
-    """Return (signal, action_recommended, reason).
-    For Phase 2: recommend Buy if price <= threshold and RSI < 35, else Hold.
+    Backwards-compatible signal/action recommendation used by tests and backtests.
+    Returns (signal, action, reason).
     """
-    if price <= threshold and (rsi is not None and rsi < 30):
-        signal = "threshold_rsi"
-        action = "Buy" if confidence >= suggestion_threshold else "Hold"
-        reason = "price<=threshold & RSI<30"
-        return signal, action, reason
-    # Otherwise hold
-    return "threshold_check", "Hold", "no-strong-signal"
+    try:
+        signal = "threshold_check"
+        action = "Hold"
+        reason_parts = []
+        if price is not None and threshold is not None and float(price) < float(threshold):
+            reason_parts.append("price<threshold")
+            # Only allow Buy when RSI confirms oversold (<30) AND confidence gate passes
+            if rsi is not None and float(rsi) < 30.0:
+                signal = "threshold_rsi"
+                reason_parts.append("RSI<30")
+                if float(confidence) >= float(suggestion_threshold):
+                    action = "Buy"
+            else:
+                # RSI not oversold -> Hold
+                action = "Hold"
+        else:
+            # Over threshold or missing inputs → Hold
+            action = "Hold"
+        return signal, action, ", ".join(reason_parts) if reason_parts else ""
+    except Exception:
+        return "error", "Hold", "exception"
+
+
+def make_decision(tracker, coin_id: str) -> Decision:
+    """
+    Orchestrate strategy evaluation for a coin and return a Decision.
+    Applies regime and volatility gates from config.
+    """
+    cfg_all = _load_full_config(tracker.config_path)
+    per_coin_cfg = (cfg_all.get("tracked_coins") or {}).get(coin_id) or {}
+    strat_cfg = (per_coin_cfg.get("strategy") or {})
+    strat_name = str(strat_cfg.get("name") or (cfg_all.get("strategy") or {}).get("default_strategy") or "mean_reversion")
+    strat_params: Dict[str, Any] = strat_cfg.get("params") or {}
+
+    df = _build_df_from_history(tracker, coin_id)
+    if df is None or df.empty:
+        return Decision(signal="no_data", confidence=0.0, action_recommended="Hold", reason="No candles in history")
+
+    # Instantiate and run strategy
+    try:
+        strategy = get_strategy(strat_name, strat_params)
+    except Exception as ex:
+        return Decision(signal="strategy_error", confidence=0.0, action_recommended="Hold", reason=f"{ex}")
+
+    try:
+        signals = strategy.generate_signals(df)
+        last_sig = int(signals["signal"].iloc[-1]) if "signal" in signals.columns and not signals.empty else 0
+    except Exception as ex:
+        return Decision(signal="strategy_eval_error", confidence=0.0, action_recommended="Hold", reason=str(ex))
+
+    # Regime filter (EMA fast vs slow) if enabled & available in tracker.history
+    regime_ok = True
+    use_regime = bool((cfg_all.get("strategy") or {}).get("use_regime_filter", False))
+    if use_regime:
+        last = ((tracker.history.get(coin_id) or {}).get("last") or {})
+        ef = last.get("ema_fast")
+        es = last.get("ema_slow")
+        if ef is None or es is None:
+            # If no EMA context, fail safe to neutral
+            regime_ok = False
+        else:
+            if last_sig > 0:
+                regime_ok = float(ef) > float(es)
+            elif last_sig < 0:
+                regime_ok = float(ef) < float(es)
+
+    # Volatility gate using ATR%
+    vol_ok = True
+    vg = (cfg_all.get("strategy") or {}).get("vol_gate") or {}
+    if vg:
+        min_atr_pct = vg.get("min_atr_pct")
+        max_atr_pct = vg.get("max_atr_pct")
+        last = ((tracker.history.get(coin_id) or {}).get("last") or {})
+        atr_val = last.get("atr")
+        close = last.get("close")
+        if atr_val is None or close is None or float(close) <= 0:
+            vol_ok = False
+        else:
+            atr_pct = (float(atr_val) / float(close)) * 100.0
+            if min_atr_pct is not None and atr_pct < float(min_atr_pct):
+                vol_ok = False
+            if max_atr_pct is not None and atr_pct > float(max_atr_pct):
+                vol_ok = False
+
+    # Decide action
+    action = "Hold"
+    reason_parts = [f"strat={strat_name}"]
+    if last_sig > 0:
+        action = "Buy"
+        reason_parts.append("signal=buy")
+    elif last_sig < 0:
+        action = "Sell"
+        reason_parts.append("signal=sell")
+    else:
+        reason_parts.append("signal=flat")
+
+    if not regime_ok:
+        action = "Hold"
+        reason_parts.append("regime_blocked")
+    if not vol_ok:
+        action = "Hold"
+        reason_parts.append("vol_gate_blocked")
+
+    # Confidence heuristic: base 0.8 if both gates pass and we have a non-zero signal; else low
+    confidence = 0.8 if (last_sig != 0 and regime_ok and vol_ok) else (0.3 if last_sig != 0 else 0.0)
+
+    return Decision(
+        signal=f"{strat_name}_signal",
+        confidence=confidence,
+        action_recommended=action,
+        reason=",".join(reason_parts),
+    )
+

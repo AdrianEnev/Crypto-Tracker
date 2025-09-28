@@ -15,7 +15,8 @@ from datetime import datetime, timezone
 from .models import CoinConfig, AppConfig, MarketSnapshot, Decision
 from .fetcher import PriceFetcher
 from .notifier import Notifier
-from .decision import compute_rsi, compute_ma, compute_confidence, recommend_action
+from .strategies.factory import get_strategy
+import pandas as pd
 from .liquidity import estimate_slippage
 from .executor import PaperExecutor
 from .risk import (
@@ -38,6 +39,8 @@ from .data.ohlcv import get_candles
 from .data.ccxt_ohlcv import get_candles_ccxt
 from .indicators.core import rsi as rsi_series, ema as ema_series, atr as atr_series
 from .config.validator import validate_config
+from .decision import make_decision, compute_confidence
+from .position_sizing import compute_size_usd
 
 # Set up console
 console = Console()
@@ -1884,7 +1887,32 @@ class CryptoTracker:
                                 confidence_eff = min(1.0, float(confidence_eff) + boost2)
             except Exception:
                 pass
-            signal, action_rec, reason = recommend_action(float(current_price), coin_config.threshold, rsi_val, confidence, self.suggestion_threshold)
+            # MODULAR STRATEGY EXECUTION via decision orchestrator
+            action_rec = "Hold"
+            reason = "no_signal"
+            signal = "none"
+            try:
+                dec = make_decision(self, coin_id)
+                action_rec = dec.action_recommended or "Hold"
+                signal = dec.signal or "none"
+                # Merge confidence from decision into existing confidence baseline
+                try:
+                    confidence = max(float(confidence), float(dec.confidence or 0.0))
+                except Exception:
+                    pass
+                if dec.reason:
+                    # Append decision reason to notes for visibility later
+                    try:
+                        parts = [] if notes_str == "—" else notes_str.split(", ")
+                        parts.append(dec.reason)
+                        notes_str = ", ".join(parts)
+                    except Exception:
+                        pass
+            except Exception as e:
+                try:
+                    self.logger.error(f"Decision orchestrator failed for {coin_config.symbol}: {e}")
+                except Exception:
+                    pass
 
             # Estimate slippage for default size
             exp_slip_pct = estimate_slippage(self.trade_default_size_usd, spread_bps_default=self.spread_bps_default)
@@ -2255,33 +2283,32 @@ class CryptoTracker:
                                     guard_note = f"Guard: stagger queued (+{self.stagger_spacing_seconds}s)"
                         except Exception:
                             pass
-                        # ATR-based position sizing
+                        # Position sizing (risk-based). Compute SL via ATR or percent, then size via helper
                         size_usd = self.trade_default_size_usd
                         try:
+                            # Equity now from open positions
                             equity_now = 0.0
                             for _sym, _pos in self.portfolio.positions.items():
                                 px = sym_to_price.get(_sym)
                                 if px is not None:
                                     equity_now += float(_pos.units) * float(px)
-                            budget_usd = max(0.0, equity_now * float(self.risk_budget_pct))
+                            # Compute SL reference
                             atr_last = (self.history.get(coin_id, {}) or {}).get('last', {}).get('atr')
                             coin_atr_params = self.atr_params_map.get(coin_id, self.atr_params)
-                            if budget_usd > 0 and atr_last is not None and coin_atr_params is not None and float(atr_last) > 0:
-                                sl_price, _tp_price = compute_stop_levels_atr(float(current_price), float(atr_last), coin_atr_params)
-                                if sl_price is not None and float(current_price) > float(sl_price):
-                                    risk_per_unit = float(current_price) - float(sl_price)
-                                    # Protect against division by zero
-                                    if risk_per_unit > 0:
-                                        units = budget_usd / risk_per_unit
-                                        size_usd = float(current_price) * units
-                            # Apply min/max caps if configured
-                            if self.max_size_usd is not None:
-                                size_usd = min(size_usd, float(self.max_size_usd))
-                            if self.min_size_usd is not None:
-                                size_usd = max(size_usd, float(self.min_size_usd))
-                            # Fallback to default if invalid
-                            if not (size_usd and size_usd > 0):
-                                size_usd = self.trade_default_size_usd
+                            if (coin_atr_params is not None) and (atr_last is not None) and float(atr_last) > 0:
+                                sl_price, _ = compute_stop_levels_atr(float(current_price), float(atr_last), coin_atr_params)
+                            else:
+                                sl_price, _ = compute_stop_levels(float(current_price), self.risk)
+                            size_usd_calc = compute_size_usd(
+                                entry_price=float(current_price),
+                                sl_price=float(sl_price) if sl_price is not None else None,
+                                equity_usd=float(equity_now),
+                                risk_budget_pct=float(self.risk_budget_pct),
+                                min_size_usd=self.min_size_usd,
+                                max_size_usd=self.max_size_usd,
+                            )
+                            if size_usd_calc and size_usd_calc > 0:
+                                size_usd = size_usd_calc
                         except Exception:
                             size_usd = self.trade_default_size_usd
                         # Exposure caps and cash floor checks
