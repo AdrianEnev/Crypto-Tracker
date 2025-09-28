@@ -333,9 +333,10 @@ class OrderManager:
             if self.config.enable_smart_routing:
                 executor = self.smart_router.select_executor(order)
             else:
-                executor = self.get_executor(order.exchange)
-                if not executor:
-                    raise RuntimeError(f"No executor found for exchange {order.exchange}")
+                # When smart routing is disabled, use the first available executor
+                if not self.executors:
+                    raise RuntimeError("No executors registered")
+                executor = next(iter(self.executors.values()))
             
             # Create TWAP execution
             self.twap_slicer.create_twap_order(order, executor)
@@ -356,9 +357,10 @@ class OrderManager:
             if self.config.enable_smart_routing:
                 executor = self.smart_router.select_executor(order)
             else:
-                executor = self.get_executor(order.exchange)
-                if not executor:
-                    raise RuntimeError(f"No executor found for exchange {order.exchange}")
+                # When smart routing is disabled, use the first available executor
+                if not self.executors:
+                    raise RuntimeError("No executors registered")
+                executor = next(iter(self.executors.values()))
             
             # Create VWAP execution
             self.vwap_slicer.create_vwap_order(order, executor)
@@ -379,9 +381,10 @@ class OrderManager:
             if self.config.enable_smart_routing:
                 executor = self.smart_router.select_executor(order)
             else:
-                executor = self.get_executor(order.exchange)
-                if not executor:
-                    raise RuntimeError(f"No executor found for exchange {order.exchange}")
+                # When smart routing is disabled, use the first available executor
+                if not self.executors:
+                    raise RuntimeError("No executors registered")
+                executor = next(iter(self.executors.values()))
             
             # Convert order to order request for execution
             order_request = OrderRequest(

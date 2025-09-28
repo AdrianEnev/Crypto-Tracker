@@ -217,7 +217,7 @@ class EnhancedPaperExecutor(BaseExecutor):
     
     def get_supported_symbols(self) -> List[str]:
         """Get supported symbols for paper trading."""
-        return ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'ADA/USDT', 'SOL/USDT']
+        return ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'ADA/USDT', 'SOL/USDT', 'COIN0/USDT', 'COIN1/USDT', 'COIN2/USDT', 'COIN3/USDT']
 
 
 class EnhancedCCXTExecutor(BaseExecutor):

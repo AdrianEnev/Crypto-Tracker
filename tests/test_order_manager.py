@@ -186,6 +186,9 @@ class TestExecutors:
         """Test paper executor functionality."""
         executor = EnhancedPaperExecutor()
         
+        # Set deterministic fill probability for testing
+        executor._simulation_config['fill_probability'] = 1.0  # 100% fill rate for testing
+        
         # Test connection
         assert executor.connect()
         assert executor.is_connected
@@ -514,7 +517,7 @@ class TestOrderManagerIntegration:
         """Test order manager creation."""
         config = OrderManagerConfig()
         config.enable_smart_routing = False  # Disable smart routing for test
-        order_manager = OrderManager(None, None, None, config)
+        order_manager = OrderManager(None, None, None, None, config)
         
         assert order_manager.config == config
         assert order_manager.state_machine is not None
@@ -525,7 +528,7 @@ class TestOrderManagerIntegration:
         """Test order placement through order manager."""
         config = OrderManagerConfig()
         config.enable_smart_routing = False  # Disable smart routing for test
-        order_manager = OrderManager(None, None, None, config)
+        order_manager = OrderManager(None, None, None, None, config)
         
         # Register executor
         executor = EnhancedPaperExecutor()
@@ -550,7 +553,7 @@ class TestOrderManagerIntegration:
         """Test order cancellation through order manager."""
         config = OrderManagerConfig()
         config.enable_smart_routing = False  # Disable smart routing for test
-        order_manager = OrderManager(None, None, None, config)
+        order_manager = OrderManager(None, None, None, None, config)
         
         # Register executor
         executor = EnhancedPaperExecutor()
@@ -585,7 +588,7 @@ class TestOrderManagerIntegration:
         """Test order statistics collection."""
         config = OrderManagerConfig()
         config.enable_smart_routing = False  # Disable smart routing for test
-        order_manager = OrderManager(None, None, None, config)
+        order_manager = OrderManager(None, None, None, None, config)
         
         # Register executor
         executor = EnhancedPaperExecutor()
@@ -616,7 +619,7 @@ class TestErrorHandling:
     def test_invalid_order_validation(self):
         """Test order validation with invalid data."""
         config = OrderManagerConfig()
-        order_manager = OrderManager(None, None, None, config)
+        order_manager = OrderManager(None, None, None, None, config)
         
         # Invalid order request
         invalid_request = OrderRequest(
@@ -633,7 +636,7 @@ class TestErrorHandling:
     def test_order_not_found(self):
         """Test handling of non-existent orders."""
         config = OrderManagerConfig()
-        order_manager = OrderManager(None, None, None, config)
+        order_manager = OrderManager(None, None, None, None, config)
         
         # Try to get non-existent order
         order = order_manager.get_order("non-existent")
@@ -646,7 +649,7 @@ class TestErrorHandling:
     def test_max_orders_limit(self):
         """Test maximum orders limit."""
         config = OrderManagerConfig(max_active_orders=2)
-        order_manager = OrderManager(None, None, None, config)
+        order_manager = OrderManager(None, None, None, None, config)
         
         # Register executor
         executor = EnhancedPaperExecutor()

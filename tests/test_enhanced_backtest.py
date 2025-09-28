@@ -19,7 +19,8 @@ from fees import (
 )
 from slippage import (
     DepthBasedSlippage, VolumeBasedSlippage, MarketImpactCalculator,
-    SlippageContext, SlippageType, MarketCondition
+    SlippageContext, SlippageType, MarketCondition, OrderLevel, MarketDepth,
+    OrderBookSnapshot as SlippageOrderBookSnapshot
 )
 from orderbook import (
     OrderBookSnapshot, OrderBookSimulator, SimulatedOrder,
@@ -41,7 +42,8 @@ class TestFeeModels:
             order_price=50000.0,
             side="buy",
             order_type="market",
-            exchange="binance"
+            exchange="binance",
+            symbol="BTC/USDT"
         )
         
         fees = calc_zero.calculate_fees(context)
@@ -86,7 +88,8 @@ class TestFeeModels:
             side="buy",
             order_type="limit",
             is_maker=True,
-            exchange="binance"
+            exchange="binance",
+            symbol="BTC/USDT"
         )
         
         maker_fees = calc.calculate_fees(maker_context)
@@ -99,7 +102,8 @@ class TestFeeModels:
             side="buy",
             order_type="market",
             is_maker=False,
-            exchange="binance"
+            exchange="binance",
+            symbol="BTC/USDT"
         )
         
         taker_fees = calc.calculate_fees(taker_context)
@@ -116,10 +120,10 @@ class TestSlippageModels:
     def test_depth_based_slippage(self):
         """Test depth-based slippage calculation."""
         # Create sample order book
-        bids = [(50000.0, 1.0), (49999.0, 2.0), (49998.0, 3.0)]
-        asks = [(50001.0, 1.0), (50002.0, 2.0), (50003.0, 3.0)]
+        bids = [OrderLevel(50000.0, 1.0), OrderLevel(49999.0, 2.0), OrderLevel(49998.0, 3.0)]
+        asks = [OrderLevel(50001.0, 1.0), OrderLevel(50002.0, 2.0), OrderLevel(50003.0, 3.0)]
         
-        snapshot = OrderBookSnapshot(
+        snapshot = SlippageOrderBookSnapshot(
             symbol="BTC/USDT",
             timestamp=datetime.now(),
             bids=bids,
@@ -202,7 +206,7 @@ class TestOrderBookSimulation:
         assert valid_snapshot.best_bid == 50000.0
         assert valid_snapshot.best_ask == 50001.0
         assert valid_snapshot.spread == 1.0
-        assert valid_snapshot.spread_bps == 2.0  # 1/50000 * 10000
+        assert valid_snapshot.spread_bps == 0.2  # 1/50000 * 10000
         
         # Invalid order book (crossed)
         invalid_bids = [(50001.0, 1.0)]  # Bid above ask
@@ -338,11 +342,13 @@ class TestIntegration:
         slippage_calc = DepthBasedSlippage()
         
         # Create order book
-        snapshot = OrderBookSnapshot(
+        bids = [OrderLevel(50000.0, 1.0), OrderLevel(49999.0, 2.0)]
+        asks = [OrderLevel(50001.0, 1.0), OrderLevel(50002.0, 2.0)]
+        snapshot = SlippageOrderBookSnapshot(
             symbol="BTC/USDT",
             timestamp=datetime.now(),
-            bids=[(50000.0, 1.0), (49999.0, 2.0)],
-            asks=[(50001.0, 1.0), (50002.0, 2.0)]
+            bids=bids,
+            asks=asks
         )
         
         # Calculate fees
@@ -352,7 +358,8 @@ class TestIntegration:
             order_price=50000.0,
             side="buy",
             order_type="market",
-            exchange="binance"
+            exchange="binance",
+            symbol="BTC/USDT"
         )
         
         fees = fee_calc.calculate_fees(fee_context)
@@ -396,6 +403,9 @@ class TestIntegration:
         # Create replay engine
         replay_engine = OrderBookReplayEngine(storage, replay_speed=10.0)
         
+        # Start replay engine
+        replay_engine.start_replay()
+        
         # Replay snapshots
         replayed_snapshots = list(replay_engine.replay_snapshots(
             "BTC/USDT",
@@ -409,6 +419,8 @@ class TestIntegration:
         for i in range(1, len(replayed_snapshots)):
             assert replayed_snapshots[i].timestamp > replayed_snapshots[i-1].timestamp
         
+        # Stop replay engine
+        replay_engine.stop_replay()
         storage.close()
 
 
@@ -424,7 +436,8 @@ def test_performance_benchmarks():
         order_price=50000.0,
         side="buy",
         order_type="market",
-        exchange="binance"
+        exchange="binance",
+        symbol="BTC/USDT"
     )
     
     start_time = time.time()

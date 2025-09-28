@@ -9,7 +9,7 @@ from typing import Dict, Optional, Any
 import logging
 import os
 
-from .secrets_manager import SecretsManager, SecretsManagerFactory, SecretBackend
+from .secrets_manager import SecretsManager, SecretsManagerFactory, SecretBackend, LocalEncryptedSecretsManager
 
 class SecretsConfigManager:
     """Manages secrets configuration and access."""
