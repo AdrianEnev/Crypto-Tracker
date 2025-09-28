@@ -551,6 +551,8 @@ class TestOrderManagerIntegration:
 
         # Register executor
         executor = EnhancedPaperExecutor()
+        # Set deterministic fill probability for testing
+        executor._simulation_config["fill_probability"] = 1.0  # 100% fill rate for testing
         order_manager.register_executor("paper", executor)
 
         # Place order with a price unlikely to be filled immediately

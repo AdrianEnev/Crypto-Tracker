@@ -4,32 +4,27 @@ Test Security Implementation
 Comprehensive tests for the security module implementation.
 """
 
-import os
-
-# Add src to path
 import sys
 import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
-sys.path.append(str(Path(__file__).parent.parent / "src"))
+# Add src to path before importing modules
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from security import (
+from security import (  # noqa: E402
     APIKeyValidationResult,
     APIKeyValidator,
     LocalEncryptedSecretsManager,
     PermissionLevel,
     SafetyStatus,
     SecretBackend,
-    SecretMetadata,
     SecretsConfigManager,
     SecretsManagerFactory,
     SecurityManager,
 )
-from tracker.config_manager import ConfigManager
 
 
 class TestAPIKeyValidator:
@@ -162,7 +157,7 @@ class TestSecretsConfigManager:
             }
         }
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory():
             with patch(
                 "security.secrets_config_manager.LocalEncryptedSecretsManager"
             ) as mock_manager:
