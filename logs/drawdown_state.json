@@ -1,0 +1,16 @@
+{
+  "equity_peak": 0.0,
+  "daily_start_equity": 0.0,
+  "weekly_start_equity": 0.0,
+  "monthly_start_equity": 0.0,
+  "last_equity_day": "2025-09-28",
+  "last_equity_week": "2025-09-22",
+  "last_equity_month": "2025-09",
+  "equity_history": [
+    {
+      "timestamp": "2025-09-28T10:47:26.206501+00:00",
+      "equity": 0.0,
+      "period": "daily"
+    }
+  ]
+}
