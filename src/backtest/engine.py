@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import argparse
 import csv
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import yaml
 
@@ -17,7 +16,7 @@ from src.decision import compute_confidence, recommend_action
 from src.indicators.core import atr as atr_series
 from src.indicators.core import ema as ema_series
 from src.indicators.core import rsi as rsi_series
-from src.risk import ATRRiskParams, compute_stop_levels, compute_stop_levels_atr
+from src.risk import ATRRiskParams, compute_stop_levels_atr
 
 
 @dataclass
@@ -125,7 +124,7 @@ def simulate_on_series(
 
         if action_rec == "Buy" and pos_qty == 0.0:
             # Regime filter gating
-            if use_regime_filter and ef is not None and es is not None and ef <= es:
+            if (use_regime_filter and ef is not None and es is not None and ef <= es):
                 # still compute regime-aware threshold check below — but if regime filter is ON and strictly forbids, skip
                 pass  # skip entry
             else:
@@ -538,7 +537,8 @@ def main():
     print("Backtest summary (config-driven):")
     for cid, r in results.items():
         print(
-            f" - {cid}: trades={len(r.trades)}, win_rate={r.win_rate:.2f}%, PF={r.profit_factor:.3f}, maxDD={r.max_drawdown:.2f}%"
+            f" - {cid}: trades={len(r.trades)}, win_rate={r.win_rate:.2f}%, "
+            f"PF={r.profit_factor:.3f}, maxDD={r.max_drawdown:.2f}%"
         )
 
     # Load config for coin ids, thresholds and CG ids
@@ -596,7 +596,8 @@ def main():
     for coin_id, res in summary.items():
         print(f"\n=== {coin_id} ===")
         print(
-            f"Trades: {len(res.trades)} | Win%: {res.win_rate:.1f}% | PF: {res.profit_factor:.2f} | MaxDD: {res.max_drawdown:.1f}%"
+            f"Trades: {len(res.trades)} | Win%: {res.win_rate:.1f}% | "
+            f"PF: {res.profit_factor:.2f} | MaxDD: {res.max_drawdown:.1f}%"
         )
 
     # Simple exit code

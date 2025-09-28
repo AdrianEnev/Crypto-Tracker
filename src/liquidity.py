@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+# Module placeholder for liquidity calculations
 
 
 def estimate_slippage(size_usd: float, spread_bps_default: int = 10) -> float:

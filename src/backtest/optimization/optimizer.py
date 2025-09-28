@@ -4,7 +4,7 @@ Main optimization runner for backtest optimization.
 
 import csv
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 
 from rich.console import Console
 from rich.progress import track
@@ -34,7 +34,6 @@ class OptimizationRunner:
             # Get optimization settings
             timeframe = str(cfg_all.get("data", {}).get("timeframe", "1d"))
             days = int(cfg_all.get("data", {}).get("days", 365))
-            folds = int(optimize_config.get("folds", 3))
             use_price_as_threshold = bool(optimize_config.get("use_price_as_threshold", True))
             disable_regime_filter = bool(optimize_config.get("disable_regime_filter", False))
             disable_vol_gate = bool(optimize_config.get("disable_vol_gate", False))
@@ -227,7 +226,7 @@ class OptimizationRunner:
 
             for i, (train_start, train_end, test_start, test_end) in enumerate(splits):
                 self.console.print(
-                    f"[blue]Walk-forward fold {i+1}/{len(splits)} for {coin_id}[/blue]"
+                    f"[blue]Walk-forward fold {i + 1}/{len(splits)} for {coin_id}[/blue]"
                 )
 
                 # Split data

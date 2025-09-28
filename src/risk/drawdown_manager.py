@@ -8,7 +8,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from .models import DrawdownMetrics, RiskLevel, RiskViolation, RiskViolationType
 
@@ -263,7 +263,8 @@ class DrawdownManager:
                 violation = RiskViolation(
                     violation_type=RiskViolationType.DAILY_DRAWDOWN_EXCEEDED,
                     severity=RiskLevel.HIGH,
-                    message=f"Daily drawdown {metrics.daily_drawdown_pct:.2f}% exceeds limit {daily_max_drawdown_pct}%",
+                    message=f"Daily drawdown {metrics.daily_drawdown_pct:.2f}% "
+                    f"exceeds limit {daily_max_drawdown_pct}%",
                     current_value=metrics.daily_drawdown_pct,
                     limit_value=daily_max_drawdown_pct,
                     timestamp=timestamp,
@@ -276,7 +277,8 @@ class DrawdownManager:
                 violation = RiskViolation(
                     violation_type=RiskViolationType.WEEKLY_DRAWDOWN_EXCEEDED,
                     severity=RiskLevel.HIGH,
-                    message=f"Weekly drawdown {metrics.weekly_drawdown_pct:.2f}% exceeds limit {weekly_max_drawdown_pct}%",
+                    message=f"Weekly drawdown {metrics.weekly_drawdown_pct:.2f}% "
+                    f"exceeds limit {weekly_max_drawdown_pct}%",
                     current_value=metrics.weekly_drawdown_pct,
                     limit_value=weekly_max_drawdown_pct,
                     timestamp=timestamp,

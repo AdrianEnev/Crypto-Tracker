@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from ..risk import ATRRiskParams
-from .simulation import BacktestDataLoader, MetricsCalculator, TradingSimulator
+from .simulation import BacktestDataLoader, TradingSimulator
 
 
 def main():

@@ -11,10 +11,10 @@ import logging
 import random
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
-from .models import ExchangeError, MaxRetriesExceededError, Order, OrderResult
+from .models import MaxRetriesExceededError, Order, OrderResult
 
 
 @dataclass
@@ -193,7 +193,8 @@ class OrderRetryManager:
 
                 # Log retry attempt
                 self.logger.warning(
-                    f"Retry {retry_count}/{self.config.max_retries} for order {order_id}: {last_error}"
+                    f"Retry {retry_count}/{self.config.max_retries} for order {order_id}: "
+                    f"{last_error}"
                 )
 
                 # Wait before retry

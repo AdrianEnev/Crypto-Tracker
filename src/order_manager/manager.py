@@ -14,11 +14,10 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional
 
 from .cancellation import OrderCancellationManager
-from .executors import BaseExecutor, EnhancedCCXTExecutor, EnhancedPaperExecutor
+from .executors import BaseExecutor, EnhancedPaperExecutor
 from .models import (
     Order,
     OrderAlreadyExistsError,
-    OrderNotFoundError,
     OrderRequest,
     OrderResult,
     OrderState,
@@ -129,7 +128,7 @@ class OrderManager:
             if self.robust_risk_manager:
                 try:
                     # Get current prices for risk assessment
-                    sym_to_price = self._get_current_prices_for_risk_check(
+                    _ = self._get_current_prices_for_risk_check(
                         order_request.symbol, order_request.price
                     )
 

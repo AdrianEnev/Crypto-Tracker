@@ -7,14 +7,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from .drawdown_manager import DrawdownManager
 from .exposure_tracker import ExposureTracker
 from .kill_switch import KillSwitch
 from .models import (
-    DrawdownMetrics,
-    ExposureMetrics,
     RiskCheckResult,
     RiskConfig,
     RiskLevel,

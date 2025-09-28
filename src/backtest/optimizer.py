@@ -394,7 +394,9 @@ def optimize() -> None:
                 avg_mar = sum(x.mar for x in lst) / len(lst)
                 avg_ret = sum(x.avg_return_pct for x in lst) / len(lst)
                 print(
-                    f" {i:>2}. params={p} | PF={avg_pf:.2f} | maxDD={avg_dd:.1f}% | WR={avg_wr:.1f}% | CAGR={avg_cagr:.2f}% | MAR={avg_mar:.2f} | avgRet={avg_ret:.2f}% | trades~{avg_trades}"
+                    f" {i:>2}. params={p} | PF={avg_pf:.2f} | maxDD={avg_dd:.1f}% | "
+                    f"WR={avg_wr:.1f}% | CAGR={avg_cagr:.2f}% | MAR={avg_mar:.2f} | "
+                    f"avgRet={avg_ret:.2f}% | trades~{avg_trades}"
                 )
             else:
                 print(f" {i:>2}. params={p} | no results")
@@ -438,7 +440,8 @@ def optimize() -> None:
                     msg = (
                         f"Top params: rsi={p['rsi']}, ef={p['ema_fast']}, es={p['ema_slow']}, "
                         f"sl={p['sl_mult']}, tp={p['tp_mult']}, rb={p['risk_budget_pct']}\n"
-                        f"PF={avg_pf:.2f}, WR={avg_wr:.1f}%, maxDD={avg_dd:.1f}%, CAGR={avg_cagr:.2f}%, MAR={avg_mar:.2f}"
+                        f"PF={avg_pf:.2f}, WR={avg_wr:.1f}%, maxDD={avg_dd:.1f}%, "
+                        f"CAGR={avg_cagr:.2f}%, MAR={avg_mar:.2f}"
                     )
                     notifier.alert(f"Optimizer Summary {cid}", msg, style="cyan")
         except Exception:
@@ -489,7 +492,7 @@ def optimize() -> None:
                         avg_ret = 0.0
                     # Simple Monte Carlo sequencing for this parameter set on full data
                     # Re-evaluate on full series for MC
-                    ev_full = _eval_params(
+                    _eval_params(
                         closes,
                         highs,
                         lows,

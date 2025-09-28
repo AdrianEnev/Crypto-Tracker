@@ -8,7 +8,6 @@ slicing orders based on market volume patterns.
 from __future__ import annotations
 
 import logging
-import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
@@ -305,7 +304,6 @@ class VWAPSlicer:
         participation_rate = min(participation_rate, self.config.max_participation_rate)
 
         # Calculate expected execution time based on volume
-        expected_volume_per_hour = volume_profile.average_volume
         order_volume_per_hour = order.quantity * participation_rate
 
         # Estimate execution time (simplified)

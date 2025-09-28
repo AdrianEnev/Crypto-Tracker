@@ -147,7 +147,7 @@ class PriceAggregator:
 
             primary_price = next((p for s, p in vals if s == primary_source_key), None)
             med = median(prices_only)
-            final_price = primary_price if primary_price is not None else med
+            _ = primary_price if primary_price is not None else med
             # If we only have a single provider, do not compute agreement; show None
             if len(prices_only) < 2:
                 diff_pct_val: Optional[float] = None

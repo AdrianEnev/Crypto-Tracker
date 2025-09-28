@@ -6,7 +6,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import requests
 
@@ -91,8 +91,10 @@ def fetch_ohlcv_coingecko(
     api_key: Optional[str] = None,
 ) -> List[Candle]:
     """Fetch OHLC-like data from CoinGecko market_chart endpoint.
-    Note: CoinGecko provides prices (close), market_caps, total_volumes; true OHLC is on /ohlc for limited days.
-    We approximate OHLC from prices as close-only; O=H=L=C for indicator purposes (RSI/EMA/ATR with proxy ATR).
+    Note: CoinGecko provides prices (close), market_caps, total_volumes;
+    true OHLC is on /ohlc for limited days.
+    We approximate OHLC from prices as close-only; O=H=L=C for indicator
+    purposes (RSI/EMA/ATR with proxy ATR).
     """
     base = "https://api.coingecko.com/api/v3"
     url = f"{base}/coins/{coin_id}/market_chart"
@@ -143,8 +145,10 @@ def get_candles(
     use_cache: bool = True,
     api_key: Optional[str] = None,
 ) -> List[Candle]:
-    """Return candles for coin_id at timeframe. Supports 1d and basic 1h/4h via hourly market_chart.
-    Note: CoinGecko returns hourly data reliably up to ~90 days. For days > 90 with 1h/4h, we cap to 90 days.
+    """Return candles for coin_id at timeframe. Supports 1d and basic 1h/4h
+    via hourly market_chart.
+    Note: CoinGecko returns hourly data reliably up to ~90 days.
+    For days > 90 with 1h/4h, we cap to 90 days.
     Caches JSONL to reduce API calls.
     """
     cache_dir_p = Path(cache_dir)
