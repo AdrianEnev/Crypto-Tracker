@@ -14,9 +14,12 @@ def dump_table(conn: sqlite3.Connection, table: str, limit: int) -> None:
     if table not in {"orders", "trades", "equity"}:
         print(f"Unknown table '{table}'. Use one of: orders, trades, equity")
         return
-    order_col = "id"
+    
+    # Use parameterized query with table name validation
+    # Table name is validated against whitelist above, so this is safe
+    query = f"SELECT * FROM {table} ORDER BY id DESC LIMIT ?"  # nosec B608
     try:
-        cur.execute(f"SELECT * FROM {table} ORDER BY {order_col} DESC LIMIT ?", (limit,))
+        cur.execute(query, (limit,))
         rows = cur.fetchall()
         colnames = [d[0] for d in cur.description]
         print(f"\n== {table.upper()} (last {limit}) ==")
