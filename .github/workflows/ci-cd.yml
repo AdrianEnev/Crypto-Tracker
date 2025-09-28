@@ -54,7 +54,9 @@ jobs:
           echo "Bandit scan completed - only medium+ severity issues cause failure"
 
       - name: Dependency vulnerability scan (Safety)
-        run: safety check --json --output safety-report.json || true
+        run: |
+          safety scan --save-as json safety-report.json || true
+          echo "Safety scan completed - dependency vulnerabilities checked"
 
       - name: Upload security reports
         uses: actions/upload-artifact@v4
