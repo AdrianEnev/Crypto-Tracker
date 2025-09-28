@@ -11,32 +11,30 @@ from pathlib import Path
 
 import pytest
 
-# Add src to path
-sys.path.append(str(Path(__file__).parent.parent / "src"))
+# Add src to path before importing modules
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from backtest.simulation.enhanced_simulator import EnhancedTradingSimulator
-from fees import (
-    ExchangeFeeRegistry,
+from backtest.simulation.enhanced_simulator import EnhancedTradingSimulator  # noqa: E402
+from fees import (  # noqa: E402
     FeeCalculationMode,
     FeeCalculator,
     OrderFeeContext,
     get_exchange_fees,
 )
-from orderbook import (
+from orderbook import (  # noqa: E402
     OrderBookReplayEngine,
     OrderBookSimulator,
     OrderBookSnapshot,
     SimulatedOrder,
     SQLiteOrderBookStorage,
 )
-from slippage import (
+from slippage import (  # noqa: E402
     DepthBasedSlippage,
     MarketCondition,
-    MarketDepth,
     MarketImpactCalculator,
 )
-from slippage import OrderBookSnapshot as SlippageOrderBookSnapshot
-from slippage import (
+from slippage import OrderBookSnapshot as SlippageOrderBookSnapshot  # noqa: E402
+from slippage import (  # noqa: E402
     OrderLevel,
     SlippageContext,
     SlippageType,
