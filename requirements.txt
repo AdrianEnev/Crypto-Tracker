@@ -5,6 +5,7 @@ schedule==1.2.1
 rich==13.7.0  # For pretty console output
 ccxt==4.3.42
 pandas==2.2.2  # Cryptocurrency exchange trading library
+websocket-client>=1.6.0  # WebSocket client for real-time data
 pytest>=7.4
 cryptography>=41.0.0  # For encrypted secrets storage
 hvac>=2.0.0  # HashiCorp Vault client (optional)
