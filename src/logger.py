@@ -13,7 +13,9 @@ def utc_iso(dt: datetime | None = None) -> str:
         dt = datetime.now(timezone.utc)
     return dt.isoformat()
 
+
 _log_dir: Path | None = None
+
 
 def configure_file_logging(dir_path: str | os.PathLike | None) -> None:
     """Optionally enable file logging to a daily JSONL file under dir_path.
@@ -81,14 +83,22 @@ def _append_csv(filename: str, headers: list[str], row: Dict[str, Any]) -> None:
 
 def log_decision_csv(row: Dict[str, Any]) -> None:
     headers = [
-        "ts", "coin_id", "symbol", "price", "threshold", "status", "signal",
-        "confidence", "agreement_pct", "providers", "stale", "action_recommended"
+        "ts",
+        "coin_id",
+        "symbol",
+        "price",
+        "threshold",
+        "status",
+        "signal",
+        "confidence",
+        "agreement_pct",
+        "providers",
+        "stale",
+        "action_recommended",
     ]
     _append_csv("decisions.csv", headers, row)
 
 
 def log_order_csv(row: Dict[str, Any]) -> None:
-    headers = [
-        "ts", "symbol", "side", "size_usd", "price", "status", "reason", "pnl_pct"
-    ]
+    headers = ["ts", "symbol", "side", "size_usd", "price", "status", "reason", "pnl_pct"]
     _append_csv("orders.csv", headers, row)

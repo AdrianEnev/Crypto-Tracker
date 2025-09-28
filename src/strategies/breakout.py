@@ -4,7 +4,9 @@ from src.indicators.core import bollinger, rolling_mean
 from typing import List, Optional
 
 
-def _rolling_percentile(values: List[Optional[float]], window: int, pct: float) -> List[Optional[float]]:
+def _rolling_percentile(
+    values: List[Optional[float]], window: int, pct: float
+) -> List[Optional[float]]:
     """
     Compute rolling percentile (0-100) for a series with None handling. Returns aligned list.
     Uses a simple per-window sort; acceptable for typical strategy window sizes.
@@ -13,6 +15,7 @@ def _rolling_percentile(values: List[Optional[float]], window: int, pct: float) 
         return [None for _ in values]
     out: List[Optional[float]] = []
     from math import floor
+
     for i in range(len(values)):
         if i + 1 < window:
             out.append(None)
@@ -66,14 +69,20 @@ class BreakoutStrategy(BaseStrategy):
         data["bb_width"] = width
 
         # Squeeze threshold as rolling percentile of width
-        squeeze_thr = _rolling_percentile(data["bb_width"].tolist(), self.squeeze_window, self.squeeze_pctile)
+        squeeze_thr = _rolling_percentile(
+            data["bb_width"].tolist(), self.squeeze_window, self.squeeze_pctile
+        )
         data["squeeze_thr"] = squeeze_thr
-        data["in_squeeze"] = (pd.Series(data["bb_width"]).astype(float) <= pd.Series(squeeze_thr).astype(float))
+        data["in_squeeze"] = pd.Series(data["bb_width"]).astype(float) <= pd.Series(
+            squeeze_thr
+        ).astype(float)
 
         # Volume confirmation
         vmean = rolling_mean(vols, self.volume_window)
         data["vol_mean"] = vmean
-        data["vol_confirm"] = (pd.Series(vols).astype(float) > (pd.Series(vmean).astype(float) * self.volume_mult))
+        data["vol_confirm"] = pd.Series(vols).astype(float) > (
+            pd.Series(vmean).astype(float) * self.volume_mult
+        )
 
         # Breakout conditions
         close_ser = pd.Series(closes).astype(float)
@@ -82,8 +91,16 @@ class BreakoutStrategy(BaseStrategy):
 
         # Require N consecutive closes beyond bands if confirm_closes > 1
         if self.confirm_closes > 1:
-            above_up = above_up.rolling(self.confirm_closes).apply(lambda x: 1.0 if all(x) else 0.0).astype(bool)
-            below_lo = below_lo.rolling(self.confirm_closes).apply(lambda x: 1.0 if all(x) else 0.0).astype(bool)
+            above_up = (
+                above_up.rolling(self.confirm_closes)
+                .apply(lambda x: 1.0 if all(x) else 0.0)
+                .astype(bool)
+            )
+            below_lo = (
+                below_lo.rolling(self.confirm_closes)
+                .apply(lambda x: 1.0 if all(x) else 0.0)
+                .astype(bool)
+            )
 
         long_entry = above_up & data["in_squeeze"].astype(bool) & data["vol_confirm"].astype(bool)
         short_entry = below_lo & data["in_squeeze"].astype(bool) & data["vol_confirm"].astype(bool)

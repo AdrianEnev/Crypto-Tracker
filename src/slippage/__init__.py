@@ -15,7 +15,7 @@ from .models import (
     SlippageContext,
     SlippageCalculationError,
     InsufficientLiquidityError,
-    InvalidOrderBookError
+    InvalidOrderBookError,
 )
 from .depth_based import DepthBasedSlippage
 from .volume_based import VolumeBasedSlippage
@@ -23,19 +23,19 @@ from .market_impact import MarketImpactCalculator
 from .backtest_slippage import BacktestSlippageCalculator, SlippageStats
 
 __all__ = [
-    'SlippageResult',
-    'OrderBookSnapshot',
-    'MarketDepth',
-    'OrderLevel',
-    'SlippageType',
-    'MarketCondition',
-    'SlippageContext',
-    'SlippageCalculationError',
-    'InsufficientLiquidityError',
-    'InvalidOrderBookError',
-    'DepthBasedSlippage',
-    'VolumeBasedSlippage',
-    'MarketImpactCalculator',
-    'BacktestSlippageCalculator',
-    'SlippageStats'
+    "SlippageResult",
+    "OrderBookSnapshot",
+    "MarketDepth",
+    "OrderLevel",
+    "SlippageType",
+    "MarketCondition",
+    "SlippageContext",
+    "SlippageCalculationError",
+    "InsufficientLiquidityError",
+    "InvalidOrderBookError",
+    "DepthBasedSlippage",
+    "VolumeBasedSlippage",
+    "MarketImpactCalculator",
+    "BacktestSlippageCalculator",
+    "SlippageStats",
 ]

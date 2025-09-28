@@ -39,17 +39,21 @@ def get_candles_ccxt(
 
     # Initialize exchange
     ex_cls = getattr(ccxt, exchange_name)
-    ex = ex_cls({
-        "enableRateLimit": True,
-        # If the user wants, they can set API keys for private endpoints; not needed for public OHLCV.
-    })
+    ex = ex_cls(
+        {
+            "enableRateLimit": True,
+            # If the user wants, they can set API keys for private endpoints; not needed for public OHLCV.
+        }
+    )
 
     # Fetch OHLCV: returns [[ms, o, h, l, c, v], ...]
     ohlcv = ex.fetch_ohlcv(symbol=market, timeframe=timeframe, limit=limit)
     candles: List[Candle] = []
     for row in ohlcv:
         ts, o, h, l, c, v = row
-        candles.append(Candle(ts=int(ts), o=float(o), h=float(h), l=float(l), c=float(c), v=float(v)))
+        candles.append(
+            Candle(ts=int(ts), o=float(o), h=float(h), l=float(l), c=float(c), v=float(v))
+        )
 
     rows = [c.__dict__ for c in candles]
     save_jsonl(cache_file, rows)

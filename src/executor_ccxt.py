@@ -28,15 +28,24 @@ class CCXTLiveExecutor:
     - For simplicity, TP/SL are not placed as OCO here; those can be added later per-exchange.
     """
 
-    def __init__(self, exchange_name: str, api_key: str, secret_key: str, retry_count: int = 3, backoff_factor: float = 0.5):
+    def __init__(
+        self,
+        exchange_name: str,
+        api_key: str,
+        secret_key: str,
+        retry_count: int = 3,
+        backoff_factor: float = 0.5,
+    ):
         ex_cls = getattr(ccxt, exchange_name)
         self.retry_count = retry_count
         self.backoff_factor = backoff_factor
-        self.ex = ex_cls({
-            "apiKey": api_key,
-            "secret": secret_key,
-            "enableRateLimit": True,
-        })
+        self.ex = ex_cls(
+            {
+                "apiKey": api_key,
+                "secret": secret_key,
+                "enableRateLimit": True,
+            }
+        )
         self.markets = self.ex.load_markets()
         # Failure tracking per endpoint
         self._fail_ts: Dict[str, list[float]] = {}
@@ -46,6 +55,7 @@ class CCXTLiveExecutor:
     def _record_fail(self, endpoint: str) -> None:
         try:
             import time
+
             arr = self._fail_ts.setdefault(endpoint, [])
             now = time.time()
             arr.append(now)
@@ -54,9 +64,12 @@ class CCXTLiveExecutor:
         except Exception:
             pass
 
-    def has_high_failure_rate(self, endpoint: str, threshold: int = 5, window_sec: int = 60) -> bool:
+    def has_high_failure_rate(
+        self, endpoint: str, threshold: int = 5, window_sec: int = 60
+    ) -> bool:
         try:
             import time
+
             now = time.time()
             arr = self._fail_ts.get(endpoint, [])
             cnt = len([t for t in arr if now - t <= window_sec])
@@ -66,6 +79,7 @@ class CCXTLiveExecutor:
 
     def _retry(self, fn, endpoint: str, *args, **kwargs):
         import random, time
+
         attempts = 0
         last_exc = None
         while attempts < self.retry_count:
@@ -76,30 +90,32 @@ class CCXTLiveExecutor:
                 attempts += 1
                 self._record_fail(endpoint)
                 # jittered backoff: 0.5s, 1s
-                time.sleep(min(1.0, self.backoff_factor * (2 ** (attempts - 1))) + random.random() * 0.2)
+                time.sleep(
+                    min(1.0, self.backoff_factor * (2 ** (attempts - 1))) + random.random() * 0.2
+                )
         raise last_exc or RuntimeError(f"{endpoint} failed")
 
     def _conform_amount(self, market: Dict[str, Any], amount: float) -> float:
         try:
-            step = market.get('limits', {}).get('amount', {}).get('step')
+            step = market.get("limits", {}).get("amount", {}).get("step")
             if step and step > 0:
                 amount = (amount // step) * step
         except Exception:
             pass
-        precision = market.get('precision', {}).get('amount')
+        precision = market.get("precision", {}).get("amount")
         if isinstance(precision, int) and precision >= 0:
             amount = float(f"{amount:.{precision}f}")
         return max(amount, 0.0)
 
     def _conform_price(self, market: Dict[str, Any], price: float) -> float:
-        precision = market.get('precision', {}).get('price')
+        precision = market.get("precision", {}).get("price")
         if isinstance(precision, int) and precision >= 0:
             price = float(f"{price:.{precision}f}")
         return max(price, 0.0)
 
     def _min_notional_ok(self, market: Dict[str, Any], amount: float, price: float) -> bool:
         try:
-            min_cost = market.get('limits', {}).get('cost', {}).get('min')
+            min_cost = market.get("limits", {}).get("cost", {}).get("min")
             if min_cost is not None:
                 return (amount * price) >= float(min_cost)
         except Exception:
@@ -109,12 +125,20 @@ class CCXTLiveExecutor:
     def _last_price(self, symbol: str) -> Optional[float]:
         try:
             t = self.ex.fetch_ticker(symbol)
-            px = t.get('last') or t.get('close') or t.get('ask') or t.get('bid')
+            px = t.get("last") or t.get("close") or t.get("ask") or t.get("bid")
             return float(px) if px is not None else None
         except Exception:
             return None
 
-    def place_order(self, symbol: str, side: str, size_usd: float, order_type: str = "market", price: Optional[float] = None, client_order_id: Optional[str] = None) -> LiveOrderResult:
+    def place_order(
+        self,
+        symbol: str,
+        side: str,
+        size_usd: float,
+        order_type: str = "market",
+        price: Optional[float] = None,
+        client_order_id: Optional[str] = None,
+    ) -> LiveOrderResult:
         """Place a live order sized in USD. Returns a normalized order result.
 
         side: "buy" or "sell"
@@ -130,7 +154,11 @@ class CCXTLiveExecutor:
             raise RuntimeError("Could not obtain price for sizing")
         amount = size_usd / float(px)
         amount = self._conform_amount(market, amount)
-        px_use = self._conform_price(market, float(px)) if order_type == "limit" and price is not None else None
+        px_use = (
+            self._conform_price(market, float(px))
+            if order_type == "limit" and price is not None
+            else None
+        )
         # Enforce min notional if available
         if not self._min_notional_ok(market, amount, float(px)):
             raise RuntimeError("Order notional below exchange minimum")
@@ -139,23 +167,36 @@ class CCXTLiveExecutor:
         # Pass clientOrderId if supported (Binance, Bybit, etc.)
         try:
             if client_order_id:
-                if getattr(self.ex, 'id', '') == 'binance':
-                    params['newClientOrderId'] = client_order_id
+                if getattr(self.ex, "id", "") == "binance":
+                    params["newClientOrderId"] = client_order_id
                 else:
-                    params['clientOrderId'] = client_order_id
+                    params["clientOrderId"] = client_order_id
         except Exception:
             pass
         try:
-            order = self._retry(self.ex.create_order, 'create_order', symbol=symbol, type=order_type, side=side, amount=amount, price=px_use, params=params)
+            order = self._retry(
+                self.ex.create_order,
+                "create_order",
+                symbol=symbol,
+                type=order_type,
+                side=side,
+                amount=amount,
+                price=px_use,
+                params=params,
+            )
             result = LiveOrderResult(
-                id=str(order.get('id')),
-                status=str(order.get('status', 'open')),
+                id=str(order.get("id")),
+                status=str(order.get("status", "open")),
                 symbol=symbol,
                 side=side,
                 type=order_type,
-                price=float(order.get('price') or px_use or 0.0) if (order.get('price') or px_use) is not None else None,
-                amount=float(order.get('amount')) if order.get('amount') is not None else None,
-                cost=float(order.get('cost')) if order.get('cost') is not None else None,
+                price=(
+                    float(order.get("price") or px_use or 0.0)
+                    if (order.get("price") or px_use) is not None
+                    else None
+                ),
+                amount=float(order.get("amount")) if order.get("amount") is not None else None,
+                cost=float(order.get("cost")) if order.get("cost") is not None else None,
             )
             try:
                 if client_order_id:
@@ -166,9 +207,16 @@ class CCXTLiveExecutor:
         except Exception as ex:
             raise RuntimeError(f"Exchange order error: {ex}")
 
-    def place_oco_sell(self, symbol: str, quantity: float, tp_price: float, sl_stop_price: float, sl_limit_price: Optional[float] = None) -> bool:
+    def place_oco_sell(
+        self,
+        symbol: str,
+        quantity: float,
+        tp_price: float,
+        sl_stop_price: float,
+        sl_limit_price: Optional[float] = None,
+    ) -> bool:
         """Attempt to place an OCO sell (TP + SL) on supported exchanges (Binance).
-{{ ... }}
+        {{ ... }}
         """
         try:
             market = self.markets.get(symbol)
@@ -178,29 +226,47 @@ class CCXTLiveExecutor:
             qty = self._conform_amount(market, float(quantity))
             tp_p = self._conform_price(market, float(tp_price))
             sl_stop = self._conform_price(market, float(sl_stop_price))
-            sl_lim = self._conform_price(market, float(sl_limit_price if sl_limit_price is not None else sl_stop))
+            sl_lim = self._conform_price(
+                market, float(sl_limit_price if sl_limit_price is not None else sl_stop)
+            )
             # Only attempt direct OCO on binance; other exchanges likely unsupported via ccxt
-            if getattr(self.ex, 'id', '') != 'binance':
+            if getattr(self.ex, "id", "") != "binance":
                 return False
             # Binance OCO via ccxt params
             params = {
-                'type': 'OCO',
-                'stopPrice': sl_stop,
-                'stopLimitPrice': sl_lim,
-                'stopLimitTimeInForce': 'GTC',
+                "type": "OCO",
+                "stopPrice": sl_stop,
+                "stopLimitPrice": sl_lim,
+                "stopLimitTimeInForce": "GTC",
             }
             # For OCO, ccxt expects a limit leg price and amount; pass TP as limit price
-            order = self._retry(self.ex.create_order, 'create_order', symbol=symbol, type='limit', side='sell', amount=qty, price=tp_p, params=params)
+            order = self._retry(
+                self.ex.create_order,
+                "create_order",
+                symbol=symbol,
+                type="limit",
+                side="sell",
+                amount=qty,
+                price=tp_p,
+                params=params,
+            )
             _ = order  # not used beyond this
             return True
         except Exception:
             return False
 
-    def place_oco_or_fallback(self, symbol: str, quantity: float, tp_price: float, sl_stop_price: float, sl_limit_price: Optional[float] = None) -> Dict[str, Any]:
+    def place_oco_or_fallback(
+        self,
+        symbol: str,
+        quantity: float,
+        tp_price: float,
+        sl_stop_price: float,
+        sl_limit_price: Optional[float] = None,
+    ) -> Dict[str, Any]:
         """Place OCO; if not supported or fails, fallback to separate stop-limit + limit TP.
         Returns a dict with keys: {'mode': 'oco'|'separate'|'failed', 'tp_ok': bool, 'sl_ok': bool}
         """
-        result = {'mode': 'failed', 'tp_ok': False, 'sl_ok': False}
+        result = {"mode": "failed", "tp_ok": False, "sl_ok": False}
         # Try OCO first
         try:
             ok = self.place_oco_sell(symbol, quantity, tp_price, sl_stop_price, sl_limit_price)
@@ -208,13 +274,13 @@ class CCXTLiveExecutor:
                 # Try a light verification: check there are open orders for this symbol on sell side
                 try:
                     open_orders = self.ex.fetch_open_orders(symbol=symbol)
-                    sells = [o for o in open_orders if str(o.get('side','')).lower()=='sell']
+                    sells = [o for o in open_orders if str(o.get("side", "")).lower() == "sell"]
                     if len(sells) >= 2:
-                        result.update({'mode': 'oco', 'tp_ok': True, 'sl_ok': True})
+                        result.update({"mode": "oco", "tp_ok": True, "sl_ok": True})
                         return result
                 except Exception:
                     # If verification not possible, assume success
-                    result.update({'mode': 'oco', 'tp_ok': True, 'sl_ok': True})
+                    result.update({"mode": "oco", "tp_ok": True, "sl_ok": True})
                     return result
         except Exception:
             pass
@@ -226,7 +292,9 @@ class CCXTLiveExecutor:
             qty = self._conform_amount(market, float(quantity))
             tp_p = self._conform_price(market, float(tp_price))
             sl_stop = self._conform_price(market, float(sl_stop_price))
-            sl_lim = self._conform_price(market, float(sl_limit_price if sl_limit_price is not None else sl_stop))
+            sl_lim = self._conform_price(
+                market, float(sl_limit_price if sl_limit_price is not None else sl_stop)
+            )
             # Stop-limit leg
             sl_ok = self.place_stop_limit_sell(symbol, qty, sl_stop, sl_lim)
             # TP limit leg
@@ -234,8 +302,16 @@ class CCXTLiveExecutor:
             tp_id = None
             sl_id = None
             try:
-                order_tp = self._retry(self.ex.create_order, 'create_order', symbol=symbol, type='limit', side='sell', amount=qty, price=tp_p)
-                tp_id = str(order_tp.get('id')) if order_tp and order_tp.get('id') else None
+                order_tp = self._retry(
+                    self.ex.create_order,
+                    "create_order",
+                    symbol=symbol,
+                    type="limit",
+                    side="sell",
+                    amount=qty,
+                    price=tp_p,
+                )
+                tp_id = str(order_tp.get("id")) if order_tp and order_tp.get("id") else None
                 tp_ok = True
             except Exception:
                 tp_ok = False
@@ -244,7 +320,15 @@ class CCXTLiveExecutor:
                 sl_id = self._last_sl_ids.get(symbol)
             except Exception:
                 sl_id = None
-            result.update({'mode': 'separate', 'tp_ok': bool(tp_ok), 'sl_ok': bool(sl_ok), 'tp_id': tp_id, 'sl_id': sl_id})
+            result.update(
+                {
+                    "mode": "separate",
+                    "tp_ok": bool(tp_ok),
+                    "sl_ok": bool(sl_ok),
+                    "tp_id": tp_id,
+                    "sl_id": sl_id,
+                }
+            )
             return result
         except Exception:
             return result
@@ -255,7 +339,9 @@ class CCXTLiveExecutor:
         except Exception:
             return None
 
-    def place_stop_limit_sell(self, symbol: str, quantity: float, stop_price: float, limit_price: Optional[float] = None) -> bool:
+    def place_stop_limit_sell(
+        self, symbol: str, quantity: float, stop_price: float, limit_price: Optional[float] = None
+    ) -> bool:
         """Place a standalone stop-limit sell order for protection.
         Returns True if submitted, False otherwise.
         """
@@ -265,25 +351,45 @@ class CCXTLiveExecutor:
                 return False
             qty = self._conform_amount(market, float(quantity))
             stp = self._conform_price(market, float(stop_price))
-            lim = self._conform_price(market, float(limit_price if limit_price is not None else stop_price))
-            if getattr(self.ex, 'id', '') == 'binance':
+            lim = self._conform_price(
+                market, float(limit_price if limit_price is not None else stop_price)
+            )
+            if getattr(self.ex, "id", "") == "binance":
                 # Binance specific STOP_LOSS_LIMIT
                 params = {
-                    'type': 'STOP_LOSS_LIMIT',
-                    'stopPrice': stp,
-                    'timeInForce': 'GTC',
+                    "type": "STOP_LOSS_LIMIT",
+                    "stopPrice": stp,
+                    "timeInForce": "GTC",
                 }
-                order = self._retry(self.ex.create_order, 'create_order', symbol=symbol, type='limit', side='sell', amount=qty, price=lim, params=params)
+                order = self._retry(
+                    self.ex.create_order,
+                    "create_order",
+                    symbol=symbol,
+                    type="limit",
+                    side="sell",
+                    amount=qty,
+                    price=lim,
+                    params=params,
+                )
             else:
                 # Generic attempt: some exchanges accept stop params similarly
                 params = {
-                    'stopPrice': stp,
-                    'timeInForce': 'GTC',
+                    "stopPrice": stp,
+                    "timeInForce": "GTC",
                 }
-                order = self._retry(self.ex.create_order, 'create_order', symbol=symbol, type='limit', side='sell', amount=qty, price=lim, params=params)
+                order = self._retry(
+                    self.ex.create_order,
+                    "create_order",
+                    symbol=symbol,
+                    type="limit",
+                    side="sell",
+                    amount=qty,
+                    price=lim,
+                    params=params,
+                )
             # Record SL id if any
             try:
-                oid = order.get('id') if isinstance(order, dict) else None
+                oid = order.get("id") if isinstance(order, dict) else None
                 if oid:
                     self._last_sl_ids[symbol] = str(oid)
             except Exception:
@@ -294,27 +400,35 @@ class CCXTLiveExecutor:
 
     # Retry helpers for tracker
     def fetch_open_orders_retry(self, symbol: str):
-        return self._retry(self.ex.fetch_open_orders, 'fetch_open_orders', symbol=symbol)
+        return self._retry(self.ex.fetch_open_orders, "fetch_open_orders", symbol=symbol)
 
     def create_limit_sell_retry(self, symbol: str, amount: float, price: float):
-        return self._retry(self.ex.create_order, 'create_order', symbol=symbol, type='limit', side='sell', amount=amount, price=price)
+        return self._retry(
+            self.ex.create_order,
+            "create_order",
+            symbol=symbol,
+            type="limit",
+            side="sell",
+            amount=amount,
+            price=price,
+        )
 
     def cancel_open_sell_orders(self, symbol: str) -> int:
         """Cancel all open sell orders for a symbol. Returns number canceled."""
         try:
-            orders = self._retry(self.ex.fetch_open_orders, 'fetch_open_orders', symbol=symbol)
+            orders = self._retry(self.ex.fetch_open_orders, "fetch_open_orders", symbol=symbol)
         except Exception:
             orders = []
         canceled = 0
-        for o in (orders or []):
+        for o in orders or []:
             try:
-                if str(o.get('side','')).lower() != 'sell':
+                if str(o.get("side", "")).lower() != "sell":
                     continue
-                oid = o.get('id')
+                oid = o.get("id")
                 if oid is None:
                     continue
                 try:
-                    self._retry(self.ex.cancel_order, 'cancel_order', oid, symbol)
+                    self._retry(self.ex.cancel_order, "cancel_order", oid, symbol)
                     canceled += 1
                 except Exception:
                     continue
@@ -323,10 +437,11 @@ class CCXTLiveExecutor:
         return canceled
 
     def cancel_order_retry(self, order_id: str, symbol: str) -> None:
-        self._retry(self.ex.cancel_order, 'cancel_order', order_id, symbol)
+        self._retry(self.ex.cancel_order, "cancel_order", order_id, symbol)
 
     def get_failure_counts(self, window_sec: int = 60) -> Dict[str, int]:
         import time
+
         now = time.time()
         out: Dict[str, int] = {}
         for ep, times in self._fail_ts.items():

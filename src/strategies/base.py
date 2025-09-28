@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import pandas as pd
 
+
 class BaseStrategy(ABC):
     def __init__(self, strategy_config: dict):
         self.config = strategy_config

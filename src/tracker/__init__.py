@@ -12,4 +12,4 @@ This package contains the refactored components of the crypto tracker system:
 
 from .core import CryptoTracker
 
-__all__ = ['CryptoTracker']
+__all__ = ["CryptoTracker"]

@@ -8,10 +8,4 @@ from .simulator import TradingSimulator
 from .data_loader import BacktestDataLoader
 from .metrics import MetricsCalculator
 
-__all__ = [
-    'Trade',
-    'BacktestResult', 
-    'TradingSimulator',
-    'BacktestDataLoader',
-    'MetricsCalculator'
-]
+__all__ = ["Trade", "BacktestResult", "TradingSimulator", "BacktestDataLoader", "MetricsCalculator"]

@@ -14,8 +14,16 @@ class FakeTracker:
 
 
 def _build_flat_history(coin_id: str, price: float = 100.0, n: int = 60):
-    candles = [Candle(ts=1_700_000_000_000 + i * 86_400_000, o=price, h=price, l=price, c=price, v=10.0) for i in range(n)]
-    return {coin_id: {"candles": candles, "last": {"atr": 0.0, "close": price, "ema_fast": price, "ema_slow": price}}}
+    candles = [
+        Candle(ts=1_700_000_000_000 + i * 86_400_000, o=price, h=price, l=price, c=price, v=10.0)
+        for i in range(n)
+    ]
+    return {
+        coin_id: {
+            "candles": candles,
+            "last": {"atr": 0.0, "close": price, "ema_fast": price, "ema_slow": price},
+        }
+    }
 
 
 def test_make_decision_smoke_uses_config_and_history():
@@ -26,7 +34,11 @@ def test_make_decision_smoke_uses_config_and_history():
 
     dec = make_decision(tracker, coin_id)
     assert dec is not None
-    assert dec.signal.endswith("_signal") or dec.signal in ("no_data", "strategy_error", "strategy_eval_error")
+    assert dec.signal.endswith("_signal") or dec.signal in (
+        "no_data",
+        "strategy_error",
+        "strategy_eval_error",
+    )
     # With flat series and ATR gate in config, expect Hold due to vol_gate
     assert dec.action_recommended in ("Hold", "Manual", "Sell", "Buy")
     # Confidence should be a float within [0, 1]

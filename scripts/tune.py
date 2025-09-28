@@ -3,7 +3,17 @@ import yaml
 from pathlib import Path
 from src.backtest.optimizer import _fetch_series, _eval_params
 
-def objective(trial, cfg_all, coin_id, timeframe, days, use_price_as_threshold, disable_regime_filter, disable_vol_gate):
+
+def objective(
+    trial,
+    cfg_all,
+    coin_id,
+    timeframe,
+    days,
+    use_price_as_threshold,
+    disable_regime_filter,
+    disable_vol_gate,
+):
     params = {
         "rsi": trial.suggest_int("rsi", 5, 25),
         "ema_fast": trial.suggest_int("ema_fast", 5, 50),
@@ -18,18 +28,34 @@ def objective(trial, cfg_all, coin_id, timeframe, days, use_price_as_threshold, 
         return 0.0
 
     closes, highs, lows, times = series
-    result = _eval_params(closes, highs, lows, times, cfg_all, coin_id, params, timeframe, use_price_as_threshold, disable_regime_filter, disable_vol_gate)
+    result = _eval_params(
+        closes,
+        highs,
+        lows,
+        times,
+        cfg_all,
+        coin_id,
+        params,
+        timeframe,
+        use_price_as_threshold,
+        disable_regime_filter,
+        disable_vol_gate,
+    )
 
     return result.profit_factor
 
+
 def tune():
     cfg_all = yaml.safe_load(Path("config/config.yaml").read_text())
-    
+
     # For simplicity, we'll tune the first enabled coin
-    coin_id = next(cid for cid, c in cfg_all['tracked_coins'].items() if not c.get('disabled'))
+    coin_id = next(cid for cid, c in cfg_all["tracked_coins"].items() if not c.get("disabled"))
 
     study = optuna.create_study(direction="maximize")
-    study.optimize(lambda trial: objective(trial, cfg_all, coin_id, '1d', 365, False, False, False), n_trials=100)
+    study.optimize(
+        lambda trial: objective(trial, cfg_all, coin_id, "1d", 365, False, False, False),
+        n_trials=100,
+    )
 
     print("Best trial:")
     trial = study.best_trial
@@ -38,5 +64,6 @@ def tune():
     for key, value in trial.params.items():
         print(f"    {key}: {value}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     tune()

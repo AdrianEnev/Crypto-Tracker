@@ -30,7 +30,9 @@ class ATRRiskParams:
     trail_mult: float = 2.0
 
 
-def compute_stop_levels_atr(entry_price: float, atr_value: Optional[float], atr_params: ATRRiskParams) -> tuple[Optional[float], Optional[float]]:
+def compute_stop_levels_atr(
+    entry_price: float, atr_value: Optional[float], atr_params: ATRRiskParams
+) -> tuple[Optional[float], Optional[float]]:
     """ATR-based stops and targets. Returns (sl, tp) or (None, None) if ATR missing."""
     if atr_value is None or atr_value <= 0:
         return None, None
@@ -39,7 +41,9 @@ def compute_stop_levels_atr(entry_price: float, atr_value: Optional[float], atr_
     return round(sl, 6), round(tp, 6)
 
 
-def compute_trailing_stop_atr(peak_price: float, atr_value: Optional[float], atr_params: ATRRiskParams) -> Optional[float]:
+def compute_trailing_stop_atr(
+    peak_price: float, atr_value: Optional[float], atr_params: ATRRiskParams
+) -> Optional[float]:
     """ATR-based trailing: peak - k*ATR. Returns None if ATR missing."""
     if atr_value is None or atr_value <= 0:
         return None

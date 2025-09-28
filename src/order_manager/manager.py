@@ -13,8 +13,14 @@ import logging
 import uuid
 
 from .models import (
-    Order, OrderRequest, OrderResult, OrderState, OrderType,
-    OrderValidationError, OrderNotFoundError, OrderAlreadyExistsError
+    Order,
+    OrderRequest,
+    OrderResult,
+    OrderState,
+    OrderType,
+    OrderValidationError,
+    OrderNotFoundError,
+    OrderAlreadyExistsError,
 )
 from .state_machine import OrderStateMachine
 from .executors import BaseExecutor, EnhancedPaperExecutor, EnhancedCCXTExecutor
@@ -29,6 +35,7 @@ from .vwap import VWAPSlicer, VWAPConfig
 @dataclass
 class OrderManagerConfig:
     """Configuration for order manager."""
+
     max_active_orders: int = 1000
     order_timeout_minutes: int = 60
     reconciliation_interval_minutes: int = 5
@@ -42,14 +49,21 @@ class OrderManagerConfig:
 
 class OrderManager:
     """Main order management orchestrator."""
-    
-    def __init__(self, config_manager, portfolio_manager, risk_manager, robust_risk_manager=None, config: Optional[OrderManagerConfig] = None):
+
+    def __init__(
+        self,
+        config_manager,
+        portfolio_manager,
+        risk_manager,
+        robust_risk_manager=None,
+        config: Optional[OrderManagerConfig] = None,
+    ):
         self.config_manager = config_manager
         self.portfolio_manager = portfolio_manager
         self.risk_manager = risk_manager
         self.robust_risk_manager = robust_risk_manager
         self.config = config or OrderManagerConfig()
-        
+
         # Core components
         self.state_machine = OrderStateMachine()
         self.smart_router = SmartOrderRouter()
@@ -58,55 +72,55 @@ class OrderManager:
         self.reconciler = OrderReconciler(self)
         self.twap_slicer = TWAPSlicer(self.config.twap_config)
         self.vwap_slicer = VWAPSlicer(self.config.vwap_config)
-        
+
         # Order tracking
         self.active_orders: Dict[str, Order] = {}
         self.order_history: List[Order] = []
         self.executors: Dict[str, BaseExecutor] = {}
-        
+
         # Event handlers
         self.event_handlers: Dict[str, List[Callable]] = {
-            'order_placed': [],
-            'order_filled': [],
-            'order_canceled': [],
-            'order_rejected': [],
-            'order_error': []
+            "order_placed": [],
+            "order_filled": [],
+            "order_canceled": [],
+            "order_rejected": [],
+            "order_error": [],
         }
-        
+
         self.logger = logging.getLogger(__name__)
-        
+
         # Initialize default executors
         self._initialize_default_executors()
-    
+
     def _initialize_default_executors(self) -> None:
         """Initialize default executors."""
         # Paper executor
         paper_executor = EnhancedPaperExecutor()
         self.register_executor("paper", paper_executor)
-        
+
         # Register with smart router
         if self.config.enable_smart_routing:
             self.smart_router.register_executor("paper", paper_executor)
-    
+
     def register_executor(self, exchange_name: str, executor: BaseExecutor) -> None:
         """Register an executor for order execution."""
         self.executors[exchange_name] = executor
-        
+
         if self.config.enable_smart_routing:
             self.smart_router.register_executor(exchange_name, executor)
-        
+
         self.logger.info(f"Registered executor for exchange: {exchange_name}")
-    
+
     def unregister_executor(self, exchange_name: str) -> None:
         """Unregister an executor."""
         if exchange_name in self.executors:
             del self.executors[exchange_name]
-        
+
         if self.config.enable_smart_routing:
             self.smart_router.unregister_executor(exchange_name)
-        
+
         self.logger.info(f"Unregistered executor for exchange: {exchange_name}")
-    
+
     def place_order(self, order_request: OrderRequest) -> Order:
         """Place a new order."""
         try:
@@ -114,77 +128,85 @@ class OrderManager:
             if self.robust_risk_manager:
                 try:
                     # Get current prices for risk assessment
-                    sym_to_price = self._get_current_prices_for_risk_check(order_request.symbol, order_request.price)
-                    
+                    sym_to_price = self._get_current_prices_for_risk_check(
+                        order_request.symbol, order_request.price
+                    )
+
                     # Perform comprehensive risk check
                     risk_result = self.robust_risk_manager.check_pre_trade_risk(
                         symbol=order_request.symbol,
                         side=order_request.side,
                         quantity=order_request.quantity,
                         price=order_request.price or 0.0,
-                        stop_loss=None  # TODO: Extract from order request if available
+                        stop_loss=None,  # TODO: Extract from order request if available
                     )
-                    
+
                     if not risk_result.is_valid:
                         from .models import OrderValidationResult
+
                         validation_result = OrderValidationResult(is_valid=False)
                         for violation in risk_result.violations:
                             validation_result.add_error(f"Risk violation: {violation.message}")
                         raise OrderValidationError(validation_result)
-                        
+
                 except Exception as e:
                     self.logger.error(f"Robust risk check failed: {e}")
                     # Continue with order placement if risk check fails
                     # This ensures system resilience
-            
+
             # Validate order request
             validation_result = self._validate_order_request(order_request)
             if not validation_result.is_valid:
                 raise OrderValidationError(validation_result)
-            
+
             # Check if we can accept more orders
             if len(self.active_orders) >= self.config.max_active_orders:
                 from .models import OrderValidationResult
+
                 validation_result = OrderValidationResult(is_valid=False)
-                validation_result.add_error(f"Maximum active orders ({self.config.max_active_orders}) exceeded")
+                validation_result.add_error(
+                    f"Maximum active orders ({self.config.max_active_orders}) exceeded"
+                )
                 raise OrderValidationError(validation_result)
-            
+
             # Create order
             order = self._create_order(order_request)
-            
+
             # Check for duplicate orders
             if order.id in self.active_orders:
                 raise OrderAlreadyExistsError(f"Order {order.id} already exists")
-            
+
             # Store order
             self.active_orders[order.id] = order
-            
+
             # Execute order
             self._execute_order(order)
-            
+
             # Emit event
-            self._emit_event('order_placed', order)
-            
-            self.logger.info(f"Placed order {order.id}: {order.symbol} {order.side} {order.quantity}")
+            self._emit_event("order_placed", order)
+
+            self.logger.info(
+                f"Placed order {order.id}: {order.symbol} {order.side} {order.quantity}"
+            )
             return order
-            
+
         except Exception as e:
             self.logger.error(f"Error placing order: {e}")
             raise
-    
+
     def cancel_order(self, order_id: str, reason: str = "manual") -> bool:
         """Cancel an order."""
         return self.cancellation_manager.cancel_order(order_id, reason).success
-    
+
     def cancel_all_orders(self, symbol: Optional[str] = None, reason: str = "bulk_cancel") -> int:
         """Cancel all active orders."""
         results = self.cancellation_manager.cancel_all_orders(symbol, reason)
         return sum(1 for result in results if result.success)
-    
+
     def get_order(self, order_id: str) -> Optional[Order]:
         """Get order by ID."""
         return self.active_orders.get(order_id)
-    
+
     def get_active_orders(self, symbol: Optional[str] = None) -> List[Order]:
         """Get all active orders, optionally filtered by symbol."""
         orders = []
@@ -192,7 +214,7 @@ class OrderManager:
             if order.is_active and (symbol is None or order.symbol == symbol):
                 orders.append(order)
         return orders
-    
+
     def get_orders_by_strategy(self, strategy_id: str) -> List[Order]:
         """Get all orders for a specific strategy."""
         orders = []
@@ -200,90 +222,103 @@ class OrderManager:
             if order.strategy_id == strategy_id:
                 orders.append(order)
         return orders
-    
+
     def get_executor(self, exchange_name: str) -> Optional[BaseExecutor]:
         """Get executor for exchange."""
         return self.executors.get(exchange_name)
-    
+
     def reconcile_orders(self, force: bool = False) -> Any:
         """Reconcile orders with exchange state."""
         if not self.config.enable_reconciliation:
             return None
-        
+
         return self.reconciler.reconcile_orders(force)
-    
+
     def get_order_statistics(self) -> Dict[str, Any]:
         """Get order management statistics."""
         total_orders = len(self.active_orders)
         active_orders = len([o for o in self.active_orders.values() if o.is_active])
-        
+
         orders_by_state = {}
         for order in self.active_orders.values():
             state = order.state.value
             orders_by_state[state] = orders_by_state.get(state, 0) + 1
-        
+
         orders_by_exchange = {}
         for order in self.active_orders.values():
             exchange = order.exchange
             orders_by_exchange[exchange] = orders_by_exchange.get(exchange, 0) + 1
-        
+
         return {
-            'total_orders': total_orders,
-            'active_orders': active_orders,
-            'orders_by_state': orders_by_state,
-            'orders_by_exchange': orders_by_exchange,
-            'registered_executors': list(self.executors.keys()),
-            'retry_statistics': self.retry_manager.get_retry_statistics(),
-            'routing_statistics': self.smart_router.get_exchange_statistics() if self.config.enable_smart_routing else {}
+            "total_orders": total_orders,
+            "active_orders": active_orders,
+            "orders_by_state": orders_by_state,
+            "orders_by_exchange": orders_by_exchange,
+            "registered_executors": list(self.executors.keys()),
+            "retry_statistics": self.retry_manager.get_retry_statistics(),
+            "routing_statistics": (
+                self.smart_router.get_exchange_statistics()
+                if self.config.enable_smart_routing
+                else {}
+            ),
         }
-    
+
     def add_event_handler(self, event_type: str, handler: Callable) -> None:
         """Add event handler for order events."""
         if event_type in self.event_handlers:
             self.event_handlers[event_type].append(handler)
-    
+
     def remove_event_handler(self, event_type: str, handler: Callable) -> None:
         """Remove event handler."""
         if event_type in self.event_handlers and handler in self.event_handlers[event_type]:
             self.event_handlers[event_type].remove(handler)
-    
+
     def _validate_order_request(self, order_request: OrderRequest) -> Any:
         """Validate order request."""
         from .models import OrderValidationResult
-        
+
         result = OrderValidationResult(is_valid=True)
-        
+
         # Basic validation
         if order_request.quantity <= 0:
             result.add_error("Quantity must be positive")
-        
-        if order_request.side not in ['buy', 'sell']:
+
+        if order_request.side not in ["buy", "sell"]:
             result.add_error("Side must be 'buy' or 'sell'")
-        
-        if order_request.order_type in [OrderType.LIMIT, OrderType.STOP_LIMIT] and order_request.price is None:
+
+        if (
+            order_request.order_type in [OrderType.LIMIT, OrderType.STOP_LIMIT]
+            and order_request.price is None
+        ):
             result.add_error("Price is required for limit orders")
-        
+
         if order_request.order_type == OrderType.STOP_LIMIT and order_request.stop_price is None:
             result.add_error("Stop price is required for stop-limit orders")
-        
+
         # TWAP/VWAP validation
         if order_request.order_type == OrderType.TWAP:
-            if order_request.twap_duration_seconds is None or order_request.twap_duration_seconds <= 0:
+            if (
+                order_request.twap_duration_seconds is None
+                or order_request.twap_duration_seconds <= 0
+            ):
                 result.add_error("TWAP duration must be positive")
-        
+
         if order_request.order_type == OrderType.VWAP:
-            if order_request.vwap_participation_rate is None or order_request.vwap_participation_rate <= 0:
+            if (
+                order_request.vwap_participation_rate is None
+                or order_request.vwap_participation_rate <= 0
+            ):
                 result.add_error("VWAP participation rate must be positive")
-        
+
         return result
-    
+
     def _create_order(self, order_request: OrderRequest) -> Order:
         """Create order from request."""
         order_id = str(uuid.uuid4())
-        
+
         # Determine exchange
         exchange = order_request.preferred_exchange or order_request.exchange or "paper"
-        
+
         # Create order
         order = Order(
             id=order_id,
@@ -304,11 +339,11 @@ class OrderManager:
             twap_slice_size=order_request.twap_slice_size,
             vwap_reference_price=order_request.vwap_reference_price,
             vwap_participation_rate=order_request.vwap_participation_rate,
-            tags=order_request.tags
+            tags=order_request.tags,
         )
-        
+
         return order
-    
+
     def _execute_order(self, order: Order) -> None:
         """Execute order using appropriate executor."""
         try:
@@ -319,13 +354,13 @@ class OrderManager:
                 self._execute_vwap_order(order)
             else:
                 self._execute_simple_order(order)
-            
+
         except Exception as e:
             self.logger.error(f"Error executing order {order.id}: {e}")
             self.state_machine.transition(order, OrderState.REJECTED, "execution_error")
             order.last_error = str(e)
-            self._emit_event('order_error', order)
-    
+            self._emit_event("order_error", order)
+
     def _execute_twap_order(self, order: Order) -> None:
         """Execute TWAP order."""
         try:
@@ -337,19 +372,19 @@ class OrderManager:
                 if not self.executors:
                     raise RuntimeError("No executors registered")
                 executor = next(iter(self.executors.values()))
-            
+
             # Create TWAP execution
             self.twap_slicer.create_twap_order(order, executor)
-            
+
             # Update order state
             self.state_machine.transition(order, OrderState.PENDING, "twap_started")
-            
+
             self.logger.info(f"Started TWAP execution for order {order.id}")
-            
+
         except Exception as e:
             self.logger.error(f"Error starting TWAP order {order.id}: {e}")
             raise
-    
+
     def _execute_vwap_order(self, order: Order) -> None:
         """Execute VWAP order."""
         try:
@@ -361,19 +396,19 @@ class OrderManager:
                 if not self.executors:
                     raise RuntimeError("No executors registered")
                 executor = next(iter(self.executors.values()))
-            
+
             # Create VWAP execution
             self.vwap_slicer.create_vwap_order(order, executor)
-            
+
             # Update order state
             self.state_machine.transition(order, OrderState.PENDING, "vwap_started")
-            
+
             self.logger.info(f"Started VWAP execution for order {order.id}")
-            
+
         except Exception as e:
             self.logger.error(f"Error starting VWAP order {order.id}: {e}")
             raise
-    
+
     def _execute_simple_order(self, order: Order) -> None:
         """Execute simple order (market, limit, etc.)."""
         try:
@@ -385,7 +420,7 @@ class OrderManager:
                 if not self.executors:
                     raise RuntimeError("No executors registered")
                 executor = next(iter(self.executors.values()))
-            
+
             # Convert order to order request for execution
             order_request = OrderRequest(
                 symbol=order.symbol,
@@ -396,36 +431,36 @@ class OrderManager:
                 stop_price=order.stop_price,
                 time_in_force=order.time_in_force,
                 client_order_id=order.client_order_id,
-                strategy_id=order.strategy_id
+                strategy_id=order.strategy_id,
             )
-            
+
             # Execute with retry logic
             def execution_func(order: Order) -> OrderResult:
                 return executor.place_order(order_request)
-            
+
             result = self.retry_manager.execute_with_retry(order, executor, execution_func)
-            
+
             # Update order state based on result
             if result.success:
                 # First transition to PENDING
                 self.state_machine.transition(order, OrderState.PENDING, "execution")
-                
+
                 # Then transition to final state if provided
                 if result.state and result.state != OrderState.PENDING:
                     self.state_machine.transition(order, result.state, "execution_complete")
-                
+
                 # Update exchange order ID
                 if result.exchange_order_id:
                     order.exchange_order_id = result.exchange_order_id
             else:
                 self.state_machine.transition(order, OrderState.REJECTED, "execution_failed")
                 order.last_error = result.error_message
-                self._emit_event('order_rejected', order)
-            
+                self._emit_event("order_rejected", order)
+
         except Exception as e:
             self.logger.error(f"Error executing simple order {order.id}: {e}")
             raise
-    
+
     def _emit_event(self, event_type: str, order: Order) -> None:
         """Emit order event to registered handlers."""
         if event_type in self.event_handlers:
@@ -434,8 +469,10 @@ class OrderManager:
                     handler(order)
                 except Exception as e:
                     self.logger.error(f"Error in event handler for {event_type}: {e}")
-    
-    def _get_current_prices_for_risk_check(self, symbol: str, fallback_price: Optional[float] = None) -> Dict[str, float]:
+
+    def _get_current_prices_for_risk_check(
+        self, symbol: str, fallback_price: Optional[float] = None
+    ) -> Dict[str, float]:
         """Get current prices for risk assessment."""
         try:
             # Try to get prices from portfolio manager or price manager
@@ -443,55 +480,55 @@ class OrderManager:
             prices = {}
             if fallback_price:
                 prices[symbol] = fallback_price
-            
+
             # TODO: Integrate with actual price manager to get all current prices
             # This would call something like:
             # prices = self.price_manager.get_current_prices()
-            
+
             return prices
         except Exception:
             # Return fallback price if available
             if fallback_price:
                 return {symbol: fallback_price}
             return {}
-    
+
     def cleanup_expired_orders(self) -> int:
         """Clean up expired orders."""
         expired_count = 0
         cutoff_time = datetime.now() - timedelta(minutes=self.config.order_timeout_minutes)
-        
+
         orders_to_remove = []
         for order_id, order in self.active_orders.items():
             if order.created_at < cutoff_time and order.is_active:
                 orders_to_remove.append(order_id)
-        
+
         for order_id in orders_to_remove:
             order = self.active_orders[order_id]
             self.state_machine.transition(order, OrderState.EXPIRED, "timeout")
             expired_count += 1
-        
+
         return expired_count
-    
+
     def get_order_lifecycle_summary(self, order_id: str) -> Optional[Dict[str, Any]]:
         """Get lifecycle summary for an order."""
         order = self.get_order(order_id)
         if not order:
             return None
-        
+
         return self.state_machine.get_order_lifecycle_summary(order_id)
-    
+
     def get_twap_status(self, order_id: str) -> Optional[Dict[str, Any]]:
         """Get TWAP order status."""
         return self.twap_slicer.get_twap_status(order_id)
-    
+
     def get_vwap_status(self, order_id: str) -> Optional[Dict[str, Any]]:
         """Get VWAP order status."""
         return self.vwap_slicer.get_vwap_status(order_id)
-    
+
     def cancel_twap_order(self, order_id: str) -> bool:
         """Cancel TWAP order."""
         return self.twap_slicer.cancel_twap_order(order_id)
-    
+
     def cancel_vwap_order(self, order_id: str) -> bool:
         """Cancel VWAP order."""
         return self.vwap_slicer.cancel_vwap_order(order_id)

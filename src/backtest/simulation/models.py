@@ -9,6 +9,7 @@ from typing import List, Optional
 @dataclass
 class Trade:
     """Represents a single trade in the backtest."""
+
     entry_idx: int
     entry_price: float
     exit_idx: Optional[int] = None
@@ -25,6 +26,7 @@ class Trade:
 @dataclass
 class BacktestResult:
     """Results from a backtest simulation."""
+
     trades: List[Trade]
     equity: List[float]
     win_rate: float
