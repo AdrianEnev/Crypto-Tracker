@@ -13,6 +13,8 @@ from src.executor import PaperExecutor
 from src.executor_ccxt import CCXTLiveExecutor
 from src.logger import log_event, log_order_csv, log_decision_csv
 from src.position_sizing import compute_size_usd
+from src.security.security_manager import SecurityManager
+from src.security.secrets_config_manager import SecretsConfigManager
 
 
 class ExecutionManager:
@@ -22,6 +24,10 @@ class ExecutionManager:
         self.config_manager = config_manager
         self.portfolio_manager = portfolio_manager
         self.risk_manager = risk_manager
+        
+        # Initialize security components
+        self.security_manager = SecurityManager(config_manager)
+        self.secrets_config_manager = SecretsConfigManager(config_manager)
         
         # Execution configuration
         self.auto_trade_enable: bool = False
@@ -78,18 +84,35 @@ class ExecutionManager:
                 providers_config = self.config_manager.get_providers_config()
                 exchange_name = str(providers_config.get('exchange', 'binance')).lower()
                 
-                # Try to get API keys
-                key = os.environ.get(f"{exchange_name.upper()}_API_KEY") or os.environ.get("BINANCE_API_KEY")
-                secret = os.environ.get(f"{exchange_name.upper()}_SECRET") or os.environ.get("BINANCE_SECRET")
+                # Get API keys securely
+                key = self.secrets_config_manager.get_api_key(exchange_name)
+                secret = self.secrets_config_manager.get_api_secret(exchange_name)
                 
                 if key and secret:
-                    self.live_executor = CCXTLiveExecutor(
-                        exchange_name=exchange_name,
-                        api_key=key,
-                        secret_key=secret,
-                        retry_count=self.executor_retry_count,
-                        backoff_factor=self.executor_backoff_factor
-                    )
+                    # Validate API key safety before creating executor
+                    if self.security_manager.is_trading_safe(exchange_name, key, secret):
+                        self.live_executor = CCXTLiveExecutor(
+                            exchange_name=exchange_name,
+                            api_key=key,
+                            secret_key=secret,
+                            retry_count=self.executor_retry_count,
+                            backoff_factor=self.executor_backoff_factor
+                        )
+                        log_event('live_executor_created', {
+                            'exchange': exchange_name,
+                            'security_validated': True,
+                            'secrets_source': 'secrets_manager'
+                        })
+                    else:
+                        # Security validation failed - fall back to paper trading
+                        from rich.console import Console
+                        console = Console()
+                        console.print(f"[red]Security validation failed for {exchange_name}. Staying in paper mode.[/red]")
+                        self.auto_trade_mode = 'paper'
+                        log_event('live_executor_security_failed', {
+                            'exchange': exchange_name,
+                            'reason': 'API key safety validation failed'
+                        })
                 else:
                     from rich.console import Console
                     console = Console()
