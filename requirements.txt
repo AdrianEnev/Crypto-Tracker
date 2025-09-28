@@ -3,5 +3,6 @@ pyyaml==6.0.1
 python-dotenv==1.0.0
 schedule==1.2.1
 rich==13.7.0  # For pretty console output
-ccxt>=4.0.0  # Cryptocurrency exchange trading library
+ccxt==4.3.42
+pandas==2.2.20  # Cryptocurrency exchange trading library
 pytest>=7.4
