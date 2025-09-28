@@ -7,13 +7,12 @@ liquidity, fees, latency, and other factors.
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 from .executors import BaseExecutor
-from .models import Order, OrderRequest
+from .models import OrderRequest
 
 
 @dataclass

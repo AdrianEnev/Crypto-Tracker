@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Optional
+from typing import Optional
 
 import requests
 from rich.console import Console
@@ -33,7 +33,8 @@ class Notifier:
         if current_price is None:
             if not silent:
                 console.print(
-                    f"[yellow]⚠ Could not fetch price for {coin_name} (${threshold:,.2f} threshold)[/]"
+                    f"[yellow]⚠ Could not fetch price for {coin_name} "
+                    f"(${threshold:,.2f} threshold)[/]"
                 )
             return False
 

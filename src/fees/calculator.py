@@ -13,7 +13,6 @@ from typing import Any, Dict, Optional
 from .exchange_fees import get_exchange_fees
 from .models import (
     FeeBreakdown,
-    FeeCalculationError,
     FeeCalculationMode,
     FeeType,
     OrderFeeContext,

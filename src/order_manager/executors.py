@@ -243,7 +243,7 @@ class EnhancedCCXTExecutor(BaseExecutor):
         """Connect to exchange via CCXT."""
         try:
             # Test connection by fetching markets
-            markets = self.ccxt_executor.ex.load_markets()
+            _ = self.ccxt_executor.ex.load_markets()
             self.is_connected = True
             return True
         except Exception:
@@ -262,7 +262,7 @@ class EnhancedCCXTExecutor(BaseExecutor):
 
         try:
             # Convert order request to CCXT format
-            ccxt_order = self._convert_to_ccxt_order(order_request)
+            _ = self._convert_to_ccxt_order(order_request)
 
             # Place order via CCXT
             result = self.ccxt_executor.place_order(

@@ -10,10 +10,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 from .executors import BaseExecutor
-from .models import Order, OrderNotFoundError, OrderState
+from .models import Order, OrderState
 
 
 @dataclass
@@ -418,7 +418,8 @@ class OrderReconciler:
             if order:
                 # This would need to be implemented based on exchange state
                 self.logger.warning(
-                    f"State mismatch for order {order_id}: {discrepancy.local_value} vs {discrepancy.exchange_value}"
+                    f"State mismatch for order {order_id}: "
+                    f"{discrepancy.local_value} vs {discrepancy.exchange_value}"
                 )
 
     def _handle_warning_discrepancy(self, discrepancy: ReconciliationDiscrepancy) -> None:

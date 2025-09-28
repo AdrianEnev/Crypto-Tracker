@@ -100,8 +100,6 @@ def main():
         pass
     # Kill-switch DD guard using equity helper (runs alongside tracker loop)
     try:
-        from datetime import datetime, timezone
-
         import schedule
 
         # Equity snapshot every 60s into SQLite

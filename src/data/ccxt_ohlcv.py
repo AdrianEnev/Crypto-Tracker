@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 # Third-party
 import ccxt  # type: ignore
@@ -43,7 +42,8 @@ def get_candles_ccxt(
     ex = ex_cls(
         {
             "enableRateLimit": True,
-            # If the user wants, they can set API keys for private endpoints; not needed for public OHLCV.
+            # If the user wants, they can set API keys for private endpoints;
+            # not needed for public OHLCV.
         }
     )
 

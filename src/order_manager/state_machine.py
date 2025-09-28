@@ -74,7 +74,6 @@ class OrderStateMachine:
         self._record_transition(order.id, order.state, new_state, reason)
 
         # Update order state
-        old_state = order.state
         order.state = new_state
         order.updated_at = datetime.now(timezone.utc)
 

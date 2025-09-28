@@ -68,7 +68,6 @@ def rsi(values: List[float], period: int = 14) -> List[Optional[float]]:
 def atr(
     high: List[float], low: List[float], close: List[float], period: int = 14
 ) -> List[Optional[float]]:
-    out: List[Optional[float]] = []
     if period <= 0 or not high:
         return [None for _ in high]
     prev_close: Optional[float] = None

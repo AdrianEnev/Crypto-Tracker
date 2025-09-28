@@ -232,7 +232,7 @@ class BacktestFeeCalculator(FeeCalculator):
                 fees = self.calculate_fees(context)
                 comparison[exchange] = fees
 
-            except Exception as e:
+            except Exception:
                 # Skip exchanges that don't support the symbol
                 continue
 

@@ -3,7 +3,7 @@ Data fetching for backtest optimization.
 """
 
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from src.data.ccxt_ohlcv import get_candles_ccxt
 from src.data.ohlcv import get_candles

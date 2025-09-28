@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 # Lightweight scaffolding for cross-exchange arbitrage checks.
 # Intentionally minimal and safe: does NOT place orders.
