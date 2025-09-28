@@ -21,7 +21,11 @@ class ConfigManager:
         
     def _load_env_vars(self):
         """Load environment variables from .env file."""
-        env_path = Path(self.config_path).parent / '.env'
+        # Look for .env in the project root directory (standard convention)
+        env_path = Path(self.config_path).parent.parent / '.env'
+        if not env_path.exists():
+            # Fallback to config/.env for backward compatibility
+            env_path = Path(self.config_path).parent / '.env'
         load_dotenv(dotenv_path=env_path)
     
     def load_config(self) -> AppConfig:
