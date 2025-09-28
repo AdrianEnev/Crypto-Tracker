@@ -5,6 +5,7 @@ Metrics calculation for backtest simulation.
 from typing import List
 
 from .models import Trade
+from .advanced_metrics import AdvancedMetricsCalculator
 
 
 class MetricsCalculator:
@@ -104,17 +105,24 @@ class MetricsCalculator:
 
     @classmethod
     def calculate_all_metrics(
-        cls, trades: List[Trade], equity: List[float], timeframe: str
+        cls, trades: List[Trade], equity: List[float], timeframe: str, risk_free_rate: float = 0.02
     ) -> dict:
-        """Calculate all metrics at once."""
+        """Calculate all metrics at once including advanced risk metrics."""
+        # Basic metrics
         win_rate = cls.calculate_win_rate(trades)
         profit_factor = cls.calculate_profit_factor(trades)
         max_drawdown = cls.calculate_max_drawdown(equity)
         cagr = cls.calculate_cagr(equity, timeframe)
         mar = cls.calculate_mar(cagr, max_drawdown)
         avg_return = cls.calculate_avg_return(trades)
+        
+        # Advanced risk metrics
+        advanced_metrics = AdvancedMetricsCalculator.calculate_all_advanced_metrics(
+            trades, equity, timeframe, risk_free_rate
+        )
 
         return {
+            # Basic metrics
             "trades": len(trades),
             "win_rate": win_rate,
             "profit_factor": profit_factor,
@@ -122,4 +130,7 @@ class MetricsCalculator:
             "cagr": cagr,
             "mar": mar,
             "avg_return_pct": avg_return,
+            
+            # Advanced risk metrics
+            **advanced_metrics,
         }

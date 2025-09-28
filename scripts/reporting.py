@@ -3,9 +3,23 @@ from pathlib import Path
 
 import pandas as pd
 
+# Import enhanced reporting
+import sys
+sys.path.append(str(Path(__file__).parent.parent))
+from src.reporting import generate_enhanced_reports
+
 
 def generate_reports(db_path: Path, output_dir: Path):
+    """Generate both legacy and enhanced reports."""
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate enhanced reports
+    print("Generating enhanced performance reports...")
+    enhanced_output_dir = output_dir / "enhanced"
+    generate_enhanced_reports(db_path, enhanced_output_dir)
+    
+    # Generate legacy reports for backward compatibility
+    print("Generating legacy reports...")
     conn = sqlite3.connect(db_path)
 
     try:
