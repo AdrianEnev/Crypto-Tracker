@@ -7,7 +7,9 @@ def get_strategy(strategy_name: str, strategy_config: dict) -> BaseStrategy:
     """
     try:
         module_name = f"src.strategies.{strategy_name.lower()}"
-        strategy_class_name = f"{strategy_name.capitalize().replace('_', '')}Strategy"
+        # Convert snake_case to PascalCase for class names
+        words = strategy_name.split('_')
+        strategy_class_name = ''.join(word.capitalize() for word in words) + 'Strategy'
 
         strategy_module = importlib.import_module(module_name)
         strategy_class = getattr(strategy_module, strategy_class_name)
