@@ -11,6 +11,11 @@
       "timestamp": "2025-09-28T10:47:26.206501+00:00",
       "equity": 0.0,
       "period": "daily"
+    },
+    {
+      "timestamp": "2025-09-28T11:33:46.548399+00:00",
+      "equity": 0.0,
+      "period": "daily"
     }
   ]
 }

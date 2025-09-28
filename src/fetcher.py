@@ -47,7 +47,7 @@ class PriceFetcher:
         missing_key_result = {cid: None for cid in id_to_symbol.keys()}
 
         if not self.api_key:
-            console.print("[red]COINMARKETCAP_API_KEY is not set. Please set it in config/.env[/red]")
+            console.print("[red]COINMARKETCAP_API_KEY is not set. Please set it in .env file in project root[/red]")
             return missing_key_result
 
         try:

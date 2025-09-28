@@ -415,9 +415,145 @@ robust_risk:
     DOT: {ETH: 0.5, LINK: 0.4}
     LINK: {ETH: 0.6, DOT: 0.4}
   
-  # Asset categories for group risk management
-  asset_categories:
-    major_crypto: [BTC, ETH, LTC, BCH]
-    altcoins: [DOT, LINK, UNI, AAVE]
-    memecoins: [DOGE, SHIB]
-    stablecoins: [USDT, USDC]
+# Security Configuration
+security:
+  # API Key Safety Controls
+  api_key_safety:
+    enabled: true
+    max_withdrawal_amount_usd: 1000.0
+    required_ip_whitelist: true
+    allowed_permission_levels: ["read_only", "trading_only"]
+    validation_interval_hours: 24
+    
+    # Alerting
+    alert_on_withdrawal_enabled: true
+    alert_on_no_ip_whitelist: true
+    alert_on_full_access: true
+    
+    # Exchange-specific settings
+    exchange_settings:
+      binance:
+        require_subaccount: false
+        max_api_keys: 5
+        # TODO: Configure your Binance-specific settings
+        # testnet: false
+        # sandbox: false
+        # ip_whitelist: []  # Add your IP addresses here
+      coinbase:
+        require_whitelist: true
+        max_api_keys: 3
+        # TODO: Configure your Coinbase-specific settings
+        # sandbox: false
+        # ip_whitelist: []  # Add your IP addresses here
+      kraken:
+        require_whitelist: true
+        max_api_keys: 2
+        # TODO: Configure your Kraken-specific settings
+        # ip_whitelist: []  # Add your IP addresses here
+  
+  # Withdrawal Controls
+  withdrawal_controls:
+    enabled: true
+    max_daily_withdrawal_usd: 5000.0
+    require_manual_approval: true
+    whitelisted_addresses: []  # TODO: Add your trusted withdrawal addresses
+    blacklisted_addresses: []  # TODO: Add addresses to block
+    
+  # Monitoring
+  monitoring:
+    log_all_api_calls: true
+    alert_on_permission_changes: true
+    alert_on_new_api_keys: true
+    security_report_interval_hours: 24
+
+# Secrets Management Configuration
+secrets:
+  # Backend selection: local_encrypted, hashicorp_vault, aws_secrets_manager, gcp_secret_manager
+  backend: "local_encrypted"
+  
+  # Local encrypted storage (DEFAULT FOR TESTING)
+  local_encrypted:
+    master_password_env: "SECRETS_MASTER_PASSWORD"  # Environment variable for master password
+    storage_path: "./secrets"
+    encryption_algorithm: "AES-256-GCM"
+    # TODO: Set SECRETS_MASTER_PASSWORD in your .env file
+  
+  # HashiCorp Vault configuration (OPTIONAL)
+  vault:
+    url: "${VAULT_URL}"  # Environment variable
+    token: "${VAULT_TOKEN}"  # Environment variable
+    mount_point: "secret"
+    namespace: ""  # Optional Vault namespace
+    # TODO: Configure VAULT_URL and VAULT_TOKEN in your .env file
+  
+  # AWS Secrets Manager configuration (OPTIONAL)
+  aws_secrets_manager:
+    region: "us-east-1"
+    profile: "default"  # AWS profile
+    prefix: "crypto-tracker/"
+    # TODO: Configure AWS credentials in your .env file
+  
+  # GCP Secret Manager configuration (OPTIONAL)
+  gcp_secret_manager:
+    project_id: "${GCP_PROJECT_ID}"
+    credentials_path: "${GOOGLE_APPLICATION_CREDENTIALS}"
+    prefix: "crypto-tracker/"
+    # TODO: Configure GCP credentials in your .env file
+  
+  # Key rotation settings
+  rotation:
+    enabled: true
+    interval_days: 30
+    auto_rotate: false  # Manual rotation only for safety
+    notify_before_days: 7
+  
+  # Access logging
+  logging:
+    log_access: true
+    log_failed_access: true
+    retention_days: 90
+
+# =============================================================================
+# TESTING CONFIGURATION FOR NEW SECURITY FEATURES
+# =============================================================================
+
+# Test API Keys (FOR TESTING ONLY - DO NOT USE IN PRODUCTION)
+testing:
+  # Enable testing mode (disables live trading)
+  enabled: false
+  
+  # Test API keys (use paper trading keys or testnet keys)
+  test_api_keys:
+    binance:
+      api_key: ""  # TODO: Add your Binance testnet API key
+      secret: ""   # TODO: Add your Binance testnet secret
+      testnet: true
+    coinbase:
+      api_key: ""  # TODO: Add your Coinbase sandbox API key
+      secret: ""   # TODO: Add your Coinbase sandbox secret
+      sandbox: true
+  
+  # Test security scenarios
+  security_tests:
+    # Test unsafe API key detection
+    test_withdrawal_enabled: false
+    test_no_ip_whitelist: false
+    test_full_access: false
+    
+    # Test secrets management
+    test_secrets_storage: true
+    test_secrets_retrieval: true
+    test_secrets_rotation: false
+
+# =============================================================================
+# QUICK START GUIDE FOR SECURITY FEATURES
+# =============================================================================
+
+# To enable security features:
+# 1. Copy .env.example to .env (in project root)
+# 2. Set SECRETS_MASTER_PASSWORD in .env
+# 3. Add your API keys to .env (or use secrets manager)
+# 4. Configure exchange-specific settings above
+# 5. Test with: python scripts/security_manager.py validate binance --api-key YOUR_KEY --secret YOUR_SECRET
+# 6. Store credentials: python scripts/security_manager.py store binance --api-key YOUR_KEY --secret YOUR_SECRET
+# 7. Enable live trading by setting auto_trade.mode to "live" (only after testing!)
