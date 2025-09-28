@@ -1,0 +1,56 @@
+# Per-Coin Table Display Configuration
+# This configuration displays each cryptocurrency in its own individual table
+
+ui:
+  # Display mode: 'minimal', 'standard', 'detailed', 'verbose'
+  display_mode: 'verbose'
+  
+  # What to show in the main display
+  show_indicators: true          # Show RSI, EMA values
+  show_market_structure: true   # Show HH/HL analysis
+  show_mtf_confirmation: true   # Show multi-timeframe confirmation
+  show_adaptive_baseline: true  # Show adaptive threshold calculations
+  show_oco_details: true        # Show stop-loss/take-profit placement
+  show_vol_gate_status: true    # Show volatility gate status
+  show_regime_filter: true      # Show regime filter status
+  
+  # Decision display options
+  decision_display:
+    show_confidence: true        # Show confidence levels
+    show_reasoning: true         # Show decision reasoning
+    show_strategy_details: true  # Show detailed strategy analysis
+    max_reason_length: 200       # Full reason display
+  
+  # Table display options
+  table_display:
+    enabled: true                # Enable table display (false = line-by-line format)
+    show_portfolio_summary: true # Show portfolio summary
+    show_risk_summary: true      # Show risk management info
+    show_execution_status: true  # Show execution system status
+    compact_mode: false          # Use full table layout
+    show_pnl_details: true       # Show P&L information
+    table_format: 'per_coin'     # 'standard' or 'per_coin' - display format
+  
+  # Logging and output
+  output:
+    log_level: 'info'            # Show info, warnings, and errors
+    show_timestamps: true        # Show timestamps in console output
+    color_output: true           # Use colored output
+    progress_bars: true          # Show progress bars for long operations
+  
+  # Refresh and update intervals
+  refresh:
+    status_table_interval: 45    # Update status every 45 seconds
+    decision_display_interval: 3 # Update decisions every 3 seconds
+    portfolio_summary_interval: 180 # Update portfolio every 3 minutes
+  
+  price_format:
+    thresholds:
+    - 1.0
+    - 0.1
+    - 0.01
+    precisions:
+    - 2
+    - 4
+    - 6
+    - 8

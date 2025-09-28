@@ -223,6 +223,7 @@ class CryptoTracker:
                         continue
             
             # Make trading decisions for each coin
+            decisions = {}  # Collect all decisions for batch display
             for coin_id, coin_config in self.config.tracked_coins.items():
                 if coin_config.disabled:
                     continue
@@ -277,16 +278,20 @@ class CryptoTracker:
                                     symbol, coin_id, current_price, decision.reason
                                 )
                     
-                    # Display decision
-                    self.display_manager.display_decision(coin_id, {
+                    # Collect decision for batch display
+                    decisions[coin_id] = {
                         'signal': decision.signal,
                         'confidence': decision.confidence,
-                        'action_recommended': decision.action_recommended,
+                        'action': decision.action_recommended,
                         'reason': decision.reason
-                    })
+                    }
                     
                 except Exception as ex:
                     log_event('decision_error', {'coin': coin_id, 'error': str(ex)})
+            
+            # Display all decisions together (supports both table and line-by-line formats)
+            if decisions:
+                self.display_manager.display_decisions(decisions)
             
             # Manage position exits
             self.execution_manager.manage_exits(sym_to_price)
