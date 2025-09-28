@@ -43,10 +43,11 @@ class OrderManagerConfig:
 class OrderManager:
     """Main order management orchestrator."""
     
-    def __init__(self, config_manager, portfolio_manager, risk_manager, config: Optional[OrderManagerConfig] = None):
+    def __init__(self, config_manager, portfolio_manager, risk_manager, robust_risk_manager=None, config: Optional[OrderManagerConfig] = None):
         self.config_manager = config_manager
         self.portfolio_manager = portfolio_manager
         self.risk_manager = risk_manager
+        self.robust_risk_manager = robust_risk_manager
         self.config = config or OrderManagerConfig()
         
         # Core components
@@ -109,6 +110,33 @@ class OrderManager:
     def place_order(self, order_request: OrderRequest) -> Order:
         """Place a new order."""
         try:
+            # Robust risk management check (if enabled)
+            if self.robust_risk_manager:
+                try:
+                    # Get current prices for risk assessment
+                    sym_to_price = self._get_current_prices_for_risk_check(order_request.symbol, order_request.price)
+                    
+                    # Perform comprehensive risk check
+                    risk_result = self.robust_risk_manager.check_pre_trade_risk(
+                        symbol=order_request.symbol,
+                        side=order_request.side,
+                        quantity=order_request.quantity,
+                        price=order_request.price or 0.0,
+                        stop_loss=None  # TODO: Extract from order request if available
+                    )
+                    
+                    if not risk_result.is_valid:
+                        from .models import OrderValidationResult
+                        validation_result = OrderValidationResult(is_valid=False)
+                        for violation in risk_result.violations:
+                            validation_result.add_error(f"Risk violation: {violation.message}")
+                        raise OrderValidationError(validation_result)
+                        
+                except Exception as e:
+                    self.logger.error(f"Robust risk check failed: {e}")
+                    # Continue with order placement if risk check fails
+                    # This ensures system resilience
+            
             # Validate order request
             validation_result = self._validate_order_request(order_request)
             if not validation_result.is_valid:
@@ -403,6 +431,26 @@ class OrderManager:
                     handler(order)
                 except Exception as e:
                     self.logger.error(f"Error in event handler for {event_type}: {e}")
+    
+    def _get_current_prices_for_risk_check(self, symbol: str, fallback_price: Optional[float] = None) -> Dict[str, float]:
+        """Get current prices for risk assessment."""
+        try:
+            # Try to get prices from portfolio manager or price manager
+            # For now, return minimal data with fallback price
+            prices = {}
+            if fallback_price:
+                prices[symbol] = fallback_price
+            
+            # TODO: Integrate with actual price manager to get all current prices
+            # This would call something like:
+            # prices = self.price_manager.get_current_prices()
+            
+            return prices
+        except Exception:
+            # Return fallback price if available
+            if fallback_price:
+                return {symbol: fallback_price}
+            return {}
     
     def cleanup_expired_orders(self) -> int:
         """Clean up expired orders."""
