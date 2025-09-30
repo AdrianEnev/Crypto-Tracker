@@ -1,0 +1,77 @@
+# config/super_aggressive_test.yaml
+# This config is designed for maximum trading activity during testing
+
+tracked_coins:
+  bitcoin:
+    symbol: btc
+    name: Bitcoin
+    threshold: 100000.0
+    check_interval: 60
+    coingecko_id: bitcoin
+    strategy:
+      name: mean_reversion
+      params:
+        rsi_period: 14
+        buy_threshold: 50    # Very aggressive - buy when RSI < 50
+        sell_threshold: 50    # Very aggressive - sell when RSI > 50
+        lookback_period: 5    # Short lookback
+        volatility_threshold: 0.01  # Very low volatility threshold
+  ethereum:
+    symbol: eth
+    name: Ethereum
+    threshold: 5000.0
+    check_interval: 60
+    coingecko_id: ethereum
+    strategy:
+      name: mean_reversion
+      params:
+        rsi_period: 14
+        buy_threshold: 50
+        sell_threshold: 50
+        lookback_period: 5
+        volatility_threshold: 0.01
+  solana:
+    symbol: sol
+    name: Solana
+    threshold: 500.0
+    check_interval: 60
+    coingecko_id: solana
+    strategy:
+      name: mean_reversion
+      params:
+        rsi_period: 14
+        buy_threshold: 50
+        sell_threshold: 50
+        lookback_period: 5
+        volatility_threshold: 0.01
+
+strategy:
+  default_strategy: 'mean_reversion'
+  use_regime_filter: false  # DISABLED for maximum trading
+  vol_gate:
+    min_atr_pct: 0.01      # Very low minimum volatility
+    max_atr_pct: 50.0      # Very high maximum volatility
+    min_reward_to_risk: 0.1  # Very low reward-to-risk ratio
+
+# Price providers - disable rate-limited ones
+price_providers:
+  coingecko:
+    enabled: false
+  coinmarketcap:
+    enabled: false
+  ccxt:
+    enabled: false  # Disable all API calls for backtesting
+
+# Risk management - make it very permissive
+risk_management:
+  max_position_size_pct: 50.0  # Allow up to 50% of portfolio in one position
+  max_daily_loss_pct: 20.0    # Allow up to 20% daily loss
+  stop_loss_pct: 5.0           # 5% stop loss
+  take_profit_pct: 2.0         # 2% take profit (very aggressive)
+
+# Trading parameters
+trading:
+  min_trade_size_usd: 100      # Very small minimum trade size
+  max_trade_size_usd: 10000    # Reasonable maximum trade size
+  trade_frequency_minutes: 1    # Check every minute
+  auto_trade_enabled: true     # Enable auto trading

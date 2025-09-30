@@ -1,0 +1,97 @@
+# config/paper_24_7.yaml
+# Optimized configuration for 24/7 paper trading operation
+
+tracked_coins:
+  bitcoin:
+    symbol: btc
+    name: Bitcoin
+    threshold: 100000.0
+    check_interval: 300  # 5 minutes
+    coingecko_id: bitcoin
+    strategy:
+      name: mean_reversion
+      params:
+        rsi_period: 14
+        buy_threshold: 30
+        sell_threshold: 70
+        lookback_period: 20
+        volatility_threshold: 0.02
+  ethereum:
+    symbol: eth
+    name: Ethereum
+    threshold: 5000.0
+    check_interval: 300
+    coingecko_id: ethereum
+    strategy:
+      name: mean_reversion
+      params:
+        rsi_period: 14
+        buy_threshold: 30
+        sell_threshold: 70
+        lookback_period: 20
+        volatility_threshold: 0.02
+  solana:
+    symbol: sol
+    name: Solana
+    threshold: 500.0
+    check_interval: 300
+    coingecko_id: solana
+    strategy:
+      name: momentum
+      params:
+        fast_ema_period: 12
+        slow_ema_period: 26
+        use_rsi: true
+        rsi_period: 14
+        rsi_max_buy: 60
+        rsi_min_sell: 40
+
+strategy:
+  default_strategy: 'mean_reversion'
+  use_regime_filter: true  # Enable for realistic trading
+  vol_gate:
+    min_atr_pct: 0.5      # Reasonable minimum volatility
+    max_atr_pct: 10.0     # Reasonable maximum volatility
+    min_reward_to_risk: 1.5  # Conservative reward-to-risk ratio
+
+# Risk management - conservative for 24/7 operation
+risk_management:
+  max_position_size_pct: 20.0  # Max 20% of portfolio in one position
+  max_daily_loss_pct: 5.0      # Max 5% daily loss
+  stop_loss_pct: 3.0          # 3% stop loss
+  take_profit_pct: 6.0        # 6% take profit
+  max_open_positions: 5        # Max 5 open positions
+
+# Trading parameters optimized for 24/7
+trading:
+  min_trade_size_usd: 500      # Minimum $500 trade
+  max_trade_size_usd: 5000     # Maximum $5000 trade
+  trade_frequency_minutes: 5   # Check every 5 minutes
+  auto_trade_enabled: true     # Enable auto trading
+  position_sizing: 'fixed'     # Fixed position sizing
+
+# Price providers - disable for paper trading
+price_providers:
+  coingecko:
+    enabled: false
+  coinmarketcap:
+    enabled: false
+  ccxt:
+    enabled: false
+
+# Monitoring and logging
+monitoring:
+  heartbeat_interval: 300      # 5 minutes
+  log_level: 'INFO'
+  performance_logging: true
+  trade_logging: true
+  error_logging: true
+
+# Paper trading specific settings
+paper_trading:
+  enabled: true
+  initial_cash: 100000.0
+  fee_rate: 0.001              # 0.1% fee
+  slippage: 0.0005            # 0.05% slippage
+  mock_prices: true           # Use mock prices for testing
+  price_variation: 0.05      # 5% price variation
