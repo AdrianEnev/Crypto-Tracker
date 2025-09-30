@@ -143,6 +143,28 @@ exchange_api:
     - "long_short_ratio"
     - "exchange_flows"
 
+dune_analytics:
+  enabled: true  # Dune Analytics for on-chain data (FREE - REPLACES GLASSNODE)
+  api_key: "${DUNE_API_KEY}"
+  base_url: "https://api.dune.com/api/v1"
+  rate_limit: 1000  # 1000 requests per hour
+  timeout: 30
+  retry_count: 3
+  cache_ttl: 600
+  priority: 10
+  update_interval: 600  # 10 minutes
+  max_retries: 3
+  dashboards:
+    - "bitcoin-metrics"
+    - "ethereum-metrics"
+    - "defi-overview"
+    - "whale-movements"
+  features:
+    - "transaction_volume"
+    - "active_addresses"
+    - "whale_movements"
+    - "defi_tvl"
+
 # Feature engineering configuration
 features:
   enabled: true  # Enable social feature engineering

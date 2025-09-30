@@ -146,6 +146,27 @@ class ExchangeAPIConfig(DataSourceConfig):
 
 
 @dataclass
+class DuneAnalyticsConfig(DataSourceConfig):
+    """Dune Analytics configuration for on-chain data"""
+    api_key: Optional[str] = None
+    base_url: str = "https://api.dune.com/api/v1"
+    dashboards: List[str] = field(default_factory=lambda: [
+        "bitcoin-metrics", "ethereum-metrics", "defi-overview", "whale-movements"
+    ])
+    features: List[str] = field(default_factory=lambda: [
+        "transaction_volume", "active_addresses", "whale_movements", "defi_tvl"
+    ])
+    update_interval: int = 600  # 10 minutes
+    max_retries: int = 3
+    
+    def __post_init__(self):
+        """Validate Dune Analytics configuration"""
+        super().__post_init__()
+        if self.enabled and not self.api_key:
+            self.api_key = os.environ.get("DUNE_API_KEY")
+
+
+@dataclass
 class SocialFeatureConfig:
     """Configuration for social feature engineering"""
     enabled: bool = False
@@ -262,6 +283,7 @@ class SocialMediaConfig:
     twitter: TwitterConfig = field(default_factory=TwitterConfig)
     reddit: RedditConfig = field(default_factory=RedditConfig)
     exchange_api: ExchangeAPIConfig = field(default_factory=ExchangeAPIConfig)
+    dune_analytics: DuneAnalyticsConfig = field(default_factory=DuneAnalyticsConfig)
     
     # Feature engineering
     features: SocialFeatureConfig = field(default_factory=SocialFeatureConfig)
@@ -306,6 +328,7 @@ class SocialMediaConfig:
         twitter_config = TwitterConfig(**config_dict.get("twitter", {}))
         reddit_config = RedditConfig(**config_dict.get("reddit", {}))
         exchange_api_config = ExchangeAPIConfig(**config_dict.get("exchange_api", {}))
+        dune_analytics_config = DuneAnalyticsConfig(**config_dict.get("dune_analytics", {}))
         
         features_config = SocialFeatureConfig(**config_dict.get("features", {}))
         validation_config = ValidationConfig(**config_dict.get("validation", {}))
@@ -325,6 +348,7 @@ class SocialMediaConfig:
             twitter=twitter_config,
             reddit=reddit_config,
             exchange_api=exchange_api_config,
+            dune_analytics=dune_analytics_config,
             features=features_config,
             validation=validation_config,
             ml_integration=ml_config,
@@ -372,6 +396,8 @@ class SocialMediaConfig:
             sources.append("reddit")
         if self.exchange_api.enabled:
             sources.append("exchange_api")
+        if self.dune_analytics.enabled:
+            sources.append("dune_analytics")
         return sources
     
     def validate_config(self) -> List[str]:
