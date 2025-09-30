@@ -76,13 +76,15 @@ class CryptoDiscoveryScanner:
             "tether", "usd-coin", "binance-usd", "dai"
         ]
     
-    async def scan_crypto(self, coin_id: str) -> Optional[Dict[str, Any]]:
+    async def scan_crypto(self, coin_id: str, debug: bool = False) -> Optional[Dict[str, Any]]:
         """Scan a single cryptocurrency for social signals."""
         try:
             # Get social signal
             social_signal = await self.social_integration.get_social_signal(coin_id)
             
             if not social_signal.get('enabled', False):
+                if debug:
+                    print(f"  ⚠️  {coin_id}: Social integration disabled")
                 return None
             
             # Extract key metrics
@@ -92,6 +94,11 @@ class CryptoDiscoveryScanner:
             
             # Calculate discovery score
             discovery_score = self._calculate_discovery_score(features, validation, quality)
+            
+            if debug:
+                print(f"  🔍 {coin_id}: SMS={features.get('sms', 0):.3f}, "
+                      f"Sentiment={features.get('weighted_sentiment', 0):.3f}, "
+                      f"Score={discovery_score:.1f}")
             
             return {
                 'coin_id': coin_id,
@@ -126,17 +133,17 @@ class CryptoDiscoveryScanner:
             
             # Penalty for bot activity
             bot_likeness = features.get('bot_likeness', 0)
-            bot_penalty = bot_likeness * 0.5  # Reduce score if high bot activity
+            bot_penalty = bot_likeness * 0.2  # Reduced penalty
             
-            # Quality multiplier
+            # More lenient quality multiplier
             quality_score = quality.get('quality_score', 0)
-            quality_multiplier = max(0.5, quality_score)  # Minimum 0.5x multiplier
+            quality_multiplier = max(0.8, quality_score)  # More lenient minimum
             
-            # Validation multiplier
+            # More lenient validation multiplier
             validation_score = validation.get('validation_score', 0)
-            validation_multiplier = max(0.3, validation_score)  # Minimum 0.3x multiplier
+            validation_multiplier = max(0.6, validation_score)  # More lenient minimum
             
-            # Calculate weighted discovery score
+            # Calculate weighted discovery score (more generous)
             base_score = (
                 abs(sms) * 0.4 +           # Social momentum
                 abs(sentiment) * 0.3 +     # Sentiment strength
@@ -147,22 +154,25 @@ class CryptoDiscoveryScanner:
             # Apply penalties and multipliers
             discovery_score = (base_score - bot_penalty) * quality_multiplier * validation_multiplier
             
-            # Normalize to 0-100 scale
-            return min(100.0, max(0.0, discovery_score * 100))
+            # More generous scaling to 0-100
+            return min(100.0, max(0.0, discovery_score * 200))  # Doubled the multiplier
             
         except Exception as e:
             self.logger.error(f"Error calculating discovery score: {e}")
             return 0.0
     
-    async def scan_all_cryptos(self, max_coins: int = 50) -> List[Dict[str, Any]]:
+    async def scan_all_cryptos(self, max_coins: int = 50, debug: bool = False) -> List[Dict[str, Any]]:
         """Scan multiple cryptocurrencies for discovery opportunities."""
         self.logger.info(f"🔍 Scanning {min(max_coins, len(self.discovery_coins))} cryptocurrencies for discovery opportunities...")
         
         # Limit the number of coins to scan
         coins_to_scan = self.discovery_coins[:max_coins]
         
+        if debug:
+            print(f"Scanning {len(coins_to_scan)} coins...")
+        
         # Scan coins concurrently
-        tasks = [self.scan_crypto(coin_id) for coin_id in coins_to_scan]
+        tasks = [self.scan_crypto(coin_id, debug) for coin_id in coins_to_scan]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # Filter out None results and exceptions
@@ -176,10 +186,15 @@ class CryptoDiscoveryScanner:
         # Sort by discovery score (highest first)
         valid_results.sort(key=lambda x: x['discovery_score'], reverse=True)
         
+        if debug:
+            print(f"Found {len(valid_results)} valid results")
+            for result in valid_results[:5]:  # Show top 5
+                print(f"  {result['coin_id']}: {result['discovery_score']:.1f}")
+        
         self.scan_results = valid_results
         return valid_results
     
-    def get_top_opportunities(self, limit: int = 10, min_score: float = 20.0) -> List[Dict[str, Any]]:
+    def get_top_opportunities(self, limit: int = 10, min_score: float = 5.0) -> List[Dict[str, Any]]:
         """Get top discovery opportunities above minimum score."""
         return [
             result for result in self.scan_results 
@@ -190,14 +205,14 @@ class CryptoDiscoveryScanner:
         """Get high-risk but potentially high-reward opportunities."""
         return [
             result for result in self.scan_results 
-            if result['risk_level'] == 'high' and result['discovery_score'] > 30
+            if result['risk_level'] == 'high' and result['discovery_score'] > 10
         ][:limit]
     
     def get_safe_opportunities(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get safe, validated opportunities."""
         return [
             result for result in self.scan_results 
-            if result['risk_level'] == 'low' and result['is_valid'] and result['discovery_score'] > 15
+            if result['risk_level'] == 'low' and result['discovery_score'] > 5
         ][:limit]
     
     def print_discovery_report(self, limit: int = 15):
@@ -210,9 +225,9 @@ class CryptoDiscoveryScanner:
         print(f"✅ Valid Signals: {len([r for r in self.scan_results if r['is_valid']])}")
         
         # Top opportunities
-        print(f"\n🏆 TOP DISCOVERY OPPORTUNITIES (Score ≥ 20)")
+        print(f"\n🏆 TOP DISCOVERY OPPORTUNITIES (Score ≥ 5)")
         print("-" * 80)
-        top_opportunities = self.get_top_opportunities(limit, min_score=20.0)
+        top_opportunities = self.get_top_opportunities(limit, min_score=5.0)
         
         if not top_opportunities:
             print("No high-scoring opportunities found. Try lowering the minimum score.")
@@ -223,7 +238,7 @@ class CryptoDiscoveryScanner:
                       f"Risk: {opp['risk_level']:<6} | Valid: {opp['is_valid']}")
         
         # Safe opportunities
-        print(f"\n🛡️  SAFE OPPORTUNITIES (Low Risk, Validated)")
+        print(f"\n🛡️  SAFE OPPORTUNITIES (Low Risk)")
         print("-" * 80)
         safe_opportunities = self.get_safe_opportunities(10)
         
@@ -332,7 +347,7 @@ async def main():
     
     # Scan cryptocurrencies
     print(f"\n🔍 Starting crypto discovery scan...")
-    results = await scanner.scan_all_cryptos(max_coins=30)  # Start with 30 coins
+    results = await scanner.scan_all_cryptos(max_coins=30, debug=True)  # Start with 30 coins, debug mode
     
     if not results:
         print("❌ No results found. Check your API keys and configuration.")
@@ -349,7 +364,7 @@ async def main():
     print(f"\n🎯 INTERACTIVE SUGGESTIONS")
     print("-" * 50)
     
-    top_opportunities = scanner.get_top_opportunities(5, min_score=25.0)
+    top_opportunities = scanner.get_top_opportunities(5, min_score=5.0)
     if top_opportunities:
         print("Top coins to research:")
         for i, opp in enumerate(top_opportunities, 1):
