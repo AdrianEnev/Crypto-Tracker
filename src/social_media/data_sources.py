@@ -703,6 +703,10 @@ class SocialDataManager:
         if self.config.news_api.enabled:
             self.sources["news_api"] = NewsAPISource(self.config)
         
+        if self.config.twitter.enabled:
+            from .twitter_source import TwitterSource
+            self.sources["twitter"] = TwitterSource(self.config)
+        
         # Add other sources as they're implemented
         logger.info(f"Initialized {len(self.sources)} social data sources: {list(self.sources.keys())}")
     
