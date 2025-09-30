@@ -481,6 +481,206 @@ class GoogleTrendsSource(BaseSocialDataSource):
         return base_volume + random.uniform(-10, 10)
 
 
+class NewsAPISource(BaseSocialDataSource):
+    """News API data source for headline sentiment analysis"""
+    
+    def __init__(self, config: SocialMediaConfig):
+        super().__init__(config, "news_api")
+        self.api_key = config.news_api.api_key
+        self.base_url = "https://newsapi.org/v2/everything"
+        
+        # Initialize rate limiter
+        self.rate_limiter = RateLimiter(
+            config.news_api.rate_limit, 
+            3600  # 1 hour window
+        )
+    
+    async def fetch_data(self, coin_id: str, data_types: List[str]) -> SocialDataBatch:
+        """Fetch news data for a coin"""
+        try:
+            await self.rate_limiter.acquire()
+            
+            # Check cache first
+            cache_key = f"news_api_{coin_id}_{datetime.now().strftime('%Y%m%d%H')}"
+            cached_data = self._get_cached_data(cache_key)
+            if cached_data:
+                return cached_data
+            
+            # Prepare search terms
+            search_terms = self._get_search_terms(coin_id)
+            
+            # Fetch news articles
+            articles = await self._fetch_articles(search_terms)
+            
+            # Process articles for sentiment and metrics
+            data_points = []
+            
+            for article in articles:
+                # Calculate sentiment (simplified - in real implementation use NLP)
+                sentiment_score = self._calculate_sentiment(article)
+                
+                data_points.append(SocialDataPoint(
+                    timestamp=datetime.now(),
+                    source=self.source_name,
+                    coin_id=coin_id,
+                    data_type="headline_sentiment",
+                    value=sentiment_score,
+                    confidence=0.8,
+                    metadata={
+                        "title": article.get("title", ""),
+                        "source": article.get("source", {}).get("name", ""),
+                        "url": article.get("url", ""),
+                        "published_at": article.get("publishedAt", "")
+                    }
+                ))
+            
+            # Calculate mention frequency
+            mention_frequency = len(articles)
+            data_points.append(SocialDataPoint(
+                timestamp=datetime.now(),
+                source=self.source_name,
+                coin_id=coin_id,
+                data_type="mention_frequency",
+                value=mention_frequency,
+                confidence=1.0
+            ))
+            
+            # Calculate source credibility (simplified)
+            credibility_score = self._calculate_source_credibility(articles)
+            data_points.append(SocialDataPoint(
+                timestamp=datetime.now(),
+                source=self.source_name,
+                coin_id=coin_id,
+                data_type="source_credibility",
+                value=credibility_score,
+                confidence=0.9
+            ))
+            
+            batch = SocialDataBatch(
+                coin_id=coin_id,
+                data_points=data_points,
+                source=self.source_name,
+                timestamp=datetime.now(),
+                quality_score=0.8
+            )
+            
+            # Cache the data
+            self._cache_data(cache_key, batch)
+            return batch
+            
+        except Exception as e:
+            logger.error(f"News API fetch failed for {coin_id}: {e}")
+            return SocialDataBatch(coin_id, [], self.source_name, datetime.now())
+    
+    async def _fetch_articles(self, search_terms: List[str]) -> List[Dict[str, Any]]:
+        """Fetch articles from News API"""
+        try:
+            headers = {
+                "X-API-Key": self.api_key,
+                "User-Agent": "CryptoDiscoveryScanner/1.0"
+            }
+            
+            # Combine search terms
+            query = " OR ".join(search_terms)
+            
+            params = {
+                "q": f"{query} cryptocurrency",
+                "language": "en",
+                "sortBy": "publishedAt",
+                "pageSize": 20,
+                "from": (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    self.base_url,
+                    headers=headers,
+                    params=params,
+                    timeout=aiohttp.ClientTimeout(total=self.config.news_api.timeout)
+                ) as response:
+                    
+                    if response.status == 200:
+                        data = await response.json()
+                        return data.get("articles", [])
+                    else:
+                        logger.error(f"News API error: {response.status}")
+                        return []
+                        
+        except Exception as e:
+            logger.error(f"Error fetching articles: {e}")
+            return []
+    
+    def _get_search_terms(self, coin_id: str) -> List[str]:
+        """Get search terms for a coin"""
+        term_map = {
+            "bitcoin": ["bitcoin", "btc", "bitcoin price", "bitcoin news"],
+            "ethereum": ["ethereum", "eth", "ethereum price", "ethereum news"],
+            "binancecoin": ["binance", "bnb", "binance coin", "binance news"],
+            "cardano": ["cardano", "ada", "cardano price", "cardano news"],
+            "solana": ["solana", "sol", "solana price", "solana news"],
+            "polkadot": ["polkadot", "dot", "polkadot price", "polkadot news"],
+            "chainlink": ["chainlink", "link", "chainlink price", "chainlink news"],
+            "dogecoin": ["dogecoin", "doge", "dogecoin price", "dogecoin news"],
+            "shiba-inu": ["shiba inu", "shib", "shiba inu price", "shiba inu news"],
+            "avalanche-2": ["avalanche", "avax", "avalanche price", "avalanche news"],
+            "polygon": ["polygon", "matic", "polygon price", "polygon news"],
+            "cosmos": ["cosmos", "atom", "cosmos price", "cosmos news"],
+            "litecoin": ["litecoin", "ltc", "litecoin price", "litecoin news"],
+            "monero": ["monero", "xmr", "monero price", "monero news"],
+            "tron": ["tron", "trx", "tron price", "tron news"]
+        }
+        return term_map.get(coin_id.lower(), [coin_id])
+    
+    def _calculate_sentiment(self, article: Dict[str, Any]) -> float:
+        """Calculate sentiment score for an article (simplified)"""
+        title = article.get("title", "").lower()
+        description = article.get("description", "").lower()
+        text = f"{title} {description}"
+        
+        # Simple keyword-based sentiment (in real implementation, use NLP)
+        positive_words = [
+            "bullish", "surge", "rally", "gains", "up", "rise", "increase", 
+            "breakthrough", "adoption", "partnership", "launch", "success",
+            "positive", "optimistic", "growth", "innovation", "milestone"
+        ]
+        
+        negative_words = [
+            "bearish", "crash", "drop", "fall", "down", "decline", "decrease",
+            "concern", "risk", "warning", "negative", "pessimistic", "loss",
+            "hack", "scam", "fraud", "regulation", "ban", "crackdown"
+        ]
+        
+        positive_count = sum(1 for word in positive_words if word in text)
+        negative_count = sum(1 for word in negative_words if word in text)
+        
+        if positive_count + negative_count == 0:
+            return 0.0
+        
+        # Normalize to -1 to +1 range
+        sentiment = (positive_count - negative_count) / (positive_count + negative_count)
+        return max(-1.0, min(1.0, sentiment))
+    
+    def _calculate_source_credibility(self, articles: List[Dict[str, Any]]) -> float:
+        """Calculate source credibility score"""
+        if not articles:
+            return 0.0
+        
+        # Credible sources (simplified list)
+        credible_sources = [
+            "coindesk", "cointelegraph", "decrypt", "the block", "crypto news",
+            "reuters", "bloomberg", "forbes", "cnbc", "wall street journal",
+            "financial times", "marketwatch", "yahoo finance", "techcrunch"
+        ]
+        
+        credible_count = 0
+        for article in articles:
+            source_name = article.get("source", {}).get("name", "").lower()
+            if any(credible in source_name for credible in credible_sources):
+                credible_count += 1
+        
+        return credible_count / len(articles)
+
+
 class SocialDataManager:
     """Main manager for all social media data sources"""
     
@@ -499,6 +699,9 @@ class SocialDataManager:
         
         if self.config.google_trends.enabled:
             self.sources["google_trends"] = GoogleTrendsSource(self.config)
+        
+        if self.config.news_api.enabled:
+            self.sources["news_api"] = NewsAPISource(self.config)
         
         # Add other sources as they're implemented
         logger.info(f"Initialized {len(self.sources)} social data sources: {list(self.sources.keys())}")
