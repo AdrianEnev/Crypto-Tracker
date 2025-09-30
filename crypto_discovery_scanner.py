@@ -133,17 +133,17 @@ class CryptoDiscoveryScanner:
             
             # Penalty for bot activity
             bot_likeness = features.get('bot_likeness', 0)
-            bot_penalty = bot_likeness * 0.1  # Even more reduced penalty
+            bot_penalty = bot_likeness * 0.3  # Moderate penalty for bot activity
             
-            # Very lenient quality multiplier
+            # Quality multiplier (more realistic)
             quality_score = quality.get('quality_score', 0)
-            quality_multiplier = max(0.9, quality_score)  # Very lenient minimum
+            quality_multiplier = max(0.6, quality_score)  # More realistic minimum
             
-            # Very lenient validation multiplier
+            # Validation multiplier (more realistic)
             validation_score = validation.get('validation_score', 0)
-            validation_multiplier = max(0.8, validation_score)  # Very lenient minimum
+            validation_multiplier = max(0.5, validation_score)  # More realistic minimum
             
-            # Calculate weighted discovery score (very generous)
+            # Calculate weighted discovery score
             base_score = (
                 abs(sms) * 0.4 +           # Social momentum
                 abs(sentiment) * 0.3 +     # Sentiment strength
@@ -154,8 +154,8 @@ class CryptoDiscoveryScanner:
             # Apply penalties and multipliers
             discovery_score = (base_score - bot_penalty) * quality_multiplier * validation_multiplier
             
-            # Very generous scaling to 0-100
-            return min(100.0, max(0.0, discovery_score * 500))  # 5x the multiplier
+            # More realistic scaling to 0-100
+            return min(100.0, max(0.0, discovery_score * 100))  # Back to realistic multiplier
             
         except Exception as e:
             self.logger.error(f"Error calculating discovery score: {e}")
@@ -194,7 +194,7 @@ class CryptoDiscoveryScanner:
         self.scan_results = valid_results
         return valid_results
     
-    def get_top_opportunities(self, limit: int = 10, min_score: float = 2.0) -> List[Dict[str, Any]]:
+    def get_top_opportunities(self, limit: int = 10, min_score: float = 10.0) -> List[Dict[str, Any]]:
         """Get top discovery opportunities above minimum score."""
         return [
             result for result in self.scan_results 
@@ -205,14 +205,14 @@ class CryptoDiscoveryScanner:
         """Get high-risk but potentially high-reward opportunities."""
         return [
             result for result in self.scan_results 
-            if result['risk_level'] == 'high' and result['discovery_score'] > 2.0
+            if result['risk_level'] == 'high' and result['discovery_score'] > 15.0
         ][:limit]
     
     def get_safe_opportunities(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get safe, validated opportunities."""
         return [
             result for result in self.scan_results 
-            if result['risk_level'] == 'low' and result['discovery_score'] > 2.0
+            if result['risk_level'] == 'low' and result['discovery_score'] > 8.0
         ][:limit]
     
     def print_discovery_report(self, limit: int = 15):
@@ -225,9 +225,9 @@ class CryptoDiscoveryScanner:
         print(f"✅ Valid Signals: {len([r for r in self.scan_results if r['is_valid']])}")
         
         # Top opportunities
-        print(f"\n🏆 TOP DISCOVERY OPPORTUNITIES (Score ≥ 2)")
+        print(f"\n🏆 TOP DISCOVERY OPPORTUNITIES (Score ≥ 10)")
         print("-" * 80)
-        top_opportunities = self.get_top_opportunities(limit, min_score=2.0)
+        top_opportunities = self.get_top_opportunities(limit, min_score=10.0)
         
         if not top_opportunities:
             print("No high-scoring opportunities found. Try lowering the minimum score.")
@@ -364,7 +364,7 @@ async def main():
     print(f"\n🎯 INTERACTIVE SUGGESTIONS")
     print("-" * 50)
     
-    top_opportunities = scanner.get_top_opportunities(5, min_score=2.0)
+    top_opportunities = scanner.get_top_opportunities(5, min_score=10.0)
     if top_opportunities:
         print("Top coins to research:")
         for i, opp in enumerate(top_opportunities, 1):

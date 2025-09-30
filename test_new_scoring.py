@@ -37,9 +37,9 @@ def test_new_scoring():
     print(f"    Volume component: {volume_velocity * 0.2:.6f}")
     print(f"    Influencer component: {influencer_activity * 0.1:.6f}")
     
-    # Apply multipliers (very lenient)
-    quality_multiplier = 0.9  # Very lenient minimum
-    validation_multiplier = 0.8  # Very lenient minimum
+    # Apply multipliers (more realistic)
+    quality_multiplier = 0.6  # More realistic minimum
+    validation_multiplier = 0.5  # More realistic minimum
     
     discovery_score = base_score * quality_multiplier * validation_multiplier
     
@@ -49,7 +49,7 @@ def test_new_scoring():
     print(f"  Score before scaling: {discovery_score:.6f}")
     
     # Final scaling
-    final_score = discovery_score * 500  # 5x multiplier
+    final_score = discovery_score * 100  # Back to realistic multiplier
     final_score = min(100.0, max(0.0, final_score))
     
     print(f"\nFinal Score: {final_score:.1f}")
@@ -72,11 +72,12 @@ def test_new_scoring():
             test_volume * 0.2 +
             test_influencer * 0.1
         )
-        test_final = min(100.0, max(0.0, test_base * 0.9 * 0.8 * 500))
+        test_final = min(100.0, max(0.0, test_base * 0.6 * 0.5 * 100))
         print(f"  {name}: {test_final:.1f}")
     
-    print(f"\n✅ With the new formula, your scores should be around {final_score:.1f}")
-    print(f"✅ This should now pass the minimum threshold of 2.0!")
+    print(f"\n✅ With the realistic formula, your scores should be around {final_score:.1f}")
+    print(f"✅ This will NOT pass the minimum threshold of 10.0 (as expected with limited data)")
+    print(f"✅ But when you add more data sources, scores will increase significantly!")
 
 
 if __name__ == "__main__":
