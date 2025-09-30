@@ -59,8 +59,8 @@ class QuickCryptoScanner:
                 sentiment = features.get('weighted_sentiment', 0)
                 volume_velocity = features.get('volume_velocity', 0)
                 
-                # Simple scoring: combine SMS, sentiment, and volume
-                quick_score = (abs(sms) + abs(sentiment) + volume_velocity) * 25
+                # Simple scoring: combine SMS, sentiment, and volume (more generous)
+                quick_score = (abs(sms) + abs(sentiment) + volume_velocity) * 50  # Doubled the multiplier
                 
                 results.append({
                     'coin_id': coin_id,
@@ -102,12 +102,12 @@ class QuickCryptoScanner:
             risk = result['risk_level']
             valid = result['is_valid']
             
-            # Add emoji based on score
-            if score > 50:
+            # Add emoji based on score (adjusted for new scoring)
+            if score > 20:
                 emoji = "🔥"
-            elif score > 30:
+            elif score > 10:
                 emoji = "📈"
-            elif score > 15:
+            elif score > 5:
                 emoji = "👀"
             else:
                 emoji = "📊"
