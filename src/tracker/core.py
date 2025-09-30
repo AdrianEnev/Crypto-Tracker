@@ -9,10 +9,10 @@ from typing import Any, Dict, Optional
 
 import schedule
 
-from src.decision import make_decision
-from src.logger import configure_file_logging, log_decision_csv, log_event
-from src.notifier import Notifier
-from src.risk import RobustRiskManager
+from ..decision import make_decision
+from ..logger import configure_file_logging, log_decision_csv, log_event
+from ..notifier import Notifier
+from ..risk import RobustRiskManager
 
 from .config_manager import ConfigManager
 from .display_manager import DisplayManager
