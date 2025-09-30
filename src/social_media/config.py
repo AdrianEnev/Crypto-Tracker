@@ -128,6 +128,24 @@ class RedditConfig(DataSourceConfig):
 
 
 @dataclass
+class ExchangeAPIConfig(DataSourceConfig):
+    """Exchange APIs configuration for funding rates and derivatives"""
+    exchanges: List[str] = field(default_factory=lambda: [
+        "binance", "bybit", "okx", "deribit", "bitmex"
+    ])
+    features: List[str] = field(default_factory=lambda: [
+        "funding_rate", "open_interest", "long_short_ratio", "exchange_flows"
+    ])
+    update_interval: int = 300  # 5 minutes
+    max_retries: int = 3
+    
+    def __post_init__(self):
+        """Validate Exchange API configuration"""
+        super().__post_init__()
+        # Exchange APIs are free, no credentials needed
+
+
+@dataclass
 class SocialFeatureConfig:
     """Configuration for social feature engineering"""
     enabled: bool = False
@@ -243,6 +261,7 @@ class SocialMediaConfig:
     news_api: NewsAPIConfig = field(default_factory=NewsAPIConfig)
     twitter: TwitterConfig = field(default_factory=TwitterConfig)
     reddit: RedditConfig = field(default_factory=RedditConfig)
+    exchange_api: ExchangeAPIConfig = field(default_factory=ExchangeAPIConfig)
     
     # Feature engineering
     features: SocialFeatureConfig = field(default_factory=SocialFeatureConfig)
@@ -286,6 +305,7 @@ class SocialMediaConfig:
         news_api_config = NewsAPIConfig(**config_dict.get("news_api", {}))
         twitter_config = TwitterConfig(**config_dict.get("twitter", {}))
         reddit_config = RedditConfig(**config_dict.get("reddit", {}))
+        exchange_api_config = ExchangeAPIConfig(**config_dict.get("exchange_api", {}))
         
         features_config = SocialFeatureConfig(**config_dict.get("features", {}))
         validation_config = ValidationConfig(**config_dict.get("validation", {}))
@@ -304,6 +324,7 @@ class SocialMediaConfig:
             news_api=news_api_config,
             twitter=twitter_config,
             reddit=reddit_config,
+            exchange_api=exchange_api_config,
             features=features_config,
             validation=validation_config,
             ml_integration=ml_config,
@@ -349,6 +370,8 @@ class SocialMediaConfig:
             sources.append("twitter")
         if self.reddit.enabled:
             sources.append("reddit")
+        if self.exchange_api.enabled:
+            sources.append("exchange_api")
         return sources
     
     def validate_config(self) -> List[str]:
