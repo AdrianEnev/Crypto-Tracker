@@ -122,6 +122,27 @@ reddit:
     - "engagement_score"
     - "hot_topics"
 
+exchange_api:
+  enabled: true  # Exchange APIs for funding rates and derivatives (FREE - REPLACES CRYPTOQUANT)
+  exchanges:
+    - "binance"
+    - "bybit"
+    - "okx"
+    - "deribit"
+    - "bitmex"
+  rate_limit: 120  # Conservative rate limiting
+  timeout: 10
+  retry_count: 3
+  cache_ttl: 300
+  priority: 9
+  update_interval: 300  # 5 minutes
+  max_retries: 3
+  features:
+    - "funding_rate"
+    - "open_interest"
+    - "long_short_ratio"
+    - "exchange_flows"
+
 # Feature engineering configuration
 features:
   enabled: true  # Enable social feature engineering

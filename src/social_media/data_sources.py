@@ -711,6 +711,10 @@ class SocialDataManager:
             from .reddit_source import RedditSource
             self.sources["reddit"] = RedditSource(self.config)
         
+        if self.config.exchange_api.enabled:
+            from .exchange_source import ExchangeAPISource
+            self.sources["exchange_api"] = ExchangeAPISource(self.config)
+        
         # Add other sources as they're implemented
         logger.info(f"Initialized {len(self.sources)} social data sources: {list(self.sources.keys())}")
     
