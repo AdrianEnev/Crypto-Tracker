@@ -715,6 +715,10 @@ class SocialDataManager:
             from .exchange_source import ExchangeAPISource
             self.sources["exchange_api"] = ExchangeAPISource(self.config)
         
+        if self.config.dune_analytics.enabled:
+            from .dune_source import DuneAnalyticsSource
+            self.sources["dune_analytics"] = DuneAnalyticsSource(self.config)
+        
         # Add other sources as they're implemented
         logger.info(f"Initialized {len(self.sources)} social data sources: {list(self.sources.keys())}")
     
