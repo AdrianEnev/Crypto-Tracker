@@ -20,6 +20,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+pyproject.toml
 
 # Environment variables
 .env
@@ -56,6 +57,7 @@ dmypy.json
 coverage.xml
 *.cover
 .hypothesis/
+paper-trading-24-7.service
 
 # Security and Secrets
 secrets/

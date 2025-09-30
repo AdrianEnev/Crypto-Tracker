@@ -1,0 +1,138 @@
+# config/paper_24_7_aggressive.yaml
+# Aggressive configuration - Advanced strategies, lower Bitcoin allocation
+
+risk_profile: "aggressive"
+
+portfolio_allocation:
+  bitcoin_allocation_pct: 40.0  # 40% Bitcoin (aggressive)
+  ethereum_allocation_pct: 40.0  # 40% Ethereum
+  altcoins_allocation_pct: 20.0  # 20% Altcoins
+  rebalancing:
+    enabled: true
+    threshold_pct: 8.0  # More frequent rebalancing
+    min_interval_days: 15
+
+# Enable all advanced strategies
+advanced_strategies:
+  bitcoin_multi_bucket:
+    enabled: true
+  ethereum_staking_trading:
+    enabled: true
+  derivatives_integration:
+    enabled: true
+  onchain_metrics:
+    enabled: true
+  volatility_regime_classification:
+    enabled: true
+
+tracked_coins:
+  bitcoin:
+    symbol: btc
+    name: Bitcoin
+    threshold: 100000.0
+    check_interval: 300
+    coingecko_id: bitcoin
+    strategy:
+      name: bitcoin_multi_bucket  # Advanced multi-bucket strategy
+      params:
+        core_allocation_pct: 40.0
+        core_rebalance_threshold: 8.0
+        dip_ladder_enabled: true
+        dip_levels: [3.0, 7.0, 15.0, 25.0, 40.0]  # More aggressive levels
+        dip_weights: [0.5, 0.3, 0.15, 0.05, 0.0]  # More aggressive weights
+        exchange_flow_filter: true
+        momentum_enabled: true
+        momentum_ema_period: 50
+        momentum_rsi_range: [45, 75]  # More aggressive RSI range
+        momentum_vol_slope_period: 30
+        mean_reversion_enabled: true
+        mr_dip_threshold: [3.0, 10.0]  # More aggressive dip thresholds
+        mr_rsi_threshold: 35
+        mr_profit_target: [3.0, 10.0]
+        mr_stop_loss: [5.0, 12.0]
+        atr_period: 14
+        atr_multiplier: 2.5  # Tighter stops
+        halving_aware: true
+        macro_regime_filter: true
+    risk:
+      atr:
+        period: 14
+        sl_mult: 1.2  # Tighter stops
+        tp_mult: 2.5  # Lower profit targets
+    market: BTC/USDT
+    
+  ethereum:
+    symbol: eth
+    name: Ethereum
+    threshold: 5000.0
+    check_interval: 300
+    coingecko_id: ethereum
+    strategy:
+      name: ethereum_staking_trading  # Advanced staking + trading strategy
+      params:
+        staking_allocation_pct: 30.0  # Lower staking allocation
+        staking_yield_target: 3.5
+        lst_monitoring_enabled: true
+        lst_peg_threshold: 0.3  # Tighter peg threshold
+        trading_enabled: true
+        trading_risk_per_trade: 1.2  # Higher risk per trade
+        trading_atr_multiplier: 3.0  # Tighter stops
+        max_trading_exposure: 30.0   # Higher max exposure
+        onchain_metrics_enabled: true
+        gas_usage_weight: 0.3
+        active_addresses_weight: 0.3
+        defi_tvl_weight: 0.4
+        volatility_arbitrage_enabled: true
+        iv_rv_ratio_threshold: 1.1  # More aggressive IV threshold
+        options_hedge_threshold: 0.7  # More aggressive hedge threshold
+        upgrade_pause_enabled: true
+        upgrade_risk_reduction: 0.3  # Less risk reduction
+    risk:
+      atr:
+        period: 14
+        sl_mult: 1.0  # Tighter stops
+        tp_mult: 2.0  # Lower profit targets
+    market: ETH/USDT
+    
+  solana:
+    symbol: sol
+    name: Solana
+    threshold: 200.0
+    check_interval: 300
+    coingecko_id: solana
+    strategy:
+      name: momentum
+      params:
+        fast_ema_period: 8   # Faster signals
+        slow_ema_period: 21  # Faster signals
+        use_rsi: true
+        rsi_period: 14
+        rsi_max_buy: 70  # More aggressive
+        rsi_min_sell: 30  # More aggressive
+        use_macd: true
+        macd_fast: 8
+        macd_slow: 21
+        macd_signal: 5
+    risk:
+      atr:
+        period: 14
+        sl_mult: 0.8  # Tighter stops
+        tp_mult: 1.5  # Lower profit targets
+    market: SOL/USDT
+
+strategy:
+  default_strategy: 'momentum'
+  use_regime_filter: true  # Enable regime filtering
+  vol_gate:
+    min_atr_pct: 0.05  # Lower volatility threshold
+    max_atr_pct: 25.0  # Higher max volatility
+    min_reward_to_risk: 0.6  # Lower reward-to-risk ratio
+
+risk_management:
+  max_daily_loss_pct: 7.0  # Higher daily loss limit
+  max_drawdown_pct: 20.0   # Higher drawdown limit
+  max_leverage: 1.0
+  position_sizing:
+    method: "atr_based"  # Advanced ATR-based sizing
+    risk_per_trade_pct: 2.0  # Higher risk per trade
+    max_position_size_pct: 15.0  # Larger position sizes
