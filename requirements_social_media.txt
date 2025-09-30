@@ -1,0 +1,33 @@
+# Social Media Integration Dependencies
+# Additional packages required for social media features
+
+# Async HTTP client for API requests
+aiohttp>=3.8.0
+
+# Data processing and analysis
+numpy>=1.21.0
+pandas>=1.3.0
+
+# Configuration management
+pyyaml>=6.0
+
+# Optional: Google Trends integration
+# pytrends>=4.9.0
+
+# Optional: Twitter API integration
+# tweepy>=4.0.0
+
+# Optional: Reddit API integration
+# praw>=7.0.0
+
+# Optional: News API integration
+# newsapi-python>=0.2.6
+
+# Optional: Sentiment analysis
+# textblob>=0.17.0
+# vaderSentiment>=3.3.0
+
+# Optional: Machine learning enhancements
+# scikit-learn>=1.0.0
+# xgboost>=1.5.0
+# lightgbm>=3.3.0
