@@ -10,13 +10,16 @@ import argparse
 import asyncio
 import os
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Add project root to path for imports
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "src"))
 
 from paper_trader import (
     PaperBroker, 
@@ -35,6 +38,7 @@ from paper_trader.config import load_config_from_env
 from src.tracker.core import CryptoTracker
 from src.tracker.execution_manager import ExecutionManager
 from src.order_manager.models import OrderRequest, OrderType, TimeInForce
+from src.decision import make_decision
 
 
 class PaperTradingRunner:
@@ -84,8 +88,8 @@ class PaperTradingRunner:
     async def _setup_tracker(self):
         """Setup the existing tracker to use paper broker."""
         
-        # Create a modified config for the tracker
-        tracker_config_path = "config/config.yaml"
+        # Use the config path from paper trading config, or default
+        tracker_config_path = getattr(self.config, 'tracker_config_path', "config/config.yaml")
         
         # Initialize tracker
         self.tracker = CryptoTracker(tracker_config_path)
@@ -151,6 +155,8 @@ class PaperTradingRunner:
     def _on_market_data(self, tick: MarketTick):
         """Handle incoming market data."""
         
+        print(f"📊 Market data received: {tick.symbol} @ {tick.price:.2f} (high: {tick.high or 0:.2f}, low: {tick.low or 0:.2f})")
+        
         # Update broker with market data
         ticker = tick.to_ticker()
         self.broker.update_market_data(tick.symbol, ticker)
@@ -164,23 +170,88 @@ class PaperTradingRunner:
             self.persistence.save_account_snapshot(snapshot, self.config.run_id)
     
     def _process_trading_decisions(self, tick: MarketTick):
-        """Process trading decisions for the current market data."""
+        """Process trading decisions using the real strategy system."""
         
-        # This is where we would integrate with the existing strategy system
-        # For now, we'll implement a simple example
-        
-        # Get current position
-        position = self.broker.get_position(tick.symbol)
-        
-        # Simple strategy: buy on price drops, sell on price increases
-        if position is None:
-            # No position - consider buying
-            if tick.price < tick.high * 0.95:  # 5% below high
+        try:
+            # Convert symbol format (BTC/USDT -> bitcoin)
+            coin_id = self._symbol_to_coin_id(tick.symbol)
+            if not coin_id:
+                return
+            
+            # Override strategy for this coin if specified
+            if hasattr(self, 'strategy_override'):
+                # Temporarily modify the config to use the specified strategy
+                original_config = self.tracker.config_manager.load_full_config()
+                if 'tracked_coins' not in original_config:
+                    original_config['tracked_coins'] = {}
+                if coin_id not in original_config['tracked_coins']:
+                    original_config['tracked_coins'][coin_id] = {}
+                if 'strategy' not in original_config['tracked_coins'][coin_id]:
+                    original_config['tracked_coins'][coin_id]['strategy'] = {}
+                
+                # Store original strategy
+                if not hasattr(self, '_original_strategies'):
+                    self._original_strategies = {}
+                if coin_id not in self._original_strategies:
+                    self._original_strategies[coin_id] = original_config['tracked_coins'][coin_id]['strategy'].get('name', 'mean_reversion')
+                
+                # Set new strategy
+                original_config['tracked_coins'][coin_id]['strategy']['name'] = self.strategy_override
+                
+                # Temporarily update the tracker's config
+                self.tracker.config_manager._config_cache = original_config
+            
+            # Use the real decision system
+            decision = make_decision(self.tracker, coin_id)
+            
+            # Get current position
+            position = self.broker.get_position(tick.symbol)
+            
+            # Process the decision
+            if decision.action_recommended == "Buy" and position is None:
+                print(f"🟢 BUY SIGNAL: {tick.symbol} @ {tick.price:.2f} ({decision.signal}, conf: {decision.confidence:.2f})")
                 self._place_buy_order(tick.symbol, tick.price)
-        else:
-            # Have position - consider selling
-            if tick.price > position.entry_price * 1.02:  # 2% profit
+            elif decision.action_recommended == "Sell" and position is not None:
+                print(f"🔴 SELL SIGNAL: {tick.symbol} @ {tick.price:.2f} ({decision.signal}, conf: {decision.confidence:.2f})")
                 self._place_sell_order(tick.symbol, tick.price, position.size)
+            elif decision.action_recommended == "Hold":
+                # Only print occasionally to avoid spam
+                if hasattr(self, '_last_print_time'):
+                    if time.time() - self._last_print_time > 10:  # Print every 10 seconds
+                        print(f"📊 HOLD: {tick.symbol} @ {tick.price:.2f} ({decision.signal}, conf: {decision.confidence:.2f})")
+                        self._last_print_time = time.time()
+                else:
+                    self._last_print_time = time.time()
+                    
+        except Exception as e:
+            print(f"❌ Strategy error for {tick.symbol}: {e}")
+    
+    def _symbol_to_coin_id(self, symbol: str) -> Optional[str]:
+        """Convert trading symbol to coin ID."""
+        symbol_map = {
+            "BTC/USDT": "bitcoin",
+            "ETH/USDT": "ethereum", 
+            "SOL/USDT": "solana",
+            "ADA/USDT": "cardano",
+            "DOT/USDT": "polkadot",
+            "LINK/USDT": "chainlink",
+            "BNB/USDT": "binance-coin",
+            "XRP/USDT": "xrp",
+            "DOGE/USDT": "dogecoin",
+            "LTC/USDT": "litecoin",
+            "BCH/USDT": "bitcoin-cash",
+            "UNI/USDT": "uniswap",
+            "AVAX/USDT": "avalanche",
+            "TRX/USDT": "tron",
+            "SHIB/USDT": "shiba-inu",
+            "APT/USDT": "aptos",
+            "SUI/USDT": "sui",
+            "NEAR/USDT": "near-protocol",
+            "ATOM/USDT": "cosmos",
+            "XLM/USDT": "stellar",
+            "ICP/USDT": "internet-computer",
+        }
+        return symbol_map.get(symbol)
     
     def _place_buy_order(self, symbol: str, price: float):
         """Place a buy order."""
@@ -257,12 +328,13 @@ class PaperTradingRunner:
         
         # Update run status
         final_equity = self.broker.get_total_equity()
+        performance_metrics = self.broker.get_performance_metrics()
         self.persistence.update_run(
             self.config.run_id,
             end_time=datetime.now(timezone.utc).isoformat(),
             final_equity=final_equity,
-            total_trades=len(self.broker.portfolio.trades),
-            total_pnl=self.broker.portfolio.net_pnl,
+            total_trades=performance_metrics.get("total_trades", 0),
+            total_pnl=performance_metrics.get("net_pnl", 0.0),
             status="completed"
         )
         
@@ -361,6 +433,10 @@ def main():
     parser.add_argument("--replay-speed", type=float, default=1.0,
                        help="Replay speed multiplier")
     
+    # Strategy settings
+    parser.add_argument("--strategy", type=str, default="mean_reversion",
+                       help="Strategy to use (mean_reversion, momentum, breakout, volatility, statistical_arbitrage)")
+    
     # Output settings
     parser.add_argument("--output-dir", default="data/paper_runs",
                        help="Output directory for results")
@@ -416,6 +492,10 @@ def main():
     else:
         config.run_id = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     
+    # Set tracker config path if different from default
+    if args.config != "config/paper.yaml":
+        config.tracker_config_path = args.config
+    
     config.mode = args.mode
     config.initial_cash = args.initial_cash
     
@@ -449,6 +529,11 @@ def main():
     # Run paper trading
     try:
         runner = PaperTradingRunner(config)
+        
+        # Set strategy override if specified
+        if args.strategy != "mean_reversion":
+            runner.strategy_override = args.strategy
+        
         asyncio.run(runner.run())
         return 0
     except KeyboardInterrupt:
