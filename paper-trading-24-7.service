@@ -1,0 +1,33 @@
+[Unit]
+Description=24/7 Paper Trading System
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=adrian
+Group=staff
+WorkingDirectory=/Users/adrian/Desktop/Code/Trading/tracker
+Environment=PATH=/Users/adrian/Desktop/Code/Trading/tracker/venv/bin
+ExecStart=/Users/adrian/Desktop/Code/Trading/tracker/venv/bin/python /Users/adrian/Desktop/Code/Trading/tracker/scripts/paper_trading_24_7.py --config /Users/adrian/Desktop/Code/Trading/tracker/config/paper_24_7.yaml --initial-cash 100000 --check-interval 300 --max-restarts 10
+ExecStop=/bin/kill -TERM $MAINPID
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=paper-trading-24-7
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=2G
+CPUQuota=50%
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/Users/adrian/Desktop/Code/Trading/tracker/logs
+
+[Install]
+WantedBy=multi-user.target
