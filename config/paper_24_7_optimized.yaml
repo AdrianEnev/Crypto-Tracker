@@ -1,0 +1,169 @@
+# config/paper_24_7_optimized.yaml
+# Optimized configuration for 24/7 paper trading - Real-world viable settings
+
+tracked_coins:
+  bitcoin:
+    symbol: btc
+    name: Bitcoin
+    threshold: 100000.0
+    check_interval: 300  # 5 minutes
+    coingecko_id: bitcoin
+    strategy:
+      name: mean_reversion
+      params:
+        rsi_period: 14
+        buy_threshold: 25      # More aggressive for testing
+        sell_threshold: 75     # More aggressive for testing
+        lookback_period: 20
+        volatility_threshold: 0.015  # Lower threshold for more trades
+    risk:
+      atr:
+        period: 14
+        sl_mult: 1.5
+        tp_mult: 3.0
+    market: BTC/USDT
+  ethereum:
+    symbol: eth
+    name: Ethereum
+    threshold: 5000.0
+    check_interval: 300
+    coingecko_id: ethereum
+    strategy:
+      name: momentum
+      params:
+        fast_ema_period: 12
+        slow_ema_period: 26
+        use_rsi: true
+        rsi_period: 14
+        rsi_max_buy: 65       # More aggressive
+        rsi_min_sell: 35      # More aggressive
+        use_macd: true
+        macd_fast: 12
+        macd_slow: 26
+        macd_signal: 9
+    risk:
+      atr:
+        period: 14
+        sl_mult: 1.2
+        tp_mult: 2.5
+    market: ETH/USDT
+  solana:
+    symbol: sol
+    name: Solana
+    threshold: 500.0
+    check_interval: 300
+    coingecko_id: solana
+    strategy:
+      name: breakout
+      params:
+        bb_period: 20
+        bb_stddev: 2.0
+        squeeze_window: 50    # Shorter for more signals
+        squeeze_pctile: 25.0  # More aggressive
+        volume_window: 20
+        volume_mult: 1.3      # Lower threshold
+        confirm_closes: 1
+    risk:
+      atr:
+        period: 14
+        sl_mult: 1.0
+        tp_mult: 2.0
+    market: SOL/USDT
+
+strategy:
+  default_strategy: 'mean_reversion'
+  use_regime_filter: true
+  vol_gate:
+    min_atr_pct: 0.3        # Lower minimum volatility for more trades
+    max_atr_pct: 15.0       # Higher maximum volatility
+    min_reward_to_risk: 1.2 # Lower R:R requirement
+    min_tp_edge_bps: 20     # Lower edge requirement
+  defaults:
+    mean_reversion:
+      rsi_period: 14
+      buy_threshold: 25
+      sell_threshold: 75
+    momentum:
+      fast_ema_period: 12
+      slow_ema_period: 26
+      use_rsi: true
+      rsi_period: 14
+      rsi_max_buy: 65
+      rsi_min_sell: 35
+    breakout:
+      bb_period: 20
+      bb_stddev: 2.0
+      squeeze_window: 50
+      squeeze_pctile: 25.0
+
+# Risk management - Real-world viable settings
+risk_management:
+  max_position_size_pct: 15.0  # Conservative 15% max position
+  max_daily_loss_pct: 3.0      # Conservative 3% daily loss
+  stop_loss_pct: 2.5          # Tight 2.5% stop loss
+  take_profit_pct: 5.0        # 2:1 reward-to-risk ratio
+  max_open_positions: 3        # Max 3 positions for diversification
+  risk_budget_pct: 0.01        # 1% risk per trade
+  cooldown_seconds: 1800       # 30 minutes between trades per coin
+  stagger_max_per_cycle: 1    # One trade per cycle
+  stagger_spacing_seconds: 600 # 10 minutes between cycles
+
+# Execution settings - Real-world constraints
+execution:
+  auto_trade_enable: true
+  auto_trade_mode: "paper"
+  trade_default_size_usd: 1000.0  # $1000 default trade size
+  min_trade_size_usd: 500         # $500 minimum
+  max_trade_size_usd: 3000        # $3000 maximum
+  executor_retry_count: 3
+  executor_backoff_factor: 0.5
+  order_timeout_minutes: 30
+
+# Order management
+order_manager:
+  enabled: true
+  max_active_orders: 10
+  order_timeout_minutes: 30
+  oco_enabled: true
+  trailing_stop_enabled: true
+
+# Price providers - Disabled for paper trading
+price_providers:
+  coingecko:
+    enabled: false
+  coinmarketcap:
+    enabled: false
+  ccxt:
+    enabled: false
+
+# Monitoring and logging
+monitoring:
+  heartbeat_interval: 300      # 5 minutes
+  log_level: 'INFO'
+  performance_logging: true
+  trade_logging: true
+  error_logging: true
+  decision_logging: true
+
+# Paper trading specific settings
+paper_trading:
+  enabled: true
+  initial_cash: 100000.0
+  fee_rate: 0.001              # 0.1% fee (realistic)
+  slippage: 0.0005            # 0.05% slippage (realistic)
+  mock_prices: false          # Use real price data for realistic testing
+  price_variation: 0.02       # 2% price variation
+
+# Security and safety
+security:
+  safe_mode: false
+  kill_switch_enabled: true
+  max_drawdown_pct: 10.0      # Kill switch at 10% drawdown
+  emergency_stop_loss_pct: 5.0 # Emergency stop at 5% loss
+
+# Performance tracking
+performance:
+  benchmark_enabled: true
+  benchmark_symbol: "BTC/USDT"
+  performance_reporting: true
+  trade_analysis: true

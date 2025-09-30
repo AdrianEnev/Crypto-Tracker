@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 
 from src.logger import log_event
 from src.persistence.sqlite_store import SQLiteStore
-from src.portfolio import Portfolio
+from src.portfolio_core import Portfolio
 
 
 class PortfolioManager:
