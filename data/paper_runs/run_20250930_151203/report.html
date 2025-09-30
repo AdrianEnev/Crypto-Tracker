@@ -1,0 +1,163 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Paper Trading Report - run_20250930_151203</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .header { background-color: #f0f0f0; padding: 20px; border-radius: 5px; }
+                .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0; }
+                .metric { background-color: #f9f9f9; padding: 15px; border-radius: 5px; border-left: 4px solid #007bff; }
+                .metric h3 { margin: 0 0 10px 0; color: #333; }
+                .metric .value { font-size: 24px; font-weight: bold; color: #007bff; }
+                .metric .label { font-size: 14px; color: #666; }
+                .section { margin: 30px 0; }
+                .section h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                .positive { color: #28a745; }
+                .negative { color: #dc3545; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Paper Trading Performance Report</h1>
+                <p><strong>Run ID:</strong> run_20250930_151203</p>
+                <p><strong>Generated:</strong> 2025-09-30 15:12:09</p>
+            </div>
+            
+            <div class="section">
+                <h2>Performance Summary</h2>
+                <div class="metrics">
+                    <div class="metric">
+                        <h3>Total Return</h3>
+                        <div class="value negative">0.00%</div>
+                        <div class="label">Net return on initial capital</div>
+                    </div>
+                    <div class="metric">
+                        <h3>Total Trades</h3>
+                        <div class="value">0</div>
+                        <div class="label">Number of executed trades</div>
+                    </div>
+                    <div class="metric">
+                        <h3>Win Rate</h3>
+                        <div class="value">0.0%</div>
+                        <div class="label">Percentage of profitable trades</div>
+                    </div>
+                    <div class="metric">
+                        <h3>Max Drawdown</h3>
+                        <div class="value negative">0.00%</div>
+                        <div class="label">Maximum peak-to-trough decline</div>
+                    </div>
+                    <div class="metric">
+                        <h3>Sharpe Ratio</h3>
+                        <div class="value">0.000</div>
+                        <div class="label">Risk-adjusted return</div>
+                    </div>
+                    <div class="metric">
+                        <h3>Profit Factor</h3>
+                        <div class="value">0.00</div>
+                        <div class="label">Gross profit / Gross loss</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Detailed Metrics</h2>
+                <table>
+                    <tr><th>Metric</th><th>Value</th></tr>
+                    <tr><td>Net P&L</td><td class="negative">$0.00</td></tr>
+                    <tr><td>Total Fees</td><td>$0.00</td></tr>
+                    <tr><td>Average Win</td><td class="positive">$0.00</td></tr>
+                    <tr><td>Average Loss</td><td class="negative">$0.00</td></tr>
+                    <tr><td>Average Trade</td><td class="negative">$0.00</td></tr>
+                    <tr><td>Expectancy</td><td class="negative">$0.00</td></tr>
+                    <tr><td>Recovery Factor</td><td>0.00</td></tr>
+                    <tr><td>Time in Market</td><td>0.0%</td></tr>
+                    <tr><td>Annualized Return</td><td class="negative">0.00%</td></tr>
+                </table>
+            </div>
+            
+            <div class="section">
+                <h2>Configuration</h2>
+                <pre>{
+  "run_id": "run_20250930_151203",
+  "mode": "replay",
+  "initial_cash": 10000.0,
+  "base_currency": "USDT",
+  "max_positions": 10,
+  "position_size_limit_pct": 0.1,
+  "max_drawdown_pct": 20.0,
+  "stop_loss_pct": 0.02,
+  "take_profit_pct": 0.04,
+  "generate_reports": true,
+  "report_formats": [
+    "json",
+    "html"
+  ],
+  "save_trades": true,
+  "save_account_history": true,
+  "enforce_paper_mode": true,
+  "block_real_orders": true,
+  "execution": {
+    "slippage": {
+      "type": "square_root",
+      "base_slippage_bps": 5.0,
+      "max_slippage_bps": 50.0,
+      "volatility_multiplier": 1.0,
+      "order_size_threshold": 10000.0,
+      "orderbook_depth_levels": 5,
+      "depth_impact_factor": 0.1
+    },
+    "fees": {
+      "type": "percentage",
+      "maker_fee_bps": 5.0,
+      "taker_fee_bps": 10.0,
+      "fixed_fee_usd": 0.0,
+      "min_fee_usd": 0.01,
+      "max_fee_usd": 100.0,
+      "volume_tiers": [
+        [
+          0,
+          10.0
+        ],
+        [
+          1000000,
+          8.0
+        ],
+        [
+          10000000,
+          5.0
+        ]
+      ]
+    },
+    "latency": {
+      "min_latency_ms": 50.0,
+      "max_latency_ms": 500.0,
+      "mean_latency_ms": 200.0,
+      "std_latency_ms": 100.0,
+      "network_jitter_ms": 20.0
+    }
+  },
+  "market_data": {
+    "mode": "replay",
+    "source": "local_file",
+    "replay_speed": 2.0,
+    "start_time": "2025-04-14T00:00:00",
+    "end_time": "2025-04-15T00:00:00",
+    "exchange": "binance",
+    "symbols": [
+      "BTC/USDT"
+    ],
+    "update_interval": 1.0,
+    "data_directory": "./data_cache",
+    "file_format": "jsonl",
+    "ws_url": null,
+    "ws_channels": null
+  }
+}</pre>
+            </div>
+        </body>
+        </html>
+        
