@@ -16,8 +16,10 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, List, Any
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Add project root to path for imports
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "src"))
 
 # Import paper trading components
 from paper_trader import (
@@ -364,7 +366,9 @@ class PaperTradingTestSuite:
             assert tracker.execution_manager.auto_trade_mode == "paper"
             
             # Test portfolio manager integration
-            portfolio_info = tracker.portfolio_manager.get_portfolio_summary()
+            # Create a simple price dictionary for testing
+            sym_to_price = {"BTC/USDT": 50000.0, "ETH/USDT": 3000.0}
+            portfolio_info = tracker.portfolio_manager.get_portfolio_summary(sym_to_price)
             assert isinstance(portfolio_info, dict)
             
             return True
@@ -547,7 +551,9 @@ def run_project_accuracy_tests():
         # Test 3: Portfolio management integration
         print("Testing portfolio management...")
         if 'tracker' in locals():
-            portfolio_summary = tracker.portfolio_manager.get_portfolio_summary()
+            # Create a simple price dictionary for testing
+            sym_to_price = {"BTC/USDT": 50000.0, "ETH/USDT": 3000.0}
+            portfolio_summary = tracker.portfolio_manager.get_portfolio_summary(sym_to_price)
             assert isinstance(portfolio_summary, dict)
             print("✅ Portfolio management test passed")
         
