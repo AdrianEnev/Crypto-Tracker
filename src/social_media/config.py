@@ -8,6 +8,7 @@ All features are disabled by default and must be explicitly enabled.
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 import os
+import re
 from pathlib import Path
 
 
@@ -100,6 +101,30 @@ class TwitterConfig(DataSourceConfig):
         super().__post_init__()
         if self.enabled and not self.bearer_token:
             self.bearer_token = os.environ.get("TWITTER_BEARER_TOKEN")
+
+
+@dataclass
+class RedditConfig(DataSourceConfig):
+    """Reddit API specific configuration"""
+    base_url: str = "https://oauth.reddit.com"
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+    user_agent: str = "CryptoDiscoveryScanner/1.0"
+    subreddits: List[str] = field(default_factory=lambda: [
+        "cryptocurrency", "bitcoin", "ethereum", "cryptomarkets", "cryptocurrencytrading"
+    ])
+    features: List[str] = field(default_factory=lambda: [
+        "post_volume", "sentiment_score", "engagement_score", "hot_topics"
+    ])
+    
+    def __post_init__(self):
+        """Validate Reddit configuration"""
+        super().__post_init__()
+        if self.enabled:
+            if not self.client_id:
+                self.client_id = os.environ.get("REDDIT_CLIENT_ID")
+            if not self.client_secret:
+                self.client_secret = os.environ.get("REDDIT_CLIENT_SECRET")
 
 
 @dataclass
@@ -217,6 +242,7 @@ class SocialMediaConfig:
     google_trends: GoogleTrendsConfig = field(default_factory=GoogleTrendsConfig)
     news_api: NewsAPIConfig = field(default_factory=NewsAPIConfig)
     twitter: TwitterConfig = field(default_factory=TwitterConfig)
+    reddit: RedditConfig = field(default_factory=RedditConfig)
     
     # Feature engineering
     features: SocialFeatureConfig = field(default_factory=SocialFeatureConfig)
@@ -231,8 +257,26 @@ class SocialMediaConfig:
     monitoring: MonitoringConfig = field(default_factory=MonitoringConfig)
     
     @classmethod
+    def _substitute_env_vars(cls, config_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Substitute environment variables in config values"""
+        def substitute_value(value):
+            if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
+                env_var = value[2:-1]
+                return os.environ.get(env_var, value)
+            elif isinstance(value, dict):
+                return {k: substitute_value(v) for k, v in value.items()}
+            elif isinstance(value, list):
+                return [substitute_value(item) for item in value]
+            else:
+                return value
+        
+        return substitute_value(config_dict)
+    
+    @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> "SocialMediaConfig":
         """Create configuration from dictionary"""
+        # Substitute environment variables
+        config_dict = cls._substitute_env_vars(config_dict)
         # Extract nested configurations
         lunarcrush_config = LunarCrushConfig(**config_dict.get("lunarcrush", {}))
         santiment_config = SantimentConfig(**config_dict.get("santiment", {}))
@@ -240,6 +284,8 @@ class SocialMediaConfig:
         cryptoquant_config = CryptoQuantConfig(**config_dict.get("cryptoquant", {}))
         google_trends_config = GoogleTrendsConfig(**config_dict.get("google_trends", {}))
         news_api_config = NewsAPIConfig(**config_dict.get("news_api", {}))
+        twitter_config = TwitterConfig(**config_dict.get("twitter", {}))
+        reddit_config = RedditConfig(**config_dict.get("reddit", {}))
         
         features_config = SocialFeatureConfig(**config_dict.get("features", {}))
         validation_config = ValidationConfig(**config_dict.get("validation", {}))
@@ -256,6 +302,8 @@ class SocialMediaConfig:
             cryptoquant=cryptoquant_config,
             google_trends=google_trends_config,
             news_api=news_api_config,
+            twitter=twitter_config,
+            reddit=reddit_config,
             features=features_config,
             validation=validation_config,
             ml_integration=ml_config,
@@ -297,6 +345,10 @@ class SocialMediaConfig:
             sources.append("google_trends")
         if self.news_api.enabled:
             sources.append("news_api")
+        if self.twitter.enabled:
+            sources.append("twitter")
+        if self.reddit.enabled:
+            sources.append("reddit")
         return sources
     
     def validate_config(self) -> List[str]:

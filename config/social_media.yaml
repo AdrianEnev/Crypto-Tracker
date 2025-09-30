@@ -100,6 +100,28 @@ twitter:
     - "engagement_score"
     - "influencer_activity"
 
+reddit:
+  enabled: true  # Reddit API for subreddit monitoring (FREE - REPLACES MORE LUNARCRUSH)
+  client_id: "${REDDIT_CLIENT_ID}"
+  client_secret: "${REDDIT_CLIENT_SECRET}"
+  user_agent: "CryptoDiscoveryScanner/1.0"
+  rate_limit: 60  # Reddit allows 60 requests per minute
+  timeout: 30
+  retry_count: 3
+  cache_ttl: 300
+  priority: 8
+  subreddits:
+    - "cryptocurrency"
+    - "bitcoin"
+    - "ethereum"
+    - "cryptomarkets"
+    - "cryptocurrencytrading"
+  features:
+    - "post_volume"
+    - "sentiment_score"
+    - "engagement_score"
+    - "hot_topics"
+
 # Feature engineering configuration
 features:
   enabled: true  # Enable social feature engineering
