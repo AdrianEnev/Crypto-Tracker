@@ -3,13 +3,13 @@
 # All features are disabled by default and must be explicitly enabled.
 
 # Global settings
-enabled: false  # Set to true to enable social media integration
-debug: false
-log_level: "INFO"
+enabled: true  # Set to true to enable social media integration
+debug: true  # Enable debug mode for testing
+log_level: "DEBUG"
 
 # Data source configurations
 lunarcrush:
-  enabled: false  # LunarCrush social metrics
+  enabled: false  # LunarCrush social metrics (PAID SERVICE - DISABLED)
   api_key: "${LUNARCRUSH_API_KEY}"  # Set in environment variables
   rate_limit: 1000  # Requests per hour
   timeout: 30
@@ -22,7 +22,7 @@ lunarcrush:
     - "influencer_activity"
 
 santiment:
-  enabled: false  # Santiment social + on-chain data
+  enabled: true  # Santiment social + on-chain data (ENABLED - USER HAS API KEY)
   api_key: "${SANTIMENT_API_KEY}"
   rate_limit: 500
   timeout: 30
@@ -87,7 +87,7 @@ news_api:
 
 # Feature engineering configuration
 features:
-  enabled: false  # Enable social feature engineering
+  enabled: true  # Enable social feature engineering
   
   # Social Momentum Score (SMS) weights
   sms_weights:
@@ -110,7 +110,7 @@ features:
 
 # Validation configuration
 validation:
-  enabled: false  # Enable social signal validation
+  enabled: true  # Enable social signal validation
   
   # Cross-validation requirements
   require_onchain_confirmation: true
@@ -153,7 +153,7 @@ ml_integration:
 
 # Monitoring configuration
 monitoring:
-  enabled: false  # Enable monitoring and alerting
+  enabled: true  # Enable monitoring and alerting
   
   # Dashboard configuration
   dashboard_enabled: true
