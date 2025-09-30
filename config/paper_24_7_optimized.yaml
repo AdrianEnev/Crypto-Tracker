@@ -286,9 +286,9 @@ data_sources:
   onchain_data:
     enabled: true
     providers:
-      - glassnode
-      - cryptoquant
-      - messari
+      - dune_analytics  # Free on-chain data (replaces Glassnode)
+      - santiment  # Free social + on-chain data (replaces CryptoQuant)
+      - messari  # Free market data
 
 # =============================================================================
 # LOGGING AND MONITORING
