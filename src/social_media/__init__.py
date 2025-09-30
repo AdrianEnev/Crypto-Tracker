@@ -5,7 +5,7 @@ This module provides social media and alternative data integration for the tradi
 All features are designed to be easily configurable and can be disabled independently.
 
 Key Components:
-- Data source integrations (LunarCrush, Santiment, Glassnode, CryptoQuant)
+- Data source integrations (Twitter, Reddit, Santiment, Dune Analytics, Exchange APIs)
 - NLP pipeline for sentiment analysis and entity extraction
 - Social momentum feature engineering
 - Cross-validation with on-chain data
