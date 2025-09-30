@@ -1,0 +1,579 @@
+{
+  "scan_timestamp": "2025-09-30T21:06:57.461613",
+  "total_coins_scanned": 30,
+  "top_opportunities": [],
+  "safe_opportunities": [],
+  "high_risk_opportunities": [],
+  "all_results": [
+    {
+      "coin_id": "curve-dao-token",
+      "discovery_score": 1.651999709588889,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6555555555555556,
+      "risk_level": "high",
+      "quality_score": 0.6999998769444445,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044323"
+    },
+    {
+      "coin_id": "aave",
+      "discovery_score": 1.6519996958222223,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6555555555555556,
+      "risk_level": "high",
+      "quality_score": 0.6999998711111112,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044226"
+    },
+    {
+      "coin_id": "monero",
+      "discovery_score": 1.6519996842407407,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6555555555555556,
+      "risk_level": "high",
+      "quality_score": 0.6999998662037038,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044128"
+    },
+    {
+      "coin_id": "pancakeswap-token",
+      "discovery_score": 1.623999739,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.6999998875000001,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044396"
+    },
+    {
+      "coin_id": "1inch",
+      "discovery_score": 1.623999735562963,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.6999998860185186,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044371"
+    },
+    {
+      "coin_id": "compound-governance-token",
+      "discovery_score": 1.6239997029111104,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.6999998719444444,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044249"
+    },
+    {
+      "coin_id": "tron",
+      "discovery_score": 1.623999692385185,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.6999998674074074,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044153"
+    },
+    {
+      "coin_id": "vechain",
+      "discovery_score": 1.6239996818592592,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.6999998628703704,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044079"
+    },
+    {
+      "coin_id": "stellar",
+      "discovery_score": 1.623999679711111,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.6999998619444444,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044054"
+    },
+    {
+      "coin_id": "avalanche-2",
+      "discovery_score": 1.6239996788518514,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.699999861574074,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.043936"
+    },
+    {
+      "coin_id": "algorand",
+      "discovery_score": 1.6239996762740738,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.699999860462963,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044027"
+    },
+    {
+      "coin_id": "cosmos",
+      "discovery_score": 1.6239996726222221,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.6999998588888889,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044001"
+    },
+    {
+      "coin_id": "polygon",
+      "discovery_score": 1.62399966897037,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.6999998573148148,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.043972"
+    },
+    {
+      "coin_id": "arbitrum",
+      "discovery_score": 1.4839997638555555,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.5888888888888889,
+      "risk_level": "high",
+      "quality_score": 0.6999998886111111,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044420"
+    },
+    {
+      "coin_id": "yearn-finance",
+      "discovery_score": 1.4839997408888888,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.5888888888888889,
+      "risk_level": "high",
+      "quality_score": 0.6999998777777777,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044347"
+    },
+    {
+      "coin_id": "sushi",
+      "discovery_score": 1.4839997353925927,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.5888888888888889,
+      "risk_level": "high",
+      "quality_score": 0.6999998751851852,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044299"
+    },
+    {
+      "coin_id": "maker",
+      "discovery_score": 1.4839997320555556,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.5888888888888889,
+      "risk_level": "high",
+      "quality_score": 0.6999998736111112,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044274"
+    },
+    {
+      "coin_id": "uniswap",
+      "discovery_score": 1.4839997232222224,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.5888888888888889,
+      "risk_level": "high",
+      "quality_score": 0.6999998694444445,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044202"
+    },
+    {
+      "coin_id": "eos",
+      "discovery_score": 1.483999721062963,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.5888888888888889,
+      "risk_level": "high",
+      "quality_score": 0.6999998684259259,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044177"
+    },
+    {
+      "coin_id": "filecoin",
+      "discovery_score": 1.483999711837037,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.5888888888888889,
+      "risk_level": "high",
+      "quality_score": 0.6999998640740741,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.044104"
+    },
+    {
+      "coin_id": "binancecoin",
+      "discovery_score": 1.416,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6555555555555556,
+      "risk_level": "high",
+      "quality_score": 0.588851358611111,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.458437"
+    },
+    {
+      "coin_id": "ethereum",
+      "discovery_score": 1.3919999999999997,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.588848542962963,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.460111"
+    },
+    {
+      "coin_id": "polkadot",
+      "discovery_score": 1.3919999999999997,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.5888492790740741,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.461427"
+    },
+    {
+      "coin_id": "litecoin",
+      "discovery_score": 1.3919999999999997,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6444444444444444,
+      "risk_level": "high",
+      "quality_score": 0.5888498726851852,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.460012"
+    },
+    {
+      "coin_id": "bitcoin",
+      "discovery_score": 1.2959999999999998,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.6,
+      "risk_level": "high",
+      "quality_score": 0.5888482810185185,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.461361"
+    },
+    {
+      "coin_id": "cardano",
+      "discovery_score": 1.2719999999999998,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.5888888888888889,
+      "risk_level": "high",
+      "quality_score": 0.5888487988888889,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.461457"
+    },
+    {
+      "coin_id": "solana",
+      "discovery_score": 1.2719999999999998,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.5888888888888889,
+      "risk_level": "high",
+      "quality_score": 0.5888490699074074,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.461396"
+    },
+    {
+      "coin_id": "chainlink",
+      "discovery_score": 1.2719999999999998,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.5888888888888889,
+      "risk_level": "high",
+      "quality_score": 0.5888494497222222,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.461486"
+    },
+    {
+      "coin_id": "bitcoin-cash",
+      "discovery_score": 1.2719999999999998,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.5888888888888889,
+      "risk_level": "high",
+      "quality_score": 0.5888500175,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.460049"
+    },
+    {
+      "coin_id": "dogecoin",
+      "discovery_score": 1.2719999999999998,
+      "sms": 0.09,
+      "sentiment": 0.0,
+      "volume_velocity": 0.0,
+      "influencer_activity": 0.0,
+      "bot_likeness": 0.0,
+      "validation_score": 0.5888888888888889,
+      "risk_level": "high",
+      "quality_score": 0.5888501984259259,
+      "is_valid": false,
+      "data_sources": [
+        "santiment",
+        "google_trends",
+        "news_api"
+      ],
+      "timestamp": "2025-09-30T21:06:57.460081"
+    }
+  ]
+}

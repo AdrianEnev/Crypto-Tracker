@@ -87,6 +87,22 @@ class NewsAPIConfig(DataSourceConfig):
 
 
 @dataclass
+class TwitterConfig(DataSourceConfig):
+    """Twitter API specific configuration"""
+    base_url: str = "https://api.twitter.com/2"
+    bearer_token: Optional[str] = None
+    features: List[str] = field(default_factory=lambda: [
+        "social_volume", "sentiment_score", "engagement_score", "influencer_activity"
+    ])
+    
+    def __post_init__(self):
+        """Validate Twitter configuration"""
+        super().__post_init__()
+        if self.enabled and not self.bearer_token:
+            self.bearer_token = os.environ.get("TWITTER_BEARER_TOKEN")
+
+
+@dataclass
 class SocialFeatureConfig:
     """Configuration for social feature engineering"""
     enabled: bool = False
@@ -200,6 +216,7 @@ class SocialMediaConfig:
     cryptoquant: CryptoQuantConfig = field(default_factory=CryptoQuantConfig)
     google_trends: GoogleTrendsConfig = field(default_factory=GoogleTrendsConfig)
     news_api: NewsAPIConfig = field(default_factory=NewsAPIConfig)
+    twitter: TwitterConfig = field(default_factory=TwitterConfig)
     
     # Feature engineering
     features: SocialFeatureConfig = field(default_factory=SocialFeatureConfig)

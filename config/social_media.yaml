@@ -85,6 +85,21 @@ news_api:
     - "mention_frequency"
     - "source_credibility"
 
+twitter:
+  enabled: true  # Twitter API for social metrics (FREE TIER - REPLACES LUNARCRUSH)
+  api_key: "${TWITTER_API_KEY}"
+  bearer_token: "${TWITTER_BEARER_TOKEN}"
+  rate_limit: 1000  # Free tier: 10,000 tweets/month
+  timeout: 30
+  retry_count: 3
+  cache_ttl: 300
+  priority: 7
+  features:
+    - "social_volume"
+    - "sentiment_score"
+    - "engagement_score"
+    - "influencer_activity"
+
 # Feature engineering configuration
 features:
   enabled: true  # Enable social feature engineering
