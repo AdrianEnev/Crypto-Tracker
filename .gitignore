@@ -119,3 +119,145 @@ dmypy.json
 # Runtime log files
 logs/decisions.csv
 logs/drawdown_state.json
+
+# Test outputs and reports
+test_output/
+test_results/
+test_reports/
+*.test.log
+*.test.out
+*.test.err
+test_*.json
+test_*.csv
+test_*.html
+test_*.xml
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+
+# Crypto scanner outputs
+crypto_discovery_scan_*.json
+crypto_discovery_scan_*.csv
+crypto_discovery_scan_*.html
+quick_scan_*.json
+quick_scan_*.csv
+scan_results/
+scanner_output/
+
+# Social media test outputs
+social_media_test_*.json
+social_media_test_*.csv
+social_media_test_*.log
+twitter_test_*.json
+reddit_test_*.json
+exchange_test_*.json
+dune_test_*.json
+news_test_*.json
+santiment_test_*.json
+
+# API test outputs
+api_test_*.json
+api_test_*.csv
+api_test_*.log
+integration_test_*.json
+integration_test_*.csv
+
+# Debug and development files
+debug_*.py
+debug_*.log
+debug_*.json
+debug_*.csv
+temp_*.py
+temp_*.log
+temp_*.json
+temp_*.csv
+scratch_*.py
+scratch_*.log
+scratch_*.json
+scratch_*.csv
+
+# Performance and profiling
+*.prof
+*.profile
+profile_*.json
+profile_*.csv
+performance_*.json
+performance_*.csv
+benchmark_*.json
+benchmark_*.csv
+
+# Model outputs and training
+model_output/
+training_output/
+training_logs/
+*.model
+*.pkl
+*.joblib
+*.h5
+*.hdf5
+*.ckpt
+*.pth
+*.pt
+*.safetensors
+training_*.json
+training_*.csv
+training_*.log
+
+# Data exports and dumps
+data_export/
+data_dump/
+export_*.json
+export_*.csv
+export_*.sql
+dump_*.json
+dump_*.csv
+dump_*.sql
+
+# Backup and temporary files
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+.#*
+#*#
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.atom/
+.brackets.json
+.editorconfig
+
+# Package managers
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
