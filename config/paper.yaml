@@ -1,0 +1,85 @@
+# Paper Trading Configuration
+# Default configuration for paper trading system
+
+# Basic settings
+run_id: "default"
+mode: "replay"  # replay, live, hybrid
+initial_cash: 100000.0
+base_currency: "USDT"
+
+# Portfolio settings
+max_positions: 10
+position_size_limit_pct: 0.1  # 10% of portfolio per position
+
+# Risk management
+max_drawdown_pct: 20.0
+stop_loss_pct: 0.02  # 2% stop loss
+take_profit_pct: 0.04  # 4% take profit
+
+# Execution simulation
+execution:
+  slippage:
+    type: "square_root"  # fixed, linear, square_root, orderbook_depth
+    base_slippage_bps: 5.0  # Base slippage in basis points
+    max_slippage_bps: 50.0  # Maximum slippage in basis points
+    volatility_multiplier: 1.0  # Multiplier based on market volatility
+    order_size_threshold: 10000.0  # USD threshold for size-based slippage
+    orderbook_depth_levels: 5
+    depth_impact_factor: 0.1
+  
+  fees:
+    type: "percentage"  # percentage, fixed, tiered
+    maker_fee_bps: 5.0  # Maker fee in basis points
+    taker_fee_bps: 10.0  # Taker fee in basis points
+    fixed_fee_usd: 0.0  # Fixed fee in USD
+    min_fee_usd: 0.01  # Minimum fee in USD
+    max_fee_usd: 100.0  # Maximum fee in USD
+    volume_tiers:  # For tiered fee structure
+      - [0, 10.0]      # 0-1M volume: 10 bps
+      - [1000000, 8.0] # 1M-10M volume: 8 bps
+      - [10000000, 5.0] # 10M+ volume: 5 bps
+  
+  latency:
+    min_latency_ms: 50.0
+    max_latency_ms: 500.0
+    mean_latency_ms: 200.0
+    std_latency_ms: 100.0
+    network_jitter_ms: 20.0
+
+# Market data settings
+market_data:
+  mode: "replay"  # replay, live, hybrid
+  source: "local_file"  # local_file, ccxt_rest, ccxt_ws, custom
+  
+  # Replay settings
+  replay_speed: 1.0  # Speed multiplier (1.0 = real time)
+  start_time: null  # Start time for replay (YYYY-MM-DD HH:MM:SS)
+  end_time: null    # End time for replay (YYYY-MM-DD HH:MM:SS)
+  
+  # Live settings
+  exchange: "binance"
+  symbols:
+    - "BTC/USDT"
+    - "ETH/USDT"
+    - "BNB/USDT"
+    - "ADA/USDT"
+    - "SOL/USDT"
+  update_interval: 1.0  # Seconds between updates
+  
+  # Data file settings
+  data_directory: "./data_cache"
+  file_format: "jsonl"  # jsonl, csv, parquet
+  
+  # WebSocket settings
+  ws_url: null
+  ws_channels: null
+
+# Reporting settings
+generate_reports: true
+report_formats: ["json", "html"]  # json, html, jupyter
+save_trades: true
+save_account_history: true
+
+# Safety settings
+enforce_paper_mode: true
+block_real_orders: true
