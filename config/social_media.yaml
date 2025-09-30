@@ -73,7 +73,7 @@ google_trends:
     - "related_queries"
 
 news_api:
-  enabled: false  # News API for headline sentiment
+  enabled: true  # News API for headline sentiment (ENABLED - USER HAS API KEY)
   api_key: "${NEWS_API_KEY}"
   rate_limit: 1000
   timeout: 30
