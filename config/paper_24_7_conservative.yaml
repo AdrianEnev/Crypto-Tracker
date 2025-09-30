@@ -1,0 +1,96 @@
+# config/paper_24_7_conservative.yaml
+# Conservative configuration - Simple strategies, high Bitcoin allocation
+
+risk_profile: "conservative"
+
+portfolio_allocation:
+  bitcoin_allocation_pct: 75.0  # 75% Bitcoin (conservative)
+  ethereum_allocation_pct: 20.0  # 20% Ethereum
+  altcoins_allocation_pct: 5.0   # 5% Altcoins
+  rebalancing:
+    enabled: true
+    threshold_pct: 15.0  # Less frequent rebalancing
+    min_interval_days: 45
+
+# Disable all advanced strategies for simplicity
+advanced_strategies:
+  bitcoin_multi_bucket:
+    enabled: false
+  ethereum_staking_trading:
+    enabled: false
+  derivatives_integration:
+    enabled: false
+  onchain_metrics:
+    enabled: false
+  volatility_regime_classification:
+    enabled: false
+
+tracked_coins:
+  bitcoin:
+    symbol: btc
+    name: Bitcoin
+    threshold: 100000.0
+    check_interval: 300
+    coingecko_id: bitcoin
+    strategy:
+      name: momentum  # Simple momentum strategy
+      params:
+        fast_ema_period: 12
+        slow_ema_period: 26
+        use_rsi: true
+        rsi_period: 14
+        rsi_max_buy: 60  # More conservative
+        rsi_min_sell: 40  # More conservative
+        use_macd: true
+        macd_fast: 12
+        macd_slow: 26
+        macd_signal: 9
+    risk:
+      atr:
+        period: 14
+        sl_mult: 2.5  # Wider stops
+        tp_mult: 4.0  # Higher profit targets
+    market: BTC/USDT
+    
+  ethereum:
+    symbol: eth
+    name: Ethereum
+    threshold: 5000.0
+    check_interval: 300
+    coingecko_id: ethereum
+    strategy:
+      name: momentum  # Simple momentum strategy
+      params:
+        fast_ema_period: 12
+        slow_ema_period: 26
+        use_rsi: true
+        rsi_period: 14
+        rsi_max_buy: 60  # More conservative
+        rsi_min_sell: 40  # More conservative
+        use_macd: true
+        macd_fast: 12
+        macd_slow: 26
+        macd_signal: 9
+    risk:
+      atr:
+        period: 14
+        sl_mult: 2.0  # Wider stops
+        tp_mult: 3.0  # Higher profit targets
+    market: ETH/USDT
+
+strategy:
+  default_strategy: 'momentum'
+  use_regime_filter: false  # Disable regime filtering
+  vol_gate:
+    min_atr_pct: 0.2  # Higher volatility threshold
+    max_atr_pct: 15.0  # Lower max volatility
+    min_reward_to_risk: 1.0  # Higher reward-to-risk ratio
+
+risk_management:
+  max_daily_loss_pct: 3.0  # Lower daily loss limit
+  max_drawdown_pct: 10.0   # Lower drawdown limit
+  max_leverage: 1.0
+  position_sizing:
+    method: "fixed"  # Simple fixed sizing
+    risk_per_trade_pct: 0.5  # Lower risk per trade
+    max_position_size_pct: 5.0  # Smaller position sizes
