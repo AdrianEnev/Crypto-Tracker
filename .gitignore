@@ -115,5 +115,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Runtime log files
 logs/decisions.csv
 logs/drawdown_state.json
