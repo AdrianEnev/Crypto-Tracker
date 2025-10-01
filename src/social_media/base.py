@@ -5,6 +5,7 @@ Defines the abstract base class and data structures used by all social media sou
 """
 
 import logging
+import aiohttp
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Dict, List, Any, Optional
@@ -32,7 +33,22 @@ class SocialDataBatch:
     data_points: List[SocialDataPoint]
     source: str
     timestamp: datetime
-    quality_score: float = 0.0
+    quality_score: float = 1.0
+    
+    def get_latest(self, data_type: str) -> Optional[SocialDataPoint]:
+        """Get the latest data point of a specific type"""
+        filtered_points = [dp for dp in self.data_points if dp.data_type == data_type]
+        if not filtered_points:
+            return None
+        return max(filtered_points, key=lambda x: x.timestamp)
+    
+    def get_average(self, data_type: str) -> Optional[float]:
+        """Get average value for a specific data type"""
+        filtered_points = [dp for dp in self.data_points 
+                          if dp.data_type == data_type and isinstance(dp.value, (int, float))]
+        if not filtered_points:
+            return None
+        return sum(dp.value for dp in filtered_points) / len(filtered_points)
 
 
 class RateLimiter:
@@ -74,6 +90,21 @@ class BaseSocialDataSource(ABC):
         self.config = config
         self.source_name = source_name
         self.cache = {}
+        self.session: Optional[aiohttp.ClientSession] = None
+        self.rate_limiter: Optional[RateLimiter] = None
+    
+    async def __aenter__(self):
+        """Async context manager entry"""
+        self.session = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=30),
+            headers={"User-Agent": "CryptoTracker/1.0"}
+        )
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit"""
+        if self.session:
+            await self.session.close()
     
     @abstractmethod
     async def fetch_data(self, coin_id: str, data_types: List[str]) -> SocialDataBatch:
@@ -109,3 +140,18 @@ class BaseSocialDataSource(ABC):
         ]
         for key in expired_keys:
             del self.cache[key]
+    
+    async def _get_smart_cached_data(self, coin_id: str, data_type: str, 
+                                   params: Dict[str, Any] = None) -> Optional[Any]:
+        """Get data from smart cache - fallback to simple cache for now"""
+        # For now, use the simple cache until smart cache is fully implemented
+        cache_key = f"{self.source_name}_{coin_id}_{data_type}"
+        return self._get_cached_data(cache_key)
+    
+    async def _cache_smart_data(self, coin_id: str, data_type: str, data: Any,
+                              params: Dict[str, Any] = None, custom_ttl: int = None) -> bool:
+        """Cache data using smart cache - fallback to simple cache for now"""
+        # For now, use the simple cache until smart cache is fully implemented
+        cache_key = f"{self.source_name}_{coin_id}_{data_type}"
+        self._cache_data(cache_key, data)
+        return True

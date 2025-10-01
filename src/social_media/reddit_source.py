@@ -48,12 +48,17 @@ class RedditSource(BaseSocialDataSource):
         
     async def fetch_data(self, coin_id: str, data_types: List[str]) -> SocialDataBatch:
         """Fetch Reddit data for a coin"""
+        # Skip if no client_id configured
+        if not self.client_id:
+            logger.debug("Reddit API not configured, skipping...")
+            return SocialDataBatch(coin_id, [], self.source_name, datetime.now())
+            
         try:
             await self.rate_limiter.acquire()
             
             # Check cache first
             cache_key = f"reddit_{coin_id}_{datetime.now().strftime('%Y%m%d%H')}"
-            cached_data = self._get_cached_data(cache_key)
+            cached_data = await self._get_smart_cached_data(coin_id, "reddit", {"data_types": data_types})
             if cached_data:
                 return cached_data
             
@@ -124,8 +129,8 @@ class RedditSource(BaseSocialDataSource):
                 quality_score=0.8 if posts else 0.3
             )
             
-            # Cache the data
-            self._cache_data(cache_key, batch)
+            # Cache the data using smart cache
+            await self._cache_smart_data(coin_id, "reddit", batch, {"data_types": data_types})
             return batch
             
         except Exception as e:

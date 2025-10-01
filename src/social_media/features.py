@@ -15,7 +15,8 @@ from dataclasses import dataclass
 import statistics
 
 from .config import SocialMediaConfig
-from .data_sources import SocialDataBatch, SocialDataManager
+from .base import SocialDataBatch
+from .data_sources import SocialDataManager
 
 
 logger = logging.getLogger(__name__)

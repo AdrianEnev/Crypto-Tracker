@@ -16,7 +16,7 @@ import json
 import re
 
 from .config import SocialMediaConfig
-from .data_sources import BaseSocialDataSource, SocialDataPoint, SocialDataBatch, RateLimiter
+from .base import BaseSocialDataSource, SocialDataPoint, SocialDataBatch, RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +38,17 @@ class TwitterSource(BaseSocialDataSource):
     
     async def fetch_data(self, coin_id: str, data_types: List[str]) -> SocialDataBatch:
         """Fetch Twitter data for a coin"""
+        # Skip if no bearer token configured
+        if not self.bearer_token:
+            logger.debug("Twitter API not configured, skipping...")
+            return SocialDataBatch(coin_id, [], self.source_name, datetime.now())
+            
         try:
             await self.rate_limiter.acquire()
             
             # Check cache first
             cache_key = f"twitter_{coin_id}_{datetime.now().strftime('%Y%m%d%H')}"
-            cached_data = self._get_cached_data(cache_key)
+            cached_data = await self._get_smart_cached_data(coin_id, "twitter", {"data_types": data_types})
             if cached_data:
                 return cached_data
             
@@ -109,8 +114,8 @@ class TwitterSource(BaseSocialDataSource):
                 quality_score=0.8 if tweets else 0.3
             )
             
-            # Cache the data
-            self._cache_data(cache_key, batch)
+            # Cache the data using smart cache
+            await self._cache_smart_data(coin_id, "twitter", batch, {"data_types": data_types})
             return batch
             
         except Exception as e:
@@ -147,6 +152,13 @@ class TwitterSource(BaseSocialDataSource):
                     if response.status == 200:
                         data = await response.json()
                         return data.get("data", [])
+                    elif response.status == 429:  # Rate limited
+                        logger.warning(f"Twitter API rate limited, backing off...")
+                        await asyncio.sleep(300)  # Wait 5 minutes
+                        return []
+                    elif response.status == 400:  # Bad request
+                        logger.warning(f"Twitter API bad request (400), skipping...")
+                        return []
                     else:
                         logger.error(f"Twitter API error: {response.status}")
                         return []
