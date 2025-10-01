@@ -598,7 +598,8 @@ llm:
   providers:
     openai:
       model_options:
-        - "gpt-5-mini"  # Latest enhanced model
+        - "gpt-5"  # Latest flagship model
+        - "gpt-5-mini"  # Cheapest flagship model
         - "gpt-4o-mini"  # Cost-effective
         - "gpt-4o"  # Premium
         - "gpt-4-turbo"  # High-performance
