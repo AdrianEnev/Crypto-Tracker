@@ -18,9 +18,12 @@ from pathlib import Path
 import json
 
 from .config import SocialMediaConfig
+from .smart_cache import get_global_cache, SmartCache
 
 
 logger = logging.getLogger(__name__)
+# Reduce default logging verbosity for social media data sources
+logger.setLevel(logging.WARNING)
 
 
 @dataclass
@@ -98,8 +101,7 @@ class BaseSocialDataSource(ABC):
         self.source_name = source_name
         self.session: Optional[aiohttp.ClientSession] = None
         self.rate_limiter: Optional[RateLimiter] = None
-        self.cache: Dict[str, Any] = {}
-        self.cache_timestamps: Dict[str, float] = {}
+        self.cache = get_global_cache()  # Use smart cache instead of simple cache
         
     async def __aenter__(self):
         """Async context manager entry"""
@@ -120,20 +122,23 @@ class BaseSocialDataSource(ABC):
         pass
     
     def _get_cached_data(self, cache_key: str, ttl: int) -> Optional[Any]:
-        """Get cached data if still valid"""
-        if cache_key in self.cache and cache_key in self.cache_timestamps:
-            if time.time() - self.cache_timestamps[cache_key] < ttl:
-                return self.cache[cache_key]
-            else:
-                # Remove expired cache
-                del self.cache[cache_key]
-                del self.cache_timestamps[cache_key]
+        """Get cached data if still valid - DEPRECATED, use smart cache instead"""
+        logger.warning("_get_cached_data is deprecated, use smart cache directly")
         return None
     
     def _cache_data(self, cache_key: str, data: Any):
-        """Cache data with current timestamp"""
-        self.cache[cache_key] = data
-        self.cache_timestamps[cache_key] = time.time()
+        """Cache data with current timestamp - DEPRECATED, use smart cache instead"""
+        logger.warning("_cache_data is deprecated, use smart cache directly")
+    
+    async def _get_smart_cached_data(self, coin_id: str, data_type: str, 
+                                   params: Dict[str, Any] = None) -> Optional[Any]:
+        """Get data from smart cache"""
+        return await self.cache.get(self.source_name, coin_id, data_type, params)
+    
+    async def _set_smart_cached_data(self, coin_id: str, data_type: str, data: Any,
+                                   params: Dict[str, Any] = None, custom_ttl: int = None) -> bool:
+        """Set data in smart cache"""
+        return await self.cache.set(self.source_name, coin_id, data_type, data, params, custom_ttl)
     
     async def _make_request(self, url: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """Make HTTP request with error handling"""
@@ -172,8 +177,8 @@ class LunarCrushSource(BaseSocialDataSource):
         if not self.lc_config.enabled:
             return SocialDataBatch(coin_id, [], self.source_name, datetime.now())
         
-        cache_key = f"lunarcrush_{coin_id}_{'_'.join(data_types)}"
-        cached_data = self._get_cached_data(cache_key, self.lc_config.cache_ttl)
+        # Check smart cache first
+        cached_data = await self._get_smart_cached_data(coin_id, f"batch_{'_'.join(data_types)}")
         if cached_data:
             return cached_data
         
@@ -224,7 +229,8 @@ class LunarCrushSource(BaseSocialDataSource):
                 quality_score=self._calculate_quality_score(data_points)
             )
             
-            self._cache_data(cache_key, batch)
+            # Cache with smart cache
+            await self._set_smart_cached_data(coin_id, f"batch_{'_'.join(data_types)}", batch)
             return batch
             
         except Exception as e:
@@ -287,8 +293,8 @@ class SantimentSource(BaseSocialDataSource):
         if not self.santiment_config.enabled:
             return SocialDataBatch(coin_id, [], self.source_name, datetime.now())
         
-        cache_key = f"santiment_{coin_id}_{'_'.join(data_types)}"
-        cached_data = self._get_cached_data(cache_key, self.santiment_config.cache_ttl)
+        # Check smart cache first
+        cached_data = await self._get_smart_cached_data(coin_id, f"batch_{'_'.join(data_types)}")
         if cached_data:
             return cached_data
         
@@ -344,7 +350,8 @@ class SantimentSource(BaseSocialDataSource):
                 quality_score=self._calculate_quality_score(data_points)
             )
             
-            self._cache_data(cache_key, batch)
+            # Cache with smart cache
+            await self._set_smart_cached_data(coin_id, f"batch_{'_'.join(data_types)}", batch)
             return batch
             
         except Exception as e:
@@ -500,9 +507,8 @@ class NewsAPISource(BaseSocialDataSource):
         try:
             await self.rate_limiter.acquire()
             
-            # Check cache first
-            cache_key = f"news_api_{coin_id}_{datetime.now().strftime('%Y%m%d%H')}"
-            cached_data = self._get_cached_data(cache_key)
+            # Check smart cache first
+            cached_data = await self._get_smart_cached_data(coin_id, f"batch_{'_'.join(data_types)}")
             if cached_data:
                 return cached_data
             
@@ -564,8 +570,8 @@ class NewsAPISource(BaseSocialDataSource):
                 quality_score=0.8
             )
             
-            # Cache the data
-            self._cache_data(cache_key, batch)
+            # Cache with smart cache
+            await self._set_smart_cached_data(coin_id, f"batch_{'_'.join(data_types)}", batch)
             return batch
             
         except Exception as e:
@@ -720,7 +726,7 @@ class SocialDataManager:
             self.sources["dune_analytics"] = DuneAnalyticsSource(self.config)
         
         # Add other sources as they're implemented
-        logger.info(f"Initialized {len(self.sources)} social data sources: {list(self.sources.keys())}")
+        logger.debug(f"Initialized {len(self.sources)} social data sources: {list(self.sources.keys())}")
     
     async def fetch_all_data(self, coin_id: str, data_types: List[str]) -> Dict[str, SocialDataBatch]:
         """Fetch data from all enabled sources"""
