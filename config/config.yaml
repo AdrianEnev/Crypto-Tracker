@@ -546,6 +546,76 @@ testing:
     test_secrets_rotation: false
 
 # =============================================================================
+# LLM INTEGRATION CONFIGURATION
+# =============================================================================
+llm:
+  # Enable LLM integration
+  enabled: true
+  
+  # Primary LLM provider (openai, anthropic, google, cohere)
+  provider: "openai"
+  
+  # Model selection
+  model: "gpt-5-mini"  # Latest model with enhanced capabilities
+  
+  # API configuration (API key loaded from OPENAI_API_KEY environment variable)
+  base_url: ""  # Optional custom base URL
+  
+  # Request parameters
+  max_tokens: 4000
+  temperature: 0.1  # Low temperature for consistent analysis
+  timeout: 30
+  max_retries: 3
+  
+  # Rate limiting
+  rate_limit_per_minute: 60
+  
+  # Caching
+  enable_caching: true
+  cache_ttl_seconds: 300  # 5 minutes
+  
+  # Analysis configuration
+  analysis:
+    # Default analysis mode
+    default_mode: "normal"  # normal, alert, crisis, emergency
+    
+    # Crisis detection thresholds
+    crisis_thresholds:
+      government_crisis: 0.8
+      economic_crisis: 0.7
+      regulatory_crisis: 0.8
+      market_crisis: 0.9
+    
+    # Analysis frequency
+    analysis_interval_minutes: 15  # How often to run comprehensive analysis
+    crisis_check_interval_minutes: 5  # How often to check for crises
+    
+    # Integration settings
+    integrate_with_decisions: true  # Use LLM analysis in trading decisions
+    fallback_to_technical: true  # Fall back to technical analysis if LLM fails
+  
+  # Provider-specific settings
+  providers:
+    openai:
+      model_options:
+        - "gpt-5-mini"  # Latest enhanced model
+        - "gpt-4o-mini"  # Cost-effective
+        - "gpt-4o"  # Premium
+        - "gpt-4-turbo"  # High-performance
+      base_url: "https://api.openai.com/v1"
+    
+    anthropic:
+      model_options:
+        - "claude-3-5-sonnet-20241022"  # Best reasoning
+        - "claude-3-haiku-20240307"  # Fast and cheap
+      base_url: "https://api.anthropic.com/v1"
+    
+    google:
+      model_options:
+        - "gemini-pro"  # Google's model
+      base_url: "https://generativelanguage.googleapis.com/v1beta"
+
+# =============================================================================
 # BACKTESTING CONFIGURATION
 # =============================================================================
 backtest:
