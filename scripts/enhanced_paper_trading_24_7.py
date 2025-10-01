@@ -592,13 +592,13 @@ def main():
     
     async def run():
         global paper_system
-            paper_system = EnhancedPaperTrading24_7(
-                args.config, 
-                args.initial_cash, 
-                enable_social=not args.disable_social,
-                verbose=args.verbose,
-                quiet=args.quiet
-            )
+        paper_system = EnhancedPaperTrading24_7(
+            args.config, 
+            args.initial_cash, 
+            enable_social=not args.disable_social,
+            verbose=args.verbose,
+            quiet=args.quiet
+        )
         paper_system.max_restarts = args.max_restarts
         
         # Initialize
