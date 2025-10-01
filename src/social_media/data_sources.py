@@ -121,7 +121,7 @@ class BaseSocialDataSource(ABC):
         """Fetch data for a specific coin"""
         pass
     
-    def _get_cached_data(self, cache_key: str, ttl: int) -> Optional[Any]:
+    def _get_cached_data(self, cache_key: str, ttl: int = 300) -> Optional[Any]:
         """Get cached data if still valid - DEPRECATED, use smart cache instead"""
         logger.warning("_get_cached_data is deprecated, use smart cache directly")
         return None
