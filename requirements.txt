@@ -13,9 +13,8 @@ boto3>=1.26.0  # AWS Secrets Manager (optional)
 google-cloud-secret-manager>=2.16.0  # GCP Secret Manager (optional)
 
 # LLM Integration Dependencies
-openai>=1.0.0  # OpenAI API client
+openai>=1.0.0  # OpenAI official client library
 anthropic>=0.7.0  # Anthropic Claude API client
-aiohttp>=3.8.0  # Async HTTP client for LLM requests
 
 # CI/CD and Development Dependencies
 pytest-cov>=4.0.0  # Test coverage reporting
