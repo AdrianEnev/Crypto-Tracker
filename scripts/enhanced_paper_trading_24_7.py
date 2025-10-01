@@ -199,10 +199,13 @@ class EnhancedPaperTradingSimulator:
 class EnhancedPaperTrading24_7:
     """Enhanced 24/7 Paper Trading System with social media integration."""
     
-    def __init__(self, config_path: str, initial_cash: float = 100000.0, enable_social: bool = True):
+    def __init__(self, config_path: str, initial_cash: float = 100000.0, enable_social: bool = True, 
+                 verbose: bool = False, quiet: bool = False):
         self.config_path = config_path
         self.initial_cash = initial_cash
         self.enable_social = enable_social
+        self.verbose = verbose
+        self.quiet = quiet
         self.simulator = EnhancedPaperTradingSimulator(initial_cash)
         self.tracker: Optional[CryptoTracker] = None
         self.enhanced_decision_engine: Optional[EnhancedDecisionEngine] = None
@@ -214,7 +217,7 @@ class EnhancedPaperTrading24_7:
         
         # Setup logging
         self._setup_logging()
-        
+    
     def _setup_logging(self):
         """Setup comprehensive logging for 24/7 operation."""
         log_dir = Path("logs")
@@ -224,15 +227,27 @@ class EnhancedPaperTrading24_7:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         log_file = log_dir / f"enhanced_paper_trading_24_7_{timestamp}.log"
         
-        # Configure logging
+        # Configure logging based on verbosity settings
+        if hasattr(self, 'verbose') and self.verbose:
+            log_level = logging.DEBUG
+        elif hasattr(self, 'quiet') and self.quiet:
+            log_level = logging.ERROR
+        else:
+            log_level = logging.INFO if self.enable_social else logging.WARNING
+        
         logging.basicConfig(
-            level=logging.INFO,
+            level=log_level,
             format='%(asctime)s - %(levelname)s - %(message)s',
             handlers=[
                 logging.FileHandler(log_file),
                 logging.StreamHandler(sys.stdout)
             ]
         )
+        
+        # Reduce social media logging verbosity unless verbose mode
+        if not (hasattr(self, 'verbose') and self.verbose):
+            social_logger = logging.getLogger('src.social_media')
+            social_logger.setLevel(logging.WARNING)
         
         logging.info(f"Starting Enhanced 24/7 Paper Trading System")
         logging.info(f"Config: {self.config_path}")
@@ -566,6 +581,8 @@ def main():
     parser.add_argument("--check-interval", type=int, default=300, help="Check interval in seconds (default: 5 minutes)")
     parser.add_argument("--max-restarts", type=int, default=10, help="Maximum restart attempts")
     parser.add_argument("--disable-social", action="store_true", help="Disable social media integration")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--quiet", "-q", action="store_true", help="Enable quiet mode (minimal logging)")
     
     args = parser.parse_args()
     
@@ -575,11 +592,13 @@ def main():
     
     async def run():
         global paper_system
-        paper_system = EnhancedPaperTrading24_7(
-            args.config, 
-            args.initial_cash, 
-            enable_social=not args.disable_social
-        )
+            paper_system = EnhancedPaperTrading24_7(
+                args.config, 
+                args.initial_cash, 
+                enable_social=not args.disable_social,
+                verbose=args.verbose,
+                quiet=args.quiet
+            )
         paper_system.max_restarts = args.max_restarts
         
         # Initialize
