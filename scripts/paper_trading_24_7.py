@@ -25,6 +25,9 @@ sys.path.insert(0, str(project_root / "src"))
 
 from src.tracker.core import CryptoTracker
 from src.order_manager.models import OrderRequest, OrderType, TimeInForce
+from src.llm.client import LLMClient, LLMConfig, LLMProvider
+from src.llm.config_manager import LLMConfigManager
+from src.llm.market_analyzer import ComprehensiveMarketAnalyzer
 
 
 class PaperTradingSimulator:
@@ -212,6 +215,9 @@ class PaperTrading24_7:
             if self.enable_social:
                 await self._initialize_social_media()
             
+            # Initialize LLM integration
+            await self._initialize_llm_integration()
+            
             logging.info("✅ Initialization complete")
             return True
             
@@ -236,6 +242,47 @@ class PaperTrading24_7:
             # Disable social media if initialization fails
             self.enable_social = False
             self.enhanced_decision_engine = None
+    
+    async def _initialize_llm_integration(self):
+        """Initialize LLM integration for comprehensive market analysis."""
+        try:
+            logging.info("Initializing LLM Integration...")
+            
+            # Initialize LLM configuration manager
+            self.llm_config_manager = LLMConfigManager(
+                self.tracker.config_manager,
+                self.tracker.config_manager.secrets_manager if hasattr(self.tracker.config_manager, 'secrets_manager') else None
+            )
+            
+            # Check if LLM is enabled
+            if not self.llm_config_manager.is_enabled():
+                logging.info("LLM integration disabled in configuration")
+                self.llm_client = None
+                self.market_analyzer = None
+                return
+            
+            # Validate configuration
+            if not self.llm_config_manager.validate_config():
+                logging.error("LLM configuration validation failed")
+                self.llm_client = None
+                self.market_analyzer = None
+                return
+            
+            # Create LLM client
+            llm_config = self.llm_config_manager.create_llm_config()
+            self.llm_client = LLMClient(llm_config, self.llm_config_manager.secrets_manager)
+            
+            # Create market analyzer
+            self.market_analyzer = ComprehensiveMarketAnalyzer(self.llm_client)
+            
+            logging.info(f"✅ LLM integration enabled with {llm_config.provider.value} ({llm_config.model})")
+            
+        except Exception as e:
+            logging.error(f"❌ LLM initialization failed: {e}")
+            logging.error(traceback.format_exc())
+            # Disable LLM if initialization fails
+            self.llm_client = None
+            self.market_analyzer = None
     
     def _patch_execution_manager(self):
         """Patch the execution manager with correct function signatures."""
@@ -360,6 +407,238 @@ class PaperTrading24_7:
             logging.info("Falling back to standard decision making...")
             self.tracker.check_all_prices()
     
+    async def _make_llm_enhanced_decisions(self):
+        """Make trading decisions using LLM comprehensive market analysis."""
+        try:
+            logging.info("🤖 Making LLM-enhanced trading decisions...")
+            
+            # Get all tracked coins
+            tracked_coins = self.tracker.config.get("tracked_coins", {})
+            
+            decisions = []
+            
+            for coin_id, coin_config in tracked_coins.items():
+                try:
+                    # Get current price
+                    symbol = coin_config.get("symbol", coin_id).upper()
+                    current_price = self.current_prices.get(symbol, 0.0)
+                    
+                    if current_price <= 0:
+                        logging.warning(f"No price data for {symbol}, skipping")
+                        continue
+                    
+                    # Prepare market data for LLM analysis
+                    market_data = await self._prepare_market_data_for_llm(coin_id, coin_config, current_price)
+                    
+                    # Perform comprehensive market analysis
+                    analysis_result = await self.market_analyzer.analyze_market(
+                        coin=symbol,
+                        market_data=market_data,
+                        analysis_mode=self.llm_config_manager.get_default_analysis_mode()
+                    )
+                    
+                    # Check for crisis events
+                    crisis_result = await self.market_analyzer.detect_crisis_events(market_data)
+                    
+                    # Determine if we need to escalate analysis mode
+                    analysis_mode = self.llm_config_manager.get_default_analysis_mode()
+                    if crisis_result.get("crisis_score", 0) > 0.7:
+                        analysis_mode = crisis_result.get("recommended_response", "crisis")
+                        logging.warning(f"🚨 Crisis detected for {symbol}: {crisis_result.get('crisis_description', 'Unknown crisis')}")
+                        
+                        # Re-analyze with escalated mode
+                        analysis_result = await self.market_analyzer.analyze_market(
+                            coin=symbol,
+                            market_data=market_data,
+                            analysis_mode=analysis_mode
+                        )
+                    
+                    # Extract trading decision from analysis
+                    trading_decision = self._extract_trading_decision_from_analysis(analysis_result, symbol, current_price)
+                    
+                    if trading_decision:
+                        decisions.append(trading_decision)
+                        
+                        # Log LLM analysis
+                        logging.info(f"🤖 LLM Analysis for {symbol}:")
+                        logging.info(f"   Signal: {trading_decision.get('action', 'HOLD')}")
+                        logging.info(f"   Confidence: {trading_decision.get('confidence', 0):.2f}")
+                        logging.info(f"   Analysis Mode: {analysis_mode}")
+                        if crisis_result.get("crisis_score", 0) > 0.5:
+                            logging.info(f"   Crisis Score: {crisis_result.get('crisis_score', 0):.2f}")
+                            logging.info(f"   Crisis Type: {crisis_result.get('crisis_type', 'None')}")
+                    
+                except Exception as e:
+                    logging.error(f"Error analyzing {coin_id} with LLM: {e}")
+                    continue
+            
+            # Display decisions if any
+            if decisions:
+                logging.info(f"🤖 LLM generated {len(decisions)} trading decisions")
+                if hasattr(self.tracker, 'display_manager') and self.tracker.display_manager:
+                    self.tracker.display_manager.display_decisions(decisions)
+            else:
+                logging.warning("No LLM decisions generated")
+                    
+        except Exception as e:
+            logging.error(f"Error in LLM-enhanced decision making: {e}")
+            logging.error(traceback.format_exc())
+            # Fallback to standard decision making
+            logging.info("Falling back to standard decision making...")
+            self.tracker.check_all_prices()
+    
+    async def _prepare_market_data_for_llm(self, coin_id: str, coin_config: Dict[str, Any], current_price: float) -> Dict[str, Any]:
+        """Prepare comprehensive market data for LLM analysis."""
+        try:
+            # Get basic technical data
+            symbol = coin_config.get("symbol", coin_id).upper()
+            
+            # Mock technical data (in real implementation, this would come from actual indicators)
+            technical_data = {
+                "trend": "neutral",  # Would be calculated from moving averages
+                "support_resistance": f"Support: ${current_price * 0.95:.2f}, Resistance: ${current_price * 1.05:.2f}",
+                "volume": "normal",  # Would be calculated from volume data
+                "momentum": "weak",  # Would be calculated from RSI, MACD
+                "rsi": 50.0,  # Would be calculated from RSI
+                "moving_averages": f"EMA20: ${current_price * 0.98:.2f}, EMA50: ${current_price * 1.02:.2f}"
+            }
+            
+            # Mock social data (in real implementation, this would come from social media integration)
+            social_data = {
+                "twitter_sentiment": 0.5,
+                "reddit_sentiment": 0.5,
+                "community_activity": "normal",
+                "influencer_sentiment": 0.5,
+                "momentum_score": 0.5
+            }
+            
+            # Mock news data
+            news_data = {
+                "headlines": f"Recent news about {symbol}",
+                "sentiment": 0.5,
+                "coverage_volume": "normal"
+            }
+            
+            # Mock economic data
+            economic_data = {
+                "fed_policy": "neutral",
+                "inflation": "moderate",
+                "indicators": "stable",
+                "dollar_strength": "normal",
+                "interest_rates": "stable"
+            }
+            
+            # Mock political data
+            political_data = {
+                "government_stability": 0.8,
+                "events": "none",
+                "geopolitical": "stable",
+                "policy_announcements": "none"
+            }
+            
+            # Mock regulatory data
+            regulatory_data = {
+                "news": "none",
+                "compliance": "normal",
+                "legal": "stable"
+            }
+            
+            # Mock market structure data
+            market_structure_data = {
+                "institutional_flows": "normal",
+                "exchange_flows": "normal",
+                "derivatives": "stable",
+                "onchain": "normal"
+            }
+            
+            # Mock volatility data
+            volatility_data = {
+                "current": "normal",
+                "trends": "stable",
+                "risk_metrics": "low"
+            }
+            
+            return {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "coin_id": coin_id,
+                "symbol": symbol,
+                "current_price": current_price,
+                "technical": technical_data,
+                "social": social_data,
+                "news": news_data,
+                "economic": economic_data,
+                "political": political_data,
+                "regulatory": regulatory_data,
+                "market_structure": market_structure_data,
+                "volatility": volatility_data
+            }
+            
+        except Exception as e:
+            logging.error(f"Error preparing market data for LLM: {e}")
+            return {}
+    
+    def _extract_trading_decision_from_analysis(self, analysis_result: Dict[str, Any], symbol: str, current_price: float) -> Optional[Dict[str, Any]]:
+        """Extract trading decision from LLM analysis result."""
+        try:
+            # Check if analysis has error
+            if analysis_result.get("error"):
+                logging.warning(f"LLM analysis error for {symbol}: {analysis_result.get('error')}")
+                return None
+            
+            # Extract signal information
+            signal_analysis = analysis_result.get("signal_analysis", {})
+            primary_signal = signal_analysis.get("primary_trading_signal", "hold").lower()
+            signal_strength = signal_analysis.get("signal_strength", 0.5)
+            confidence = signal_analysis.get("confidence_level", 0.5)
+            
+            # Extract trading recommendations
+            trading_recommendations = analysis_result.get("trading_recommendations", {})
+            immediate_action = trading_recommendations.get("immediate_action", primary_signal)
+            position_sizing = trading_recommendations.get("position_sizing", "5%")
+            
+            # Convert position sizing percentage to actual amount
+            position_percentage = 0.05  # Default 5%
+            if isinstance(position_sizing, str) and "%" in position_sizing:
+                try:
+                    position_percentage = float(position_sizing.replace("%", "")) / 100
+                except ValueError:
+                    position_percentage = 0.05
+            
+            # Calculate position size
+            portfolio_value = self.simulator.cash + sum(
+                self.simulator.positions.get(sym, 0) * self.current_prices.get(sym, 0)
+                for sym in self.current_prices
+            )
+            position_size_usd = portfolio_value * position_percentage
+            
+            # Only proceed if confidence is above threshold
+            min_confidence = 0.6  # Minimum confidence threshold
+            if confidence < min_confidence:
+                logging.info(f"LLM confidence too low for {symbol}: {confidence:.2f} < {min_confidence}")
+                return None
+            
+            # Create decision
+            decision = {
+                "coin_id": symbol.lower(),
+                "symbol": symbol,
+                "action": immediate_action,
+                "confidence": confidence,
+                "signal_strength": signal_strength,
+                "current_price": current_price,
+                "position_size_usd": position_size_usd,
+                "analysis_mode": analysis_result.get("analysis_mode", "normal"),
+                "llm_analysis": True,
+                "reasoning": analysis_result.get("overall_market_assessment", {}).get("primary_market_drivers", "LLM analysis"),
+                "risk_level": analysis_result.get("risk_assessment", {}).get("risk_level", "medium"),
+                "time_horizon": signal_analysis.get("time_horizon", "short-term")
+            }
+            
+            return decision
+            
+        except Exception as e:
+            logging.error(f"Error extracting trading decision from LLM analysis: {e}")
+            return None
+    
     async def run_24_7(self, check_interval: int = 300):
         """Run the paper trading system 24/7 with monitoring."""
         logging.info(f"🚀 Starting 24/7 paper trading (check interval: {check_interval}s)")
@@ -376,6 +655,8 @@ class PaperTrading24_7:
                     # Let the tracker make decisions
                     if self.enable_social and self.enhanced_decision_engine:
                         await self._make_enhanced_decisions()
+                    elif self.market_analyzer and self.llm_client:
+                        await self._make_llm_enhanced_decisions()
                     else:
                         self.tracker.check_all_prices()
                     
