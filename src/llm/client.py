@@ -1,8 +1,7 @@
 """
 LLM Client Implementation
 
-Handles API communication with various LLM providers including OpenAI,
-Anthropic, and other language model services.
+Handles API communication with various LLM providers using official client libraries.
 """
 
 import asyncio
@@ -12,7 +11,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 
-import aiohttp
+from openai import AsyncOpenAI
+from anthropic import AsyncAnthropic
 from ..security.secrets_manager import SecretsManager
 
 
@@ -41,7 +41,7 @@ class LLMConfig:
 
 
 class LLMClient:
-    """Client for interacting with various LLM providers"""
+    """Client for interacting with various LLM providers using official libraries"""
     
     def __init__(self, config: LLMConfig, secrets_manager: Optional[SecretsManager] = None):
         self.config = config
@@ -52,21 +52,23 @@ class LLMClient:
         self.request_times: List[float] = []
         self.cache: Dict[str, Any] = {}
         
-        # Initialize API key
-        self._initialize_api_key()
+        # Initialize API clients
+        self._initialize_clients()
     
-    def _initialize_api_key(self):
-        """Initialize API key from secrets manager or environment"""
-        if self.config.api_key:
-            return
-        
-        # Try to get from secrets manager
-        if self.secrets_manager:
-            key_name = f"{self.config.provider.value}_api_key"
-            self.config.api_key = self.secrets_manager.get_secret(key_name)
-        
-        if not self.config.api_key:
-            self.logger.warning(f"No API key found for {self.config.provider.value}")
+    def _initialize_clients(self):
+        """Initialize official API clients"""
+        if self.config.provider == LLMProvider.OPENAI:
+            self.openai_client = AsyncOpenAI(
+                api_key=self.config.api_key,
+                base_url=self.config.base_url
+            )
+        elif self.config.provider == LLMProvider.ANTHROPIC:
+            self.anthropic_client = AsyncAnthropic(
+                api_key=self.config.api_key,
+                base_url=self.config.base_url
+            )
+        else:
+            raise ValueError(f"Unsupported provider: {self.config.provider}")
     
     async def _check_rate_limit(self):
         """Check and enforce rate limiting"""
@@ -114,57 +116,51 @@ class LLMClient:
             }
     
     async def _make_openai_request(self, prompt: str, **kwargs) -> Dict[str, Any]:
-        """Make request to OpenAI API"""
-        headers = {
-            "Authorization": f"Bearer {self.config.api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        payload = {
-            "model": self.config.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": self.config.max_tokens,
-            "temperature": self.config.temperature,
-            **kwargs
-        }
-        
-        base_url = self.config.base_url or "https://api.openai.com/v1"
-        url = f"{base_url}/chat/completions"
-        
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.config.timeout)) as session:
-            async with session.post(url, headers=headers, json=payload) as response:
-                if response.status == 200:
-                    return await response.json()
-                else:
-                    error_text = await response.text()
-                    raise Exception(f"OpenAI API error {response.status}: {error_text}")
+        """Make request to OpenAI API using official client"""
+        try:
+            response = await self.openai_client.chat.completions.create(
+                model=self.config.model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=self.config.max_tokens,
+                temperature=self.config.temperature,
+                **kwargs
+            )
+            
+            # Convert response to dict format for compatibility
+            return {
+                "choices": [{"message": {"content": response.choices[0].message.content}}],
+                "usage": {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens
+                }
+            }
+            
+        except Exception as e:
+            raise Exception(f"OpenAI API error: {e}")
     
     async def _make_anthropic_request(self, prompt: str, **kwargs) -> Dict[str, Any]:
-        """Make request to Anthropic API"""
-        headers = {
-            "x-api-key": self.config.api_key,
-            "Content-Type": "application/json",
-            "anthropic-version": "2023-06-01"
-        }
-        
-        payload = {
-            "model": self.config.model,
-            "max_tokens": self.config.max_tokens,
-            "temperature": self.config.temperature,
-            "messages": [{"role": "user", "content": prompt}],
-            **kwargs
-        }
-        
-        base_url = self.config.base_url or "https://api.anthropic.com/v1"
-        url = f"{base_url}/messages"
-        
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.config.timeout)) as session:
-            async with session.post(url, headers=headers, json=payload) as response:
-                if response.status == 200:
-                    return await response.json()
-                else:
-                    error_text = await response.text()
-                    raise Exception(f"Anthropic API error {response.status}: {error_text}")
+        """Make request to Anthropic API using official client"""
+        try:
+            response = await self.anthropic_client.messages.create(
+                model=self.config.model,
+                max_tokens=self.config.max_tokens,
+                temperature=self.config.temperature,
+                messages=[{"role": "user", "content": prompt}],
+                **kwargs
+            )
+            
+            # Convert response to dict format for compatibility
+            return {
+                "content": [{"text": response.content[0].text}],
+                "usage": {
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens
+                }
+            }
+            
+        except Exception as e:
+            raise Exception(f"Anthropic API error: {e}")
     
     async def generate_response(
         self, 
