@@ -86,12 +86,17 @@ class ExchangeAPISource(BaseSocialDataSource):
     
     async def fetch_data(self, coin_id: str, data_types: List[str]) -> SocialDataBatch:
         """Fetch exchange data for a coin"""
+        # Skip if no exchanges configured
+        if not self.config.exchange_api.exchanges:
+            logger.debug("Exchange API not configured, skipping...")
+            return SocialDataBatch(coin_id, [], self.source_name, datetime.now())
+            
         try:
             await self.rate_limiter.acquire()
             
             # Check cache first
             cache_key = f"exchange_api_{coin_id}_{datetime.now().strftime('%Y%m%d%H%M')}"
-            cached_data = self._get_cached_data(cache_key)
+            cached_data = await self._get_smart_cached_data(coin_id, "exchange_api", {"data_types": data_types})
             if cached_data:
                 return cached_data
             
@@ -164,8 +169,8 @@ class ExchangeAPISource(BaseSocialDataSource):
                 quality_score=0.8 if exchange_data else 0.3
             )
             
-            # Cache the data
-            self._cache_data(cache_key, batch)
+            # Cache the data using smart cache
+            await self._cache_smart_data(coin_id, "exchange_api", batch, {"data_types": data_types})
             return batch
             
         except Exception as e:

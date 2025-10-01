@@ -19,78 +19,12 @@ import json
 
 from .config import SocialMediaConfig
 from .smart_cache import get_global_cache, SmartCache
+from .base import SocialDataPoint, SocialDataBatch, RateLimiter
 
 
 logger = logging.getLogger(__name__)
 # Reduce default logging verbosity for social media data sources
 logger.setLevel(logging.WARNING)
-
-
-@dataclass
-class SocialDataPoint:
-    """Single data point from social media sources"""
-    timestamp: datetime
-    source: str
-    coin_id: str
-    data_type: str
-    value: Union[float, int, str, Dict[str, Any]]
-    confidence: float = 1.0
-    metadata: Dict[str, Any] = None
-    
-    def __post_init__(self):
-        if self.metadata is None:
-            self.metadata = {}
-
-
-@dataclass
-class SocialDataBatch:
-    """Batch of social data points"""
-    coin_id: str
-    data_points: List[SocialDataPoint]
-    source: str
-    timestamp: datetime
-    quality_score: float = 1.0
-    
-    def get_latest(self, data_type: str) -> Optional[SocialDataPoint]:
-        """Get the latest data point of a specific type"""
-        filtered_points = [dp for dp in self.data_points if dp.data_type == data_type]
-        if not filtered_points:
-            return None
-        return max(filtered_points, key=lambda x: x.timestamp)
-    
-    def get_average(self, data_type: str) -> Optional[float]:
-        """Get average value for a specific data type"""
-        filtered_points = [dp for dp in self.data_points 
-                          if dp.data_type == data_type and isinstance(dp.value, (int, float))]
-        if not filtered_points:
-            return None
-        return sum(dp.value for dp in filtered_points) / len(filtered_points)
-
-
-class RateLimiter:
-    """Simple rate limiter for API calls"""
-    
-    def __init__(self, max_calls: int, time_window: int):
-        self.max_calls = max_calls
-        self.time_window = time_window
-        self.calls = []
-    
-    async def acquire(self):
-        """Acquire permission to make an API call"""
-        now = time.time()
-        
-        # Remove old calls outside the time window
-        self.calls = [call_time for call_time in self.calls 
-                     if now - call_time < self.time_window]
-        
-        if len(self.calls) >= self.max_calls:
-            # Calculate wait time
-            oldest_call = min(self.calls)
-            wait_time = self.time_window - (now - oldest_call)
-            if wait_time > 0:
-                await asyncio.sleep(wait_time)
-        
-        self.calls.append(now)
 
 
 class BaseSocialDataSource(ABC):
@@ -139,6 +73,11 @@ class BaseSocialDataSource(ABC):
                                    params: Dict[str, Any] = None, custom_ttl: int = None) -> bool:
         """Set data in smart cache"""
         return await self.cache.set(self.source_name, coin_id, data_type, data, params, custom_ttl)
+    
+    async def _cache_smart_data(self, coin_id: str, data_type: str, data: Any,
+                              params: Dict[str, Any] = None, custom_ttl: int = None) -> bool:
+        """Cache data using smart cache (alias for _set_smart_cached_data)"""
+        return await self._set_smart_cached_data(coin_id, data_type, data, params, custom_ttl)
     
     async def _make_request(self, url: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """Make HTTP request with error handling"""
@@ -414,7 +353,7 @@ class GoogleTrendsSource(BaseSocialDataSource):
             return SocialDataBatch(coin_id, [], self.source_name, datetime.now())
         
         cache_key = f"google_trends_{coin_id}_{'_'.join(data_types)}"
-        cached_data = self._get_cached_data(cache_key, self.trends_config.cache_ttl)
+        cached_data = await self._get_smart_cached_data(coin_id, "google_trends", {"data_types": data_types})
         if cached_data:
             return cached_data
         
@@ -454,7 +393,8 @@ class GoogleTrendsSource(BaseSocialDataSource):
                 quality_score=0.8  # Google Trends is generally reliable
             )
             
-            self._cache_data(cache_key, batch)
+            # Cache the data using smart cache
+            await self._cache_smart_data(coin_id, "google_trends", batch, {"data_types": data_types})
             return batch
             
         except Exception as e:

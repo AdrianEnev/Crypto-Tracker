@@ -154,7 +154,7 @@ class PaperTradingSimulator:
 class PaperTrading24_7:
     """24/7 Paper Trading System with monitoring and error recovery."""
     
-    def __init__(self, config_path: str, initial_cash: float = 100000.0):
+    def __init__(self, config_path: str, initial_cash: float = 100000.0, enable_social: bool = False):
         self.config_path = config_path
         self.initial_cash = initial_cash
         self.simulator = PaperTradingSimulator(initial_cash)
@@ -164,6 +164,10 @@ class PaperTrading24_7:
         self.max_restarts = 10
         self.last_heartbeat = datetime.now(timezone.utc)
         self.heartbeat_interval = 300  # 5 minutes
+        
+        # Social media integration
+        self.enable_social = enable_social
+        self.enhanced_decision_engine = None
         
         # Setup logging
         self._setup_logging()
@@ -204,6 +208,10 @@ class PaperTrading24_7:
             # Disable API calls for paper trading
             self._disable_api_calls()
             
+            # Initialize social media integration if enabled
+            if self.enable_social:
+                await self._initialize_social_media()
+            
             logging.info("✅ Initialization complete")
             return True
             
@@ -211,6 +219,23 @@ class PaperTrading24_7:
             logging.error(f"❌ Initialization failed: {e}")
             logging.error(traceback.format_exc())
             return False
+    
+    async def _initialize_social_media(self):
+        """Initialize social media integration for enhanced decisions."""
+        try:
+            logging.info("Initializing Enhanced Decision Engine with Social Media...")
+            
+            from src.social_media.example_integration import EnhancedDecisionEngine
+            self.enhanced_decision_engine = EnhancedDecisionEngine(self.config_path)
+            
+            logging.info("✅ Social media integration enabled")
+            
+        except Exception as e:
+            logging.error(f"❌ Social media initialization failed: {e}")
+            logging.error(traceback.format_exc())
+            # Disable social media if initialization fails
+            self.enable_social = False
+            self.enhanced_decision_engine = None
     
     def _patch_execution_manager(self):
         """Patch the execution manager with correct function signatures."""
@@ -272,6 +297,69 @@ class PaperTrading24_7:
         except Exception as e:
             logging.warning(f"Could not disable API calls: {e}")
     
+    async def _make_enhanced_decisions(self):
+        """Make trading decisions using enhanced decision engine with social media."""
+        try:
+            decisions = {}  # Collect all decisions for batch display
+            
+            for coin_id, coin_config in self.tracker.config.tracked_coins.items():
+                if coin_config.disabled:
+                    continue
+                
+                try:
+                    # Get enhanced decision with social media
+                    decision = await self.enhanced_decision_engine.make_enhanced_decision(self.tracker, coin_id)
+                    
+                    # Log decision with social context
+                    social_info = ""
+                    if hasattr(decision, 'social_context'):
+                        social_info = f" | Social: {decision.social_context}"
+                    
+                    logging.info(f"ENHANCED DECISION: {coin_id} -> {decision.action_recommended} (Confidence: {decision.confidence:.3f}){social_info}")
+                    
+                    # Collect decision for batch display (same format as standard decisions)
+                    decisions[coin_id] = {
+                        "signal": getattr(decision, 'signal', 'unknown'),
+                        "confidence": getattr(decision, 'confidence', 0.0),
+                        "action": getattr(decision, 'action_recommended', 'Hold'),
+                        "reason": getattr(decision, 'reason', 'Enhanced decision with social media'),
+                    }
+                    
+                except Exception as e:
+                    logging.error(f"Error making enhanced decision for {coin_id}: {e}")
+                    # Fallback to base decision if enhanced fails
+                    try:
+                        from src.decision import make_decision
+                        base_decision = make_decision(self.tracker, coin_id)
+                        decisions[coin_id] = {
+                            "signal": getattr(base_decision, 'signal', 'unknown'),
+                            "confidence": getattr(base_decision, 'confidence', 0.0),
+                            "action": getattr(base_decision, 'action_recommended', 'Hold'),
+                            "reason": getattr(base_decision, 'reason', 'Fallback base decision'),
+                        }
+                        logging.info(f"FALLBACK DECISION: {coin_id} -> {base_decision.action_recommended} (Confidence: {base_decision.confidence:.3f})")
+                    except Exception as fallback_error:
+                        logging.error(f"Fallback decision also failed for {coin_id}: {fallback_error}")
+                        # Last resort - create a basic decision
+                        decisions[coin_id] = {
+                            "signal": "error",
+                            "confidence": 0.0,
+                            "action": "Hold",
+                            "reason": f"Decision failed: {e}",
+                        }
+            
+            # Display all decisions together (same as standard check_all_prices)
+            if decisions and self.tracker.display_manager:
+                self.tracker.display_manager.display_decisions(decisions)
+            else:
+                logging.warning("No decisions to display or display manager not available")
+                    
+        except Exception as e:
+            logging.error(f"Error in enhanced decision making: {e}")
+            # Fallback to standard decision making
+            logging.info("Falling back to standard decision making...")
+            self.tracker.check_all_prices()
+    
     async def run_24_7(self, check_interval: int = 300):
         """Run the paper trading system 24/7 with monitoring."""
         logging.info(f"🚀 Starting 24/7 paper trading (check interval: {check_interval}s)")
@@ -286,7 +374,10 @@ class PaperTrading24_7:
                     self._update_mock_prices()
                     
                     # Let the tracker make decisions
-                    self.tracker.check_all_prices()
+                    if self.enable_social and self.enhanced_decision_engine:
+                        await self._make_enhanced_decisions()
+                    else:
+                        self.tracker.check_all_prices()
                     
                     # Heartbeat logging
                     if (datetime.now(timezone.utc) - self.last_heartbeat).total_seconds() > self.heartbeat_interval:
@@ -392,6 +483,8 @@ def main():
     parser.add_argument("--initial-cash", type=float, default=100000.0, help="Initial cash amount")
     parser.add_argument("--check-interval", type=int, default=300, help="Check interval in seconds (default: 5 minutes)")
     parser.add_argument("--max-restarts", type=int, default=10, help="Maximum restart attempts")
+    parser.add_argument("--enable-social", action="store_true", help="Enable social media integration for enhanced decisions")
+    parser.add_argument("--disable-social", action="store_true", help="Disable social media integration (use standard decisions only)")
     
     args = parser.parse_args()
     
@@ -401,7 +494,11 @@ def main():
     
     async def run():
         global paper_system
-        paper_system = PaperTrading24_7(args.config, args.initial_cash)
+        
+        # Determine social media setting
+        enable_social = args.enable_social and not args.disable_social
+        
+        paper_system = PaperTrading24_7(args.config, args.initial_cash, enable_social)
         paper_system.max_restarts = args.max_restarts
         
         # Initialize
