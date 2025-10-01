@@ -1,0 +1,131 @@
+# Crypto Discovery Scanner Configuration
+
+# Popular cryptocurrencies to scan for discovery opportunities
+# Organized by category for easy management
+
+# Major cryptocurrencies (always scan these)
+major_coins:
+  - bitcoin
+  - ethereum
+  - binancecoin
+  - cardano
+  - solana
+  - polkadot
+  - chainlink
+  - litecoin
+  - bitcoin-cash
+  - dogecoin
+
+# Popular altcoins
+altcoins:
+  - avalanche-2
+  - polygon
+  - cosmos
+  - algorand
+  - stellar
+  - vechain
+  - filecoin
+  - monero
+  - tron
+  - eos
+
+# DeFi tokens (often have high social activity)
+defi_tokens:
+  - uniswap
+  - aave
+  - compound-governance-token
+  - maker
+  - sushi
+  - curve-dao-token
+  - yearn-finance
+  - 1inch
+  - pancakeswap-token
+
+# Layer 2 & Scaling solutions
+layer2_tokens:
+  - arbitrum
+  - optimism
+  - polygon
+  - loopring
+  - immutable-x
+
+# Meme coins (often have high social activity)
+meme_coins:
+  - shiba-inu
+  - dogecoin
+  - pepe
+  - floki
+  - bonk
+
+# AI & Emerging sectors
+ai_tokens:
+  - fetch-ai
+  - singularitynet
+  - ocean-protocol
+  - the-graph
+  - render-token
+  - akash-network
+  - numerai
+
+# Gaming & Metaverse
+gaming_tokens:
+  - axie-infinity
+  - sandbox
+  - decentraland
+  - gala
+  - enjincoin
+  - illuvium
+  - star-atlas
+  - alien-worlds
+
+# Storage & Infrastructure
+infrastructure_tokens:
+  - filecoin
+  - arweave
+  - sia
+  - storj
+  - internet-computer
+
+# Privacy coins
+privacy_coins:
+  - monero
+  - zcash
+  - dash
+  - horizen
+  - secret
+
+# Stablecoins (for reference)
+stablecoins:
+  - tether
+  - usd-coin
+  - binance-usd
+  - dai
+
+# Scanner settings
+scanner_settings:
+  # Maximum number of coins to scan per run
+  max_coins_per_scan: 50
+  
+  # Minimum discovery score to show in results
+  min_discovery_score: 20.0
+  
+  # Score calculation weights
+  score_weights:
+    social_momentum: 0.4
+    sentiment_strength: 0.3
+    volume_velocity: 0.2
+    influencer_activity: 0.1
+  
+  # Safety settings
+  safety:
+    max_bot_penalty: 0.5
+    min_quality_multiplier: 0.5
+    min_validation_multiplier: 0.3
+  
+  # Output settings
+  output:
+    show_top_opportunities: 15
+    show_safe_opportunities: 10
+    show_high_risk_opportunities: 5
+    export_results: true
+    export_filename_template: "crypto_discovery_scan_{timestamp}.json"
