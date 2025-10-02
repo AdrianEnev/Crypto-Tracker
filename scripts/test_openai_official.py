@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 """
-Test OpenAI Official Client Integration
+DEPRECATED: Test OpenAI Official Client Integration
 
-Simple test to verify the updated LLM client works with official OpenAI library.
+⚠️  WARNING: This script is DEPRECATED but preserved for safety.
+    OpenAI integration is now part of the main LLM system.
+
+This script tests OpenAI client integration in isolation.
+The main system now has integrated OpenAI functionality with proper configuration.
+
+PRESERVED FOR SAFETY: Contains OpenAI testing patterns that could be useful.
+TODO: Integrate OpenAI testing features into main system testing, then remove this script.
 """
 
 import asyncio

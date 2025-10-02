@@ -10,6 +10,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
+from datetime import datetime, timezone
 
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
@@ -52,8 +53,50 @@ class LLMClient:
         self.request_times: List[float] = []
         self.cache: Dict[str, Any] = {}
         
+        # Failure tracking
+        self.failure_count = 0
+        self.max_failures = 5
+        self.disabled = False
+        self.disabled_time = None
+        
         # Initialize API clients
         self._initialize_clients()
+    
+    def is_disabled(self) -> bool:
+        """Check if LLM is disabled due to failures."""
+        if self.disabled and self.disabled_time:
+            import time
+            from datetime import datetime, timezone
+            
+            time_since_disabled = datetime.now(timezone.utc) - self.disabled_time
+            hours_since_disabled = time_since_disabled.total_seconds() / 3600
+            
+            # Re-enable after 1 hour
+            if hours_since_disabled >= 1.0:
+                self.disabled = False
+                self.failure_count = 0
+                self.disabled_time = None
+                self.logger.info("LLM client re-enabled after timeout")
+                return False
+        
+        return self.disabled
+    
+    def _track_failure(self, error_message: str):
+        """Track LLM failure and disable if threshold reached."""
+        self.failure_count += 1
+        
+        self.logger.warning(f"LLM failure #{self.failure_count}: {error_message}")
+        
+        if self.failure_count >= self.max_failures and not self.disabled:
+            self.disabled = True
+            self.disabled_time = datetime.now(timezone.utc)
+            self.logger.error(f"LLM client disabled after {self.failure_count} failures")
+    
+    def _track_success(self):
+        """Reset failure count on successful request."""
+        if self.failure_count > 0:
+            self.failure_count = 0
+            self.logger.info("LLM failure count reset due to successful request")
     
     def _initialize_clients(self):
         """Initialize official API clients"""
@@ -137,7 +180,13 @@ class LLMClient:
             }
             
         except Exception as e:
-            raise Exception(f"OpenAI API error: {e}")
+            error_msg = str(e)
+            if "insufficient_quota" in error_msg or "billing" in error_msg or "credit" in error_msg:
+                raise Exception(f"OpenAI API credits exhausted or billing issue: {e}")
+            elif "authentication" in error_msg or "api_key" in error_msg:
+                raise Exception(f"OpenAI API authentication failed: {e}")
+            else:
+                raise Exception(f"OpenAI API error: {e}")
     
     async def _make_anthropic_request(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """Make request to Anthropic API using official client"""
@@ -179,6 +228,10 @@ class LLMClient:
         Returns:
             Dict containing the LLM response and metadata
         """
+        # Check if LLM is disabled due to failures
+        if self.is_disabled():
+            raise Exception(f"LLM client is disabled due to {self.failure_count} consecutive failures")
+        
         if not self.config.api_key:
             raise ValueError(f"No API key configured for {self.config.provider.value}")
         
@@ -211,12 +264,18 @@ class LLMClient:
                 # Cache response
                 self._cache_response(cache_key, response)
                 
+                # Track success
+                self._track_success()
+                
                 self.logger.debug("LLM request successful")
                 return response
                 
             except Exception as e:
                 last_exception = e
                 self.logger.warning(f"LLM request failed (attempt {attempt + 1}): {e}")
+                
+                # Track failure
+                self._track_failure(str(e))
                 
                 if attempt < self.config.max_retries - 1:
                     # Exponential backoff

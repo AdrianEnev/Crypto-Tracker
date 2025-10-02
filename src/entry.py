@@ -3,14 +3,23 @@ from pathlib import Path
 
 import yaml
 
+# Add the project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from src.config.validator import validate_config
 from src.tracker.core import CryptoTracker
 
 
 def main():
-    # Resolve config path relative to repo layout
-    script_dir = Path(__file__).parent
-    config_path = script_dir.parent / "config" / "config.yaml"
+    # Get config path from command line arguments or use default
+    if len(sys.argv) > 1:
+        config_path = Path(sys.argv[1])
+        if not config_path.is_absolute():
+            config_path = project_root / config_path
+    else:
+        # Default config path
+        config_path = project_root / "config" / "config.yaml"
 
     # Load and validate configuration before starting the app
     try:

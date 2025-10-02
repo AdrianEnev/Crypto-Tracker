@@ -1,0 +1,38 @@
+feat: implement comprehensive error handling and cooldown mechanisms
+
+Major improvements to system stability and error handling:
+
+## Enhanced Error Handling & Recovery
+- Fix LLM failure tracking with automatic disable after 5 consecutive failures
+- Add LLM client-level failure tracking with 1-hour auto re-enable
+- Implement graceful fallback to standard technical analysis when LLM fails
+- Add timeout protection (30s) for enhanced decision making
+- Fix async handling issues in enhanced decision engine
+
+## Price Fetching Cooldown Mechanisms
+- Add exponential backoff for CoinMarketCap fetcher (120s → 600s cap)
+- Enhance CoinGecko fetcher with improved error spam reduction
+- Implement rate limiting detection and cooldown periods
+- Reduce error message spam by only logging once per backoff period
+
+## Configuration & Monitoring Improvements
+- Add missing MonitoringConfig parameters (heartbeat_interval_seconds, max_restarts, performance_tracking, error_recovery)
+- Fix PerformanceMetricsTracker export_metrics method bug
+- Enhance OpenAI API error handling with specific credit/billing error detection
+- Remove duplicate parameter passing in LLM market analyzer
+
+## System Integration & Cleanup
+- Integrate enhanced features (social media, LLM) into main algorithm
+- Ensure trading decisions table always appears regardless of LLM status
+- Add early LLM disabled checks to prevent unnecessary API calls
+- Clean up deprecated scripts and move test configs to config/test/
+
+## Key Benefits
+- Eliminates error spam from rate-limited APIs
+- Prevents system hangs from LLM failures
+- Maintains trading functionality even with external service failures
+- Provides clear user feedback about system status
+- Reduces unnecessary API calls and resource usage
+
+Fixes: Trading decisions table not appearing, LLM error spam, price fetching spam
+Improves: System stability, error recovery, user experience
