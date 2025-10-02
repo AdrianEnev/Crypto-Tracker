@@ -1,0 +1,533 @@
+tracked_coins:
+  bitcoin:
+    symbol: btc
+    name: Bitcoin
+    threshold: 120000.0
+    check_interval: 300
+  ethereum:
+    symbol: eth
+    name: Ethereum
+    threshold: 5000.0
+    check_interval: 300
+  tether:
+    symbol: usdt
+    name: Tether
+    threshold: 1.0
+    check_interval: 300
+  usd-coin:
+    symbol: usdc
+    name: USD Coin
+    threshold: 1.0
+    check_interval: 300
+  binance-coin:
+    symbol: bnb
+    name: Binance Coin
+    threshold: 500.0
+    check_interval: 300
+    coingecko_id: binancecoin
+  xrp:
+    symbol: xrp
+    name: XRP
+    threshold: 1.0
+    check_interval: 300
+    coingecko_id: ripple
+  solana:
+    symbol: sol
+    name: Solana
+    threshold: 500.0
+    check_interval: 300
+    strategy:
+      name: mean_reversion
+      params:
+        rsi_period: 14
+        buy_threshold: 30
+        sell_threshold: 70
+    risk:
+      atr:
+        period: 14
+        sl_mult: 1.5
+        tp_mult: 4.0
+    market: SOL/USDT
+  cardano:
+    symbol: ada
+    name: Cardano
+    threshold: 1.0
+    check_interval: 300
+  dogecoin:
+    symbol: doge
+    name: Dogecoin
+    threshold: 0.1
+    check_interval: 300
+  polkadot:
+    symbol: dot
+    name: Polkadot
+    threshold: 10.0
+    check_interval: 300
+    strategy:
+      name: mean_reversion
+      params:
+        rsi_period: 14
+        buy_threshold: 35
+        sell_threshold: 75
+    risk:
+      atr:
+        period: 14
+        sl_mult: 1.5
+        tp_mult: 2.0
+    market: DOT/USDT
+  tron:
+    symbol: trx
+    name: Tron
+    threshold: 0.1
+    check_interval: 300
+  avalanche:
+    symbol: avax
+    name: Avalanche
+    threshold: 50.0
+    check_interval: 300
+    coingecko_id: avalanche-2
+  shiba-inu:
+    symbol: shib
+    name: Shiba Inu
+    threshold: 0.001
+    check_interval: 300
+  litecoin:
+    symbol: ltc
+    name: Litecoin
+    threshold: 100.0
+    check_interval: 300
+  chainlink:
+    symbol: link
+    name: Chainlink
+    threshold: 20.0
+    check_interval: 300
+  bitcoin-cash:
+    symbol: bch
+    name: Bitcoin Cash
+    threshold: 500.0
+    check_interval: 300
+  uniswap:
+    symbol: uni
+    name: Uniswap
+    threshold: 5.0
+    check_interval: 300
+  aptos:
+    symbol: apt
+    name: Aptos
+    threshold: 1.0
+    check_interval: 300
+  sui:
+    symbol: sui
+    name: Sui
+    threshold: 1.0
+    check_interval: 300
+  near-protocol:
+    symbol: near
+    name: NEAR Protocol
+    threshold: 1.0
+    check_interval: 300
+    coingecko_id: near
+  cosmos:
+    symbol: atom
+    name: Cosmos
+    threshold: 1.0
+    check_interval: 300
+  stellar:
+    symbol: xlm
+    name: Stellar
+    threshold: 0.1
+    check_interval: 300
+  internet-computer:
+    symbol: icp
+    name: Internet Computer
+    threshold: 1.0
+    check_interval: 300
+api:
+  base_url: https://pro-api.coinmarketcap.com
+  timeout: 10
+data:
+  provider: ccxt
+  cache_dir: ./data_cache
+  timeframe: 4h
+  days: 365
+auto_trade:
+  enable: true
+  mode: paper
+decision:
+  confidence_thresholds:
+    suggestion: 0.6
+    auto: 0.7
+    auto_bear: 0.8
+price:
+  ttl_seconds: 15
+paper:
+  place_orders: true
+  exits_enable: true
+trade:
+  default_size_usd: 50.0
+liquidity:
+  spread_bps_default: 10
+risk:
+  stop_loss_pct: 0.03
+  take_profit_pct: 0.06
+  trailing_stop_pct: 0.04
+  atr:
+    period: 14
+    sl_mult: 1.5
+    tp_mult: 3.0
+    trail_mult: 2.0
+ui:
+  display_mode: standard
+  show_indicators: true
+  show_market_structure: false
+  show_mtf_confirmation: false
+  show_adaptive_baseline: false
+  show_oco_details: false
+  show_vol_gate_status: true
+  show_regime_filter: true
+  decision_display:
+    show_confidence: true
+    show_reasoning: true
+    show_strategy_details: false
+    max_reason_length: 100
+  table_display:
+    enabled: true
+    show_portfolio_summary: true
+    show_risk_summary: true
+    show_execution_status: true
+    compact_mode: false
+    show_pnl_details: true
+    table_format: standard
+  output:
+    log_level: info
+    show_timestamps: false
+    color_output: true
+    progress_bars: true
+  refresh:
+    status_table_interval: 60
+    decision_display_interval: 5
+    portfolio_summary_interval: 300
+  price_format:
+    thresholds:
+    - 1.0
+    - 0.1
+    - 0.01
+    precisions:
+    - 2
+    - 4
+    - 6
+    - 8
+indicators:
+  rsi_period: 14
+  ema_fast: 20
+  ema_slow: 50
+  atr_period: 14
+strategy:
+  default_strategy: mean_reversion
+  use_regime_filter: true
+  vol_gate:
+    min_atr_pct: 0.5
+    max_atr_pct: 6.0
+executor:
+  retry_count: 3
+  backoff_factor: 0.5
+execution:
+  max_open_positions: 5
+  risk_budget_pct: 0.005
+providers:
+  sources:
+  - cmc
+  - coingecko
+  - ccxt
+  - websocket
+  agreement_max_diff_pct: 0.5
+  exchange: binance
+testing:
+  enabled: false
+  test_api_keys:
+    binance:
+      api_key: ''
+      secret: ''
+      testnet: true
+    coinbase:
+      api_key: ''
+      secret: ''
+      sandbox: true
+  security_tests:
+    test_withdrawal_enabled: false
+    test_no_ip_whitelist: false
+    test_full_access: false
+    test_secrets_storage: true
+    test_secrets_retrieval: true
+    test_secrets_rotation: false
+optimize:
+  folds: 3
+  use_price_as_threshold: true
+  disable_regime_filter: false
+  disable_vol_gate: false
+  skip_symbols:
+  - USDT
+  - USDC
+order_manager:
+  enabled: true
+  max_active_orders: 1000
+  order_timeout_minutes: 60
+  reconciliation:
+    enabled: true
+    interval_minutes: 5
+    auto_cancel_missing: false
+  routing:
+    enabled: true
+    preferred_exchanges:
+    - binance
+    - bybit
+    - coinbase
+    liquidity_threshold: 10000
+    max_slippage_bps: 50
+  twap:
+    min_slice_size_usd: 100
+    max_slices: 20
+    min_slice_interval_seconds: 30
+    max_slice_interval_seconds: 300
+    randomization_factor: 0.1
+  vwap:
+    participation_rate: 0.1
+    max_participation_rate: 0.2
+    min_slice_size_usd: 100
+    max_slice_size_usd: 10000
+    volume_lookback_hours: 24
+    slice_duration_minutes: 5
+    randomization_factor: 0.05
+  retry:
+    max_attempts: 3
+    base_delay_seconds: 1.0
+    max_delay_seconds: 30.0
+    backoff_multiplier: 2.0
+    jitter_range: 0.1
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    timeout_seconds: 60
+  risk:
+    max_order_size_usd: 10000
+    max_daily_orders: 100
+    position_size_limit_pct: 0.1
+robust_risk:
+  enabled: true
+  strict_mode: false
+  portfolio_limits:
+    max_exposure_per_coin_pct: 15.0
+    max_total_exposure_pct: 80.0
+    max_open_positions: 8
+    max_correlation_exposure_pct: 25.0
+  per_trade_limits:
+    max_loss_pct_equity: 2.0
+    max_position_size_pct: 10.0
+    min_risk_reward_ratio: 1.5
+  drawdown_limits:
+    daily_max_drawdown_pct: 5.0
+    weekly_max_drawdown_pct: 12.0
+    max_drawdown_pct: 20.0
+    kill_switch_drawdown_pct: 15.0
+  leverage_limits:
+    max_leverage: 3.0
+    margin_requirement_buffer: 1.2
+    max_margin_utilization_pct: 75.0
+  funding_rate_limits:
+    max_funding_rate_exposure: 0.01
+    funding_rate_cost_limit_daily: 0.005
+    perpetual_exposure_limit_pct: 50.0
+  monitoring:
+    risk_check_interval_seconds: 30
+    alert_thresholds:
+      exposure_warning_pct: 70.0
+      drawdown_warning_pct: 10.0
+      leverage_warning_pct: 80.0
+  correlation_matrix:
+    BTC:
+      ETH: 0.8
+      LTC: 0.7
+      BCH: 0.6
+    ETH:
+      BTC: 0.8
+      DOT: 0.5
+      LINK: 0.6
+    LTC:
+      BTC: 0.7
+      BCH: 0.8
+    BCH:
+      BTC: 0.6
+      LTC: 0.8
+    DOT:
+      ETH: 0.5
+      LINK: 0.4
+    LINK:
+      ETH: 0.6
+      DOT: 0.4
+security:
+  api_key_safety:
+    enabled: true
+    max_withdrawal_amount_usd: 1000.0
+    required_ip_whitelist: true
+    allowed_permission_levels:
+    - read_only
+    - trading_only
+    validation_interval_hours: 24
+    alert_on_withdrawal_enabled: true
+    alert_on_no_ip_whitelist: true
+    alert_on_full_access: true
+    exchange_settings:
+      binance:
+        require_subaccount: false
+        max_api_keys: 5
+      coinbase:
+        require_whitelist: true
+        max_api_keys: 3
+      kraken:
+        require_whitelist: true
+        max_api_keys: 2
+  withdrawal_controls:
+    enabled: true
+    max_daily_withdrawal_usd: 5000.0
+    require_manual_approval: true
+    whitelisted_addresses: []
+    blacklisted_addresses: []
+  monitoring:
+    log_all_api_calls: true
+    alert_on_permission_changes: true
+    alert_on_new_api_keys: true
+    security_report_interval_hours: 24
+secrets:
+  backend: local_encrypted
+  local_encrypted:
+    master_password_env: SECRETS_MASTER_PASSWORD
+    storage_path: ./secrets
+    encryption_algorithm: AES-256-GCM
+  vault:
+    url: ${VAULT_URL}
+    token: ${VAULT_TOKEN}
+    mount_point: secret
+    namespace: ''
+  aws_secrets_manager:
+    region: us-east-1
+    profile: default
+    prefix: crypto-tracker/
+  gcp_secret_manager:
+    project_id: ${GCP_PROJECT_ID}
+    credentials_path: ${GOOGLE_APPLICATION_CREDENTIALS}
+    prefix: crypto-tracker/
+  rotation:
+    enabled: true
+    interval_days: 30
+    auto_rotate: false
+    notify_before_days: 7
+  logging:
+    log_access: true
+    log_failed_access: true
+    retention_days: 90
+llm:
+  enabled: true
+  provider: openai
+  model: gpt-5-mini
+  base_url: ''
+  max_tokens: 4000
+  temperature: 0.1
+  timeout: 30
+  max_retries: 3
+  rate_limit_per_minute: 60
+  enable_caching: true
+  cache_ttl_seconds: 300
+  analysis:
+    default_mode: normal
+    crisis_thresholds:
+      government_crisis: 0.8
+      economic_crisis: 0.7
+      regulatory_crisis: 0.8
+      market_crisis: 0.9
+    analysis_interval_minutes: 15
+    crisis_check_interval_minutes: 5
+    integrate_with_decisions: true
+    fallback_to_technical: true
+  providers:
+    openai:
+      model_options:
+      - gpt-5
+      - gpt-5-mini
+      - gpt-4o-mini
+      - gpt-4o
+      - gpt-4-turbo
+      base_url: https://api.openai.com/v1
+    anthropic:
+      model_options:
+      - claude-3-5-sonnet-20241022
+      - claude-3-haiku-20240307
+      base_url: https://api.anthropic.com/v1
+    google:
+      model_options:
+      - gemini-pro
+      base_url: https://generativelanguage.googleapis.com/v1beta
+backtest:
+  initial_capital: 10000.0
+  commission: 0.001
+  slippage: 0.0005
+  start_date: '2023-01-01'
+  end_date: '2024-01-01'
+  strategy: rsi_ema
+  max_position_size: 0.1
+  stop_loss: 0.02
+  take_profit: 0.04
+enhanced_features:
+  social_media:
+    enabled: true
+    sources:
+    - twitter
+    - reddit
+    weight: 0.3
+    confidence_boost: 0.1
+  llm:
+    enabled: true
+    provider: openai
+    model: gpt-4
+    weight: 0.2
+    confidence_boost: 0.15
+monitoring:
+  enabled: true
+  heartbeat_interval_seconds: 300
+  max_restarts: 10
+  performance_tracking: true
+  error_recovery: true
+performance_metrics:
+  enabled: true
+  track_trades_per_hour: true
+  track_portfolio_performance: true
+  track_system_health: true
+  export_metrics: true
+  metrics_export_interval_minutes: 60
+optimization:
+  enabled: false
+  optimization_interval_hours: 24
+  parameters_to_optimize:
+  - rsi_period
+  - ema_fast
+  - ema_slow
+  - sl_mult
+  - tp_mult
+  - risk_budget_pct
+  optimization_trials: 100
+  backtest_days: 30
+reporting:
+  enabled: true
+  enhanced_reports: true
+  legacy_compatibility: true
+  csv_export: true
+  report_interval_hours: 24
+  export_directory: ./reports
+_market_analysis:
+  generated_at: '2025-10-02T13:55:17.991376+00:00'
+  market_regime: neutral
+  volatility_regime: low
+  dominant_trend: sideways
+  average_volatility: 0
+  reasoning: Configuration optimized for neutral market with low volatility and sideways
+    trend
+  source_market_data: '2025-10-02T13:55:17.627334+00:00'
