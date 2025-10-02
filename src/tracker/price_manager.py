@@ -21,6 +21,8 @@ from src.indicators.core import atr as atr_series
 from src.indicators.core import ema as ema_series
 from src.indicators.core import rsi as rsi_series
 from src.logger import log_event
+from src.performance.connection_pool import HTTPConnectionPool
+from src.performance.advanced_cache import MultiLevelCache
 
 
 class PriceManager:
@@ -56,6 +58,11 @@ class PriceManager:
             "invalidations": 0,
             "last_warmup": 0
         }
+
+        # Initialize performance optimizations
+        self.connection_pool = None
+        self.advanced_cache = None
+        self._init_performance_optimizations()
 
     def _setup_aggregator(self) -> PriceAggregator:
         """Setup price aggregator with configured sources."""
@@ -112,6 +119,39 @@ class PriceManager:
                 enabled_sources=["cmc", "coingecko"],
             )
 
+    def _init_performance_optimizations(self):
+        """Initialize performance optimizations."""
+        try:
+            # Load performance configuration
+            config_data = self.config_manager.load_full_config()
+            performance_config = config_data.get('performance', {})
+            
+            if performance_config.get('enabled', True):
+                # Initialize connection pool
+                if performance_config.get('connection_pool', {}).get('enabled', True):
+                    pool_config = performance_config.get('connection_pool', {})
+                    self.connection_pool = HTTPConnectionPool(pool_config)
+                    log_event("connection_pool_initialized", {"enabled": True})
+                
+                # Initialize advanced cache
+                if performance_config.get('cache', {}).get('enabled', True):
+                    cache_config = performance_config.get('cache', {})
+                    self.advanced_cache = MultiLevelCache(cache_config)
+                    log_event("advanced_cache_initialized", {"enabled": True})
+                
+                log_event("performance_optimizations_initialized", {
+                    "connection_pool": self.connection_pool is not None,
+                    "advanced_cache": self.advanced_cache is not None,
+                    "enabled_by_default": True
+                })
+            else:
+                log_event("performance_optimizations_disabled", {"reason": "config_disabled"})
+                
+        except Exception as e:
+            log_event("performance_optimizations_init_error", {"error": str(e)})
+            self.connection_pool = None
+            self.advanced_cache = None
+
     def _preload_history(self):
         """Preload historical data for indicators."""
         try:
@@ -157,7 +197,11 @@ class PriceManager:
                     if provider == "ccxt":
                         providers_config = config_data.get("providers", {})
                         exchange_name = str(providers_config.get("exchange", "binance")).lower()
-                        market = cdata.get("market") or f"{coin_cfg.symbol.upper()}/USDT"
+                        # Handle USDT special case - it doesn't trade against itself
+                        if coin_cfg.symbol.upper() == "USDT":
+                            market = cdata.get("market") or "BTC/USDT"  # Use BTC as proxy for USDT analysis
+                        else:
+                            market = cdata.get("market") or f"{coin_cfg.symbol.upper()}/USDT"
 
                         if tf == "1d":
                             limit = min(int(days), 2000)

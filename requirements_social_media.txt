@@ -18,7 +18,7 @@ pyyaml>=6.0
 # tweepy>=4.0.0
 
 # Optional: Reddit API integration
-# praw>=7.0.0
+# asyncpraw>=7.0.0
 
 # Optional: News API integration
 # newsapi-python>=0.2.6

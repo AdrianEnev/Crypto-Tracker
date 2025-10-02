@@ -707,6 +707,202 @@ optimization:
   backtest_days: 30
 
 # =============================================================================
+# Intelligence System Configuration
+# =============================================================================
+intelligence:
+  enabled: true  # Enable by default
+  
+  # Basic intelligence settings
+  use_4_tier_system: true
+  fallback_to_llm: true
+  fallback_to_standard: true
+  timeout_seconds: 30
+  
+  # Tier 1: Macro/Crisis Intelligence
+  tier1_macro:
+    enabled: true
+    crisis_detector:
+      enabled: true
+      llm_analysis: true
+      confidence_threshold: 0.7
+      halt_trading_threshold: 0.8
+      cache_ttl_seconds: 300
+  
+  # Tier 2: Market Intelligence
+  tier2_market:
+    enabled: true
+    market_analyzer:
+      enabled: true
+      regime_classification: true
+      social_sentiment_weight: 0.3
+      onchain_weight: 0.2
+      technical_weight: 0.5
+      cache_ttl_seconds: 300
+      min_confidence_threshold: 0.2  # Lower threshold for testing
+    
+    # Social Media Integration (Enhanced with LLM)
+    social_media:
+      twitter:
+        enabled: true  # Enable for intelligence system
+        api_key: "${TWITTER_API_KEY}"  # Set via environment variable
+        cache_ttl_seconds: 300
+        max_results: 100
+        rate_limit_pause_minutes: 15
+      
+      reddit:
+        enabled: true  # Enable for intelligence system
+        credentials:
+          client_id: "${REDDIT_CLIENT_ID}"
+          client_secret: "${REDDIT_CLIENT_SECRET}"
+          user_agent: "CryptoBot/2.0"
+        cache_ttl_seconds: 600
+        subreddits:
+          - cryptocurrency
+          - cryptomarkets
+          - bitcoin
+          - ethereum
+        max_results_per_sub: 25
+      
+      # Aggregation weights
+      twitter_weight: 0.6
+      reddit_weight: 0.4
+      
+      # LLM Enhancement Settings
+      use_llm_analysis: true
+      llm_weight: 0.7  # 70% LLM, 30% traditional analysis
+      
+      # LLM Analysis Configuration
+      llm_analysis:
+        temperature: 0.3  # Lower for consistency
+        max_tokens: 800
+        cache_ttl_seconds: 300
+        trend_detection: true
+        sarcasm_detection: true
+        news_impact_assessment: true
+        context_analysis: true
+    
+    # On-Chain Data (free APIs + LLM analysis)
+    onchain:
+      enabled: true
+      provider: "free_apis"  # Uses free blockchain APIs + LLM
+      use_llm_analysis: true  # Use LLM to analyze free data
+      cache_ttl_seconds: 300  # 5 minutes
+      
+      # Free API endpoints (no keys required)
+      free_apis:
+        etherscan: "https://api.etherscan.io/v2/api"
+        blockchair: "https://api.blockchair.com"
+        mempool_space: "https://mempool.space/api"
+      
+      # Rate limits for free APIs
+      rate_limits:
+        etherscan: 5  # calls per minute
+        blockchair: 30  # calls per minute
+        mempool: 60  # calls per minute
+    
+    # Orderbook Analysis
+    orderbook:
+      enabled: true
+      depth_levels: 20
+      cache_ttl_seconds: 60
+  
+  # Tier 3: Tactical Intelligence
+  tier3_tactical:
+    enabled: true
+    tactical_analyzer:
+      enabled: true
+      strategy_selection: true
+      ml_enhancement: true
+      fallback_strategies: true
+      cache_ttl_seconds: 300
+  
+  # Tier 4: Execution Intelligence
+  tier4_execution:
+    enabled: true
+    execution_optimizer:
+      enabled: true
+      position_sizing: true
+      order_type_selection: true
+      slippage_prediction: true
+      execution_timing: true
+      cache_ttl_seconds: 60
+  
+  # LLM Configuration
+  llm:
+    enabled: true
+    provider: "openai"
+    model: "gpt-4"
+    max_tokens: 1000
+    temperature: 0.3
+    timeout_seconds: 30
+    retry_attempts: 3
+    cache_ttl_seconds: 300
+
+# =============================================================================
+# Intelligence Monitoring Configuration
+# =============================================================================
+intelligence_monitoring:
+  enabled: true  # Enable by default
+  real_time_tracking: true
+  alert_system: true
+  metrics_retention_days: 30
+  alert_thresholds:
+    error_rate: 0.1
+    decision_time: 5.0
+    confidence: 0.1  # Lower threshold to match system confidence
+
+# =============================================================================
+# Performance Optimizations Configuration
+# =============================================================================
+performance:
+  enabled: true  # Enable by default
+  connection_pooling: true
+  advanced_caching: true
+  rate_limiting: true
+  
+  # Connection Pooling
+  connection_pool:
+    enabled: true
+    max_connections: 100
+    max_connections_per_host: 30
+    keepalive_timeout: 30
+    enable_cleanup_closed: true
+    max_retries: 3
+    retry_delay: 1.0
+    retry_backoff_factor: 2.0
+    requests_per_second: 10
+    burst_size: 20
+  
+  # Advanced Caching
+  cache:
+    enabled: true
+    enable_l1: true  # In-memory cache
+    enable_l2: false  # Redis cache (disabled by default)
+    enable_l3: true  # Disk cache
+    
+    # L1 Cache (In-memory)
+    l1:
+      max_size: 1000
+      ttl_seconds: 300
+      cleanup_interval: 60
+    
+    # L3 Cache (Disk)
+    l3:
+      cache_dir: "cache/advanced"
+      max_size_mb: 100
+      ttl_seconds: 3600
+      cleanup_interval: 300
+      compression: true
+
+# =============================================================================
+# ML Training Configuration
+# =============================================================================
+ml_training:
+  enabled: false  # Keep disabled - manual execution only
+  standalone: true  # Explicitly mark as standalone
+  manual_execution_only: true
+
+# =============================================================================
 # Enhanced Reporting Configuration
 # =============================================================================
 reporting:
