@@ -1,6 +1,14 @@
 #!/bin/bash
-# paper_trading_24_7.sh
-# Startup script for 24/7 paper trading system
+# DEPRECATED: paper_trading_24_7.sh
+# 
+# ⚠️  WARNING: This script is DEPRECATED but preserved for safety.
+#     Use auto_trade.mode: paper in config/config.yaml instead.
+#
+# This script starts the deprecated paper_trading_24_7.py script.
+# The main system now supports paper trading with better performance.
+#
+# PRESERVED FOR SAFETY: Contains service management features that could be useful.
+# TODO: Integrate service management into main system, then remove this script.
 
 # Configuration
 SCRIPT_DIR="/Users/adrian/Desktop/Code/Trading/tracker"

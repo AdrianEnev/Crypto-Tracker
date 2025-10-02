@@ -190,9 +190,7 @@ class ComprehensiveMarketAnalyzer:
             
             # Get LLM response
             response = await self.llm_client.generate_response(
-                prompt,
-                temperature=0.1,  # Low temperature for consistent analysis
-                max_tokens=4000
+                prompt
             )
             
             # Extract content from response

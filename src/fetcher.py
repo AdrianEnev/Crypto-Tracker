@@ -18,6 +18,10 @@ class PriceFetcher:
         # retry config
         self.max_retries = 2
         self.backoff_base = 0.3  # seconds
+        # provider rate-limit backoff
+        self.backoff_until_ts: float = 0.0
+        self.backoff_seconds: int = 0
+        self.backoff_cap: int = 600  # 10 minutes cap
 
     def _request_with_retries(self, url: str, headers: Dict[str, str], params: Dict[str, str]):
         last_exc = None
@@ -28,6 +32,21 @@ class PriceFetcher:
                 return resp
             except requests.RequestException as e:
                 last_exc = e
+                # If 429, set/extend provider backoff
+                try:
+                    status = getattr(e.response, "status_code", None)
+                except Exception:
+                    status = None
+                if status == 429:
+                    # Exponential backoff starting at 120s
+                    self.backoff_seconds = min(
+                        max(120, self.backoff_seconds * 2 or 120), self.backoff_cap
+                    )
+                    self.backoff_until_ts = time.time() + self.backoff_seconds
+                    console.print(
+                        f"[yellow]CoinMarketCap rate-limited. Backing off for {self.backoff_seconds}s.[/yellow]"
+                    )
+                    break
                 if attempt < self.max_retries:
                     sleep_s = self.backoff_base * (2**attempt) + random.uniform(0, 0.2)
                     time.sleep(sleep_s)
@@ -52,6 +71,10 @@ class PriceFetcher:
             console.print(
                 "[red]COINMARKETCAP_API_KEY is not set. Please set it in .env file in project root[/red]"
             )
+            return missing_key_result
+
+        # Respect active provider backoff window
+        if time.time() < self.backoff_until_ts:
             return missing_key_result
 
         try:
@@ -82,5 +105,7 @@ class PriceFetcher:
             return out
 
         except requests.RequestException as e:
-            console.print(f"[red]Error fetching prices from CoinMarketCap: {e}[/red]")
+            # Only log error if not in backoff period to reduce spam
+            if time.time() >= self.backoff_until_ts:
+                console.print(f"[red]Error fetching prices from CoinMarketCap: {e}[/red]")
             return {cid: None for cid in id_to_symbol.keys()}

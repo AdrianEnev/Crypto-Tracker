@@ -1,9 +1,23 @@
 #!/usr/bin/env python3
 """
-24/7 Paper Trading System
+DEPRECATED: 24/7 Paper Trading System
 
-A robust paper trading system designed to run continuously for weeks/months.
-Includes monitoring, logging, error recovery, and automatic restarts.
+⚠️  WARNING: This script is DEPRECATED but preserved for safety.
+    Use auto_trade.mode: paper in config/config.yaml instead.
+
+This script duplicates functionality now available in the main system:
+- Main system: src/tracker/core.py with auto_trade.mode: paper
+- Main system: Gets all performance improvements (15-min refresh, TTL caching, parallel processing)
+- This script: Uses old logic and may not get improvements
+
+PRESERVED FOR SAFETY: Contains valuable monitoring features that should be integrated into main system:
+- 24/7 operation monitoring
+- Automatic restart on crashes
+- Heartbeat monitoring
+- Performance metrics tracking
+- Comprehensive logging with timestamps
+
+TODO: Integrate monitoring features into main CryptoTracker system, then remove this script.
 """
 
 import asyncio

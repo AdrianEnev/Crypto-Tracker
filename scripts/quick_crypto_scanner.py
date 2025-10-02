@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """
-Quick Crypto Discovery Scanner
+DEPRECATED: Quick Crypto Discovery Scanner
 
-A faster, simpler version that scans the most popular cryptocurrencies
-for potential growth opportunities based on social media signals.
+⚠️  WARNING: This script is DEPRECATED but preserved for safety.
+    Use crypto_discovery_scanner.py for full functionality.
 
-Usage: python3 quick_crypto_scanner.py
+This script is a simplified version of crypto_discovery_scanner.py.
+The full scanner provides more comprehensive functionality and better integration.
+
+PRESERVED FOR SAFETY: Contains quick scanning patterns that could be useful.
+TODO: Integrate quick scanning features into main scanner, then remove this script.
 """
 
 import asyncio

@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
 """
-Simple Test Strategy Backtest
+DEPRECATED: Simple Test Strategy Backtest
 
-Uses a very simple strategy that's guaranteed to trade frequently.
-This demonstrates that the backtest system works correctly.
+⚠️  WARNING: This script is DEPRECATED but preserved for safety.
+    Use src/backtest/engine.py or src/backtest/simulation/simulator.py instead.
+
+This script duplicates functionality now available in the main backtest system:
+- Main system: src/backtest/engine.py (comprehensive backtesting)
+- Main system: src/backtest/simulation/simulator.py (modular simulation)
+- Main system: Has proper test strategies and validation
+- This script: Uses old logic and simple test patterns
+
+PRESERVED FOR SAFETY: Contains simple test strategy patterns that could be useful.
+TODO: Integrate simple test strategies into main backtest system, then remove this script.
 """
 
 import asyncio

@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 """
-LLM Integration Test Script
+DEPRECATED: LLM Integration Test Script
 
-Tests the LLM integration without requiring full trading system setup.
+⚠️  WARNING: This script is DEPRECATED but preserved for safety.
+    LLM integration is now part of the main system.
+
+This script tests LLM integration in isolation.
+The main system now has integrated LLM functionality with proper configuration.
+
+PRESERVED FOR SAFETY: Contains LLM testing patterns that could be useful.
+TODO: Integrate LLM testing features into main system testing, then remove this script.
 """
 
 import asyncio

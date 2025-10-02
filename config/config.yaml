@@ -649,3 +649,70 @@ backtest:
 # 5. Test with: python scripts/security_manager.py validate binance --api-key YOUR_KEY --secret YOUR_SECRET
 # 6. Store credentials: python scripts/security_manager.py store binance --api-key YOUR_KEY --secret YOUR_SECRET
 # 7. Enable live trading by setting auto_trade.mode to "live" (only after testing!)
+
+# =============================================================================
+# Enhanced Features Configuration
+# =============================================================================
+enhanced_features:
+  # Social Media Integration
+  social_media:
+    enabled: true
+    sources: ["twitter", "reddit"]
+    weight: 0.3
+    confidence_boost: 0.1
+    
+  # LLM Integration  
+  llm:
+    enabled: true
+    provider: "openai"
+    model: "gpt-4"
+    weight: 0.2
+    confidence_boost: 0.15
+
+# =============================================================================
+# Monitoring and Error Recovery Configuration
+# =============================================================================
+monitoring:
+  enabled: true
+  heartbeat_interval_seconds: 300  # 5 minutes
+  max_restarts: 10
+  performance_tracking: true
+  error_recovery: true
+
+# =============================================================================
+# Performance Metrics Configuration
+# =============================================================================
+performance_metrics:
+  enabled: true
+  track_trades_per_hour: true
+  track_portfolio_performance: true
+  track_system_health: true
+  export_metrics: true
+  metrics_export_interval_minutes: 60
+
+# =============================================================================
+# Parameter Optimization Configuration
+# =============================================================================
+optimization:
+  enabled: false  # Enable for automated parameter tuning
+  optimization_interval_hours: 24
+  parameters_to_optimize:
+    - "rsi_period"
+    - "ema_fast"
+    - "ema_slow"
+    - "sl_mult"
+    - "tp_mult"
+    - "risk_budget_pct"
+  optimization_trials: 100
+  backtest_days: 30
+
+# =============================================================================
+# Enhanced Reporting Configuration
+# =============================================================================
+reporting:
+  enabled: true
+  enhanced_reports: true
+  legacy_compatibility: true
+  csv_export: true
+  report_interval_hours: 24
+  export_directory: "./reports"

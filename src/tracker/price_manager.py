@@ -3,9 +3,10 @@ Price management for the crypto tracker.
 Handles price fetching, aggregation, and historical data management.
 """
 
+import time
 from collections import deque
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 import yaml
 
@@ -47,6 +48,14 @@ class PriceManager:
 
         # Preload historical data
         self._preload_history()
+        
+        # Initialize smart caching
+        self._cache_stats = {
+            "hits": 0,
+            "misses": 0,
+            "invalidations": 0,
+            "last_warmup": 0
+        }
 
     def _setup_aggregator(self) -> PriceAggregator:
         """Setup price aggregator with configured sources."""
@@ -68,15 +77,22 @@ class PriceManager:
                         sym_to_mkt[sym] = market
 
                     ccxt_fetcher = CCXTPriceFetcher(exchange_name, sym_to_mkt)
-                except Exception:
+                    log_event("ccxt_fetcher_initialized", {"exchange": exchange_name, "symbols": len(sym_to_mkt)})
+                except Exception as e:
+                    log_event("ccxt_fetcher_init_error", {"exchange": exchange_name, "error": str(e)})
                     ccxt_fetcher = None
 
             # Setup WebSocket fetcher if enabled
             ws_fetcher = None
             if "websocket" in enabled_sources:
-                ws_symbols = [mkt for sym, mkt in sym_to_mkt.items()]
-                ws_fetcher = WebSocketPriceFetcher(ws_symbols)
-                ws_fetcher.start()
+                try:
+                    ws_symbols = [mkt for sym, mkt in sym_to_mkt.items()]
+                    ws_fetcher = WebSocketPriceFetcher(ws_symbols)
+                    ws_fetcher.start()
+                    log_event("websocket_fetcher_initialized", {"symbols": len(ws_symbols)})
+                except Exception as e:
+                    log_event("websocket_fetcher_init_error", {"error": str(e)})
+                    ws_fetcher = None
 
             return PriceAggregator(
                 self.fetcher,
@@ -88,6 +104,7 @@ class PriceManager:
             )
         except Exception as e:
             # Fallback to basic aggregator
+            log_event("aggregator_setup_error", {"error": str(e), "fallback": True})
             return PriceAggregator(
                 self.fetcher,
                 self.cg_fetcher,
@@ -259,60 +276,142 @@ class PriceManager:
                     timeframe=tf,
                     cache_dir=cache_dir,
                     limit=limit,
-                    use_cache=False,
+                    use_cache=True,  # Enable cache with TTL
+                    cache_ttl_seconds=900,  # 15 minutes TTL
                 )
             else:
                 new_candles = get_candles(
-                    cg_key, timeframe=tf, days=days, cache_dir=cache_dir, use_cache=False
+                    cg_key, 
+                    timeframe=tf, 
+                    days=days, 
+                    cache_dir=cache_dir, 
+                    use_cache=True,  # Enable cache with TTL
+                    cache_ttl_seconds=900,  # 15 minutes TTL
                 )
 
             if not new_candles:
                 return False
 
-            # Update history with new data
-            hist_data["candles"] = new_candles
+            # Update history with new data (incremental if possible)
+            self._update_history_incremental(hist_data, new_candles, config_data, cdata)
 
-            # Recompute indicators
-            closes = [c.c for c in new_candles]
-            highs = [c.h for c in new_candles]
-            lows = [c.l for c in new_candles]
-
-            indicators_config = config_data.get("indicators", {})
-            rsi_period = int(indicators_config.get("rsi_period", 14))
-            ema_fast = int(indicators_config.get("ema_fast", 20))
-            ema_slow = int(indicators_config.get("ema_slow", 50))
-            atr_period = int(indicators_config.get("atr_period", 14))
-
-            # Per-coin overrides
-            ind_over = cdata.get("indicators", {})
-            rsi_p_coin = int(ind_over.get("rsi_period", rsi_period))
-            ema_fast_coin = int(ind_over.get("ema_fast", ema_fast))
-            ema_slow_coin = int(ind_over.get("ema_slow", ema_slow))
-            atr_p_coin = int(ind_over.get("atr_period", atr_period))
-
-            rsi_vals = rsi_series(closes, rsi_p_coin)
-            ema_fast_vals = ema_series(closes, ema_fast_coin)
-            ema_slow_vals = ema_series(closes, ema_slow_coin)
-            atr_vals = atr_series(highs, lows, closes, atr_p_coin)
-
-            hist_data.update(
-                {
-                    "rsi": rsi_vals,
-                    "ema_fast": ema_fast_vals,
-                    "ema_slow": ema_slow_vals,
-                    "atr": atr_vals,
-                    "last": {
-                        "rsi": rsi_vals[-1] if rsi_vals else None,
-                        "ema_fast": ema_fast_vals[-1] if ema_fast_vals else None,
-                        "ema_slow": ema_slow_vals[-1] if ema_slow_vals else None,
-                        "atr": atr_vals[-1] if atr_vals else None,
-                        "close": closes[-1] if closes else None,
-                    },
-                }
-            )
+            # Update last refresh timestamp
+            hist_data["last_refresh_ts"] = time.time()
 
             return True
 
         except Exception as ex:
             log_event("history_refresh_error", {"coin": coin_id, "error": str(ex)})
             return False
+
+    def _update_history_incremental(self, hist_data: Dict[str, Any], new_candles: List, config_data: Dict, cdata: Dict):
+        """Update history data incrementally to avoid full recalculation."""
+        from ..indicators.core import atr as atr_series, ema as ema_series, rsi as rsi_series
+        
+        # Check if we can do incremental update
+        existing_candles = hist_data.get("candles", [])
+        if existing_candles and new_candles:
+            # Find the last timestamp in existing data
+            last_existing_ts = max(c.ts for c in existing_candles) if existing_candles else 0
+            
+            # Filter new candles to only include those newer than last existing
+            incremental_candles = [c for c in new_candles if c.ts > last_existing_ts]
+            
+            if incremental_candles:
+                # Merge incremental data
+                hist_data["candles"] = existing_candles + incremental_candles
+                log_event("incremental_update", {
+                    "existing_count": len(existing_candles),
+                    "new_count": len(incremental_candles),
+                    "total_count": len(hist_data["candles"])
+                })
+            else:
+                # No new data, keep existing
+                return
+        else:
+            # First time or no existing data, use all new candles
+            hist_data["candles"] = new_candles
+
+        # Recompute indicators with updated data
+        candles = hist_data["candles"]
+        closes = [c.c for c in candles]
+        highs = [c.h for c in candles]
+        lows = [c.l for c in candles]
+
+        indicators_config = config_data.get("indicators", {})
+        rsi_period = int(indicators_config.get("rsi_period", 14))
+        ema_fast = int(indicators_config.get("ema_fast", 20))
+        ema_slow = int(indicators_config.get("ema_slow", 50))
+        atr_period = int(indicators_config.get("atr_period", 14))
+
+        # Per-coin overrides
+        ind_over = cdata.get("indicators", {})
+        rsi_p_coin = int(ind_over.get("rsi_period", rsi_period))
+        ema_fast_coin = int(ind_over.get("ema_fast", ema_fast))
+        ema_slow_coin = int(ind_over.get("ema_slow", ema_slow))
+        atr_p_coin = int(ind_over.get("atr_period", atr_period))
+
+        rsi_vals = rsi_series(closes, rsi_p_coin)
+        ema_fast_vals = ema_series(closes, ema_fast_coin)
+        ema_slow_vals = ema_series(closes, ema_slow_coin)
+        atr_vals = atr_series(highs, lows, closes, atr_p_coin)
+
+        hist_data.update(
+            {
+                "rsi": rsi_vals,
+                "ema_fast": ema_fast_vals,
+                "ema_slow": ema_slow_vals,
+                "atr": atr_vals,
+                "last": {
+                    "rsi": rsi_vals[-1] if rsi_vals else None,
+                    "ema_fast": ema_fast_vals[-1] if ema_fast_vals else None,
+                    "ema_slow": ema_slow_vals[-1] if ema_slow_vals else None,
+                    "atr": atr_vals[-1] if atr_vals else None,
+                    "close": closes[-1] if closes else None,
+                },
+            }
+        )
+
+    def _should_warmup_cache(self) -> bool:
+        """Determine if cache should be warmed up based on usage patterns."""
+        current_time = time.time()
+        last_warmup = self._cache_stats.get("last_warmup", 0)
+        
+        # Warmup every 30 minutes or if cache miss rate is high
+        time_since_warmup = current_time - last_warmup
+        miss_rate = self._cache_stats["misses"] / max(1, self._cache_stats["hits"] + self._cache_stats["misses"])
+        
+        return time_since_warmup > 1800 or miss_rate > 0.3  # 30 min or >30% miss rate
+
+    def _warmup_cache(self):
+        """Warm up cache for frequently accessed coins."""
+        try:
+            log_event("cache_warmup_start", {"coins_count": len(self.history)})
+            
+            # Warmup cache for all tracked coins
+            for coin_id in self.history.keys():
+                try:
+                    # Force a cache refresh to warm up the cache
+                    self.refresh_history_tail(coin_id)
+                except Exception as ex:
+                    log_event("cache_warmup_error", {"coin": coin_id, "error": str(ex)})
+            
+            self._cache_stats["last_warmup"] = time.time()
+            log_event("cache_warmup_complete", {"coins_warmed": len(self.history)})
+            
+        except Exception as ex:
+            log_event("cache_warmup_error", {"error": str(ex)})
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache performance statistics."""
+        total_requests = self._cache_stats["hits"] + self._cache_stats["misses"]
+        hit_rate = self._cache_stats["hits"] / max(1, total_requests) * 100
+        
+        return {
+            "hit_rate_pct": round(hit_rate, 2),
+            "total_requests": total_requests,
+            "cache_hits": self._cache_stats["hits"],
+            "cache_misses": self._cache_stats["misses"],
+            "cache_invalidations": self._cache_stats["invalidations"],
+            "last_warmup_ts": self._cache_stats["last_warmup"]
+        }

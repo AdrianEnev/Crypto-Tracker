@@ -144,12 +144,16 @@ def get_candles(
     days: int = 365,
     use_cache: bool = True,
     api_key: Optional[str] = None,
+    cache_ttl_seconds: Optional[int] = None,
 ) -> List[Candle]:
     """Return candles for coin_id at timeframe. Supports 1d and basic 1h/4h
     via hourly market_chart.
     Note: CoinGecko returns hourly data reliably up to ~90 days.
     For days > 90 with 1h/4h, we cap to 90 days.
     Caches JSONL to reduce API calls.
+    
+    Args:
+        cache_ttl_seconds: Cache TTL in seconds. If None, uses default behavior.
     """
     cache_dir_p = Path(cache_dir)
     _ensure_dir(cache_dir_p)
@@ -159,8 +163,20 @@ def get_candles(
 
     if use_cache and cache_file.exists():
         try:
-            rows = load_jsonl(cache_file)
-            return [Candle(**r) for r in rows]
+            # Check TTL if specified
+            if cache_ttl_seconds is not None:
+                cache_age = time.time() - cache_file.stat().st_mtime
+                if cache_age > cache_ttl_seconds:
+                    # Cache expired, remove it
+                    cache_file.unlink()
+                else:
+                    # Cache still valid
+                    rows = load_jsonl(cache_file)
+                    return [Candle(**r) for r in rows]
+            else:
+                # No TTL check, use cache as-is
+                rows = load_jsonl(cache_file)
+                return [Candle(**r) for r in rows]
         except Exception:
             pass
 
