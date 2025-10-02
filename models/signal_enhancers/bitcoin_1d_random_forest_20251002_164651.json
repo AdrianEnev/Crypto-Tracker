@@ -1,0 +1,41 @@
+{
+  "coin_id": "bitcoin",
+  "timeframe": "1d",
+  "model_type": "random_forest",
+  "r2_score": 0.12715364194467393,
+  "mse": 0.055753398909495835,
+  "mae": 0.18677058116587483,
+  "training_date": "2025-10-02T16:46:51.838703+00:00",
+  "feature_names": [
+    "returns",
+    "log_returns",
+    "volatility",
+    "price_momentum",
+    "sma_5",
+    "ema_5",
+    "price_vs_sma_5",
+    "sma_10",
+    "ema_10",
+    "price_vs_sma_10",
+    "sma_20",
+    "ema_20",
+    "price_vs_sma_20",
+    "sma_50",
+    "ema_50",
+    "price_vs_sma_50",
+    "rsi",
+    "macd",
+    "bollinger_position",
+    "stochastic",
+    "volume_ratio",
+    "volume_price_trend",
+    "high_low_ratio",
+    "close_position"
+  ],
+  "signal_thresholds": {
+    "excellent": 0.8,
+    "good": 0.6,
+    "fair": 0.4,
+    "poor": 0.2
+  }
+}

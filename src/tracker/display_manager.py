@@ -584,7 +584,8 @@ class DisplayManager:
         try:
             signal = decision_data.get("signal", "unknown")
             confidence = decision_data.get("confidence", 0.0)
-            action = decision_data.get("action_recommended", "Hold")
+            # Support both old Decision format (action_recommended) and new TradingDecision format (action)
+            action = decision_data.get("action_recommended") or decision_data.get("action", "Hold")
             reason = decision_data.get("reason", "")
 
             self._display_single_decision(

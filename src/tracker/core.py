@@ -24,6 +24,9 @@ from .execution_manager import ExecutionManager
 from .portfolio_manager import PortfolioManager
 from .price_manager import PriceManager
 from .risk_manager import RiskManager
+from .intelligence_integration import IntelligenceIntegration
+from .rate_limited_decision_manager import RateLimitedDecisionManager
+from ..monitoring.intelligence_monitor import IntelligenceMonitor
 
 
 class CryptoTracker:
@@ -57,13 +60,21 @@ class CryptoTracker:
         # Initialize parameter optimizer
         self.parameter_optimizer = ParameterOptimizer(self.config_manager)
 
-        # Initialize enhanced reporter
-        self.enhanced_reporter = EnhancedReporter(self.config_manager)
+        # Initialize rate-limited decision manager
+        self.rate_limited_manager = RateLimitedDecisionManager(self)
 
-        # Initialize enhanced components
+        # Initialize enhanced components first (needed for intelligence system)
         self.social_integration = None
         self.market_analyzer = None
         self._init_enhanced_components()
+
+        # Initialize enhanced reporter
+        self.enhanced_reporter = EnhancedReporter(self.config_manager)
+
+        # Initialize intelligence system integration (after LLM client is available)
+        self.intelligence_integration = None
+        self.intelligence_monitor = None
+        self._init_intelligence_system()
 
         # Initialize monitoring and error recovery
         self.monitoring_enabled = False
@@ -103,11 +114,33 @@ class CryptoTracker:
         # Load additional settings
         self._load_optional_settings()
 
+        # Bind history wrappers before setting up schedules
+        self._bind_history_wrappers()
+
         # Setup schedules
         self.setup_schedules()
 
         # Configure logging
         configure_file_logging("logs")
+
+    def _bind_history_wrappers(self):
+        """Bind history wrapper methods before setting up schedules."""
+        try:
+            import types as _types
+            from ..modules.history import preload_history, refresh_history_tail
+
+            if getattr(self, "_preload_history_orig", None) is None and hasattr(
+                self, "_preload_history"
+            ):
+                self._preload_history_orig = self._preload_history
+            if getattr(self, "_refresh_history_tail_orig", None) is None and hasattr(
+                self, "_refresh_history_tail"
+            ):
+                self._refresh_history_tail_orig = self._refresh_history_tail
+            self._preload_history = _types.MethodType(preload_history, self)
+            self._refresh_history_tail = _types.MethodType(refresh_history_tail, self)
+        except Exception:
+            pass
 
     def _get_global_interval_override(self) -> Optional[int]:
         """Get global interval override from environment or config."""
@@ -194,6 +227,9 @@ class CryptoTracker:
                         # Create market analyzer
                         self.market_analyzer = ComprehensiveMarketAnalyzer(self.llm_client)
                         
+                        # Connect LLM client to rate-limited manager
+                        self.llm_client.update_rate_limited_manager(self.rate_limited_manager)
+                        
                         log_event("llm_initialized", {"enabled": True, "provider": llm_config_obj.provider.value})
                     else:
                         log_event("llm_config_validation_failed", {"enabled": False})
@@ -205,6 +241,43 @@ class CryptoTracker:
                     
         except Exception as ex:
             log_event("enhanced_components_init_error", {"error": str(ex)})
+
+    def _init_intelligence_system(self):
+        """Initialize the 4-tier intelligence system."""
+        try:
+            # Load intelligence configuration
+            config_data = self.config_manager.load_full_config()
+            intelligence_config = config_data.get('intelligence', {})
+            
+            # Check if intelligence is enabled (default: true)
+            if intelligence_config.get('enabled', True):
+                # Use intelligence config directly from main config (consolidated)
+                detailed_config = intelligence_config
+                
+                # Initialize intelligence integration
+                self.intelligence_integration = IntelligenceIntegration(self, detailed_config)
+                
+                if self.intelligence_integration.enabled:
+                    # Initialize intelligence monitoring
+                    monitoring_config = config_data.get('intelligence_monitoring', {})
+                    if monitoring_config.get('enabled', True):
+                        self.intelligence_monitor = IntelligenceMonitor(monitoring_config)
+                        log_event("intelligence_monitoring_initialized", {"enabled": True})
+                    
+                    log_event("intelligence_system_initialized", {
+                        "enabled": True,
+                        "tiers": ["macro", "market", "tactical", "execution"],
+                        "monitoring": self.intelligence_monitor is not None,
+                        "config_source": "main_config_consolidated"
+                    })
+                else:
+                    log_event("intelligence_system_disabled", {"reason": "initialization_failed"})
+            else:
+                log_event("intelligence_system_disabled", {"reason": "config_disabled"})
+                
+        except Exception as e:
+            log_event("intelligence_system_init_error", {"error": str(e)})
+            self.intelligence_integration = None
 
     def _init_monitoring_system(self):
         """Initialize monitoring and error recovery system."""
@@ -246,7 +319,10 @@ class CryptoTracker:
                 # No event loop, we can create one
                 pass
             
-            # Run async enhanced decision making with timeout
+            # Note: Intelligence system is bypassed in favor of batched decision approach
+            # This prevents individual LLM calls per coin and uses efficient batching instead
+            
+            # Fallback to LLM-enhanced decision
             try:
                 async def run_with_timeout():
                     return await asyncio.wait_for(
@@ -259,6 +335,9 @@ class CryptoTracker:
                 if self.llm_failure_count > 0:
                     self.llm_failure_count = 0
                     log_event("llm_failure_count_reset", {"reason": "successful_enhanced_decision"})
+                # Handle both Decision (action_recommended) and TradingDecision (action) formats
+                action = getattr(result, 'action', None) or getattr(result, 'action_recommended', 'Hold')
+                log_event("llm_decision_made", {"coin": coin_id, "action": action})
                 return result
             except asyncio.TimeoutError:
                 log_event("enhanced_decision_timeout", {"coin": coin_id, "timeout": 30})
@@ -268,6 +347,165 @@ class CryptoTracker:
             log_event("enhanced_decision_sync_error", {"coin": coin_id, "error": str(e)})
             # Fallback to standard decision making
             return make_decision(self, coin_id)
+
+    def _make_batched_enhanced_decisions_sync(self, coins_data: Dict[str, Dict]) -> Dict[str, Any]:
+        """Synchronous wrapper for batched enhanced decision making."""
+        try:
+            import asyncio
+            import signal
+            
+            # Handle potential existing event loop
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If loop is running, fall back to individual decisions
+                    logger.warning("Event loop already running, falling back to individual decisions")
+                    return self._fallback_to_individual_decisions(coins_data)
+            except RuntimeError:
+                # No event loop exists, we can create one
+                pass
+            
+            # Create new event loop for batch decisions
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                # Set up timeout handling
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("Batched decision making timeout")
+                
+                # Set signal handler for timeout (Unix only)
+                if hasattr(signal, 'SIGALRM'):
+                    old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+                    signal.alarm(60)  # 60 second timeout for batch
+                
+                try:
+                    # Run batched enhanced decision making
+                    from ..decision_enhanced import make_batched_enhanced_decisions
+                    result = loop.run_until_complete(
+                        make_batched_enhanced_decisions(self, coins_data)
+                    )
+                    
+                    # Reset LLM failure count on successful batch decision
+                    if hasattr(self, 'batched_llm_analyzer'):
+                        self.batched_llm_analyzer.failure_count = 0
+                    
+                    return result
+                    
+                finally:
+                    # Restore signal handler
+                    if hasattr(signal, 'SIGALRM'):
+                        signal.alarm(0)  # Cancel alarm
+                        signal.signal(signal.SIGALRM, old_handler)
+                        
+            finally:
+                loop.close()
+                asyncio.set_event_loop(None)
+                
+        except TimeoutError:
+            logger.warning("Batched enhanced decision timeout, falling back to individual decisions")
+            return self._fallback_to_individual_decisions(coins_data)
+        except Exception as e:
+            logger.error(f"Batched enhanced decision error: {e}")
+            return self._fallback_to_individual_decisions(coins_data)
+
+    def _fallback_to_individual_decisions(self, coins_data: Dict[str, Dict]) -> Dict[str, Any]:
+        """Fallback to individual decision making when batching fails."""
+        decisions = {}
+        for coin_id, coin_data in coins_data.items():
+            try:
+                current_price = coin_data.get('current_price', 0.0)
+                decision = self._make_enhanced_decision_sync(coin_id, current_price)
+                decisions[coin_id] = decision
+            except Exception as e:
+                logger.warning(f"Individual decision failed for {coin_id}: {e}")
+                decisions[coin_id] = make_decision(self, coin_id)
+        return decisions
+    
+    def _display_service_status(self):
+        """Display service status if there are issues."""
+        try:
+            status_summary = self.rate_limited_manager.get_status_summary()
+            
+            # Only display if there are issues
+            if status_summary['trading_halted'] or status_summary['unavailable_services']:
+                from rich.console import Console
+                from rich.panel import Panel
+                from rich.table import Table
+                
+                console = Console()
+                
+                # Create main status table
+                main_table = Table(title="Service Status", show_header=True, header_style="bold magenta")
+                main_table.add_column("Service", style="cyan", no_wrap=True)
+                main_table.add_column("Status", style="green")
+                main_table.add_column("Backoff", style="yellow")
+                
+                # Add unavailable other services (non-price feeds)
+                for service in status_summary['unavailable_other_services']:
+                    status_color = "red" if service['status'] == 'disabled' else "yellow"
+                    backoff_text = f"{service['backoff_remaining']}s" if service['backoff_remaining'] > 0 else "N/A"
+                    main_table.add_row(
+                        service['name'], 
+                        f"[{status_color}]{service['status']}[/{status_color}]",
+                        backoff_text
+                    )
+                
+                # Add available other services
+                for service in status_summary['available_other_services']:
+                    main_table.add_row(service, "[green]available[/green]", "N/A")
+                
+                # Create price feeds table if there are price feed issues
+                price_feeds_table = None
+                if status_summary['unavailable_price_feeds']:
+                    price_feeds_table = Table(title="Price Feed Services", show_header=True, header_style="bold blue")
+                    price_feeds_table.add_column("Price Feed", style="cyan", no_wrap=True)
+                    price_feeds_table.add_column("Status", style="green")
+                    price_feeds_table.add_column("Backoff", style="yellow")
+                    
+                    # Add unavailable price feeds
+                    for service in status_summary['unavailable_price_feeds']:
+                        status_color = "red" if service['status'] == 'disabled' else "yellow"
+                        backoff_text = f"{service['backoff_remaining']}s" if service['backoff_remaining'] > 0 else "N/A"
+                        price_feeds_table.add_row(
+                            service['name'], 
+                            f"[{status_color}]{service['status']}[/{status_color}]",
+                            backoff_text
+                        )
+                    
+                    # Add available price feeds
+                    for service in status_summary['available_price_feeds']:
+                        price_feeds_table.add_row(service, "[green]available[/green]", "N/A")
+                
+                # Create panels
+                if status_summary['trading_halted']:
+                    panel_title = "⚠️  TRADING HALTED - Critical Services Unavailable"
+                    panel_style = "red"
+                else:
+                    panel_title = "⚠️  Service Issues Detected"
+                    panel_style = "yellow"
+                
+                main_panel = Panel(
+                    main_table,
+                    title=panel_title,
+                    border_style=panel_style,
+                    padding=(1, 2)
+                )
+                
+                console.print(main_panel)
+                
+                # Display price feeds table if it exists
+                if price_feeds_table:
+                    price_feeds_panel = Panel(
+                        price_feeds_table,
+                        title="📊 Price Feed Status",
+                        border_style="blue",
+                        padding=(1, 2)
+                    )
+                    console.print(price_feeds_panel)
+                
+        except Exception as e:
+            log_event("service_status_display_error", {"error": str(e)})
 
     def _track_llm_failure(self, error_message: str):
         """Track LLM failures and disable LLM after repeated failures."""
@@ -497,33 +735,43 @@ class CryptoTracker:
     def setup_schedules(self):
         """Setup scheduled tasks."""
         try:
-            # Refresh history every 15 minutes (improved responsiveness)
-            schedule.every(15).minutes.do(self._refresh_history_tail)
-
-            # Reset stagger cycle every 5 minutes
-            schedule.every(5).minutes.do(self.risk_manager.reset_stagger_cycle)
-
-            # Save portfolio state every 10 minutes
-            schedule.every(10).minutes.do(self.portfolio_manager.save_portfolio_state)
+            # Check that all methods are callable before scheduling
+            methods_to_check = [
+                ("_refresh_history_tail", self._refresh_history_tail),
+                ("risk_manager.reset_stagger_cycle", self.risk_manager.reset_stagger_cycle),
+                ("portfolio_manager.save_portfolio_state", self.portfolio_manager.save_portfolio_state),
+                ("price_manager._warmup_cache", self.price_manager._warmup_cache),
+                ("_log_heartbeat", self._log_heartbeat),
+                ("performance_tracker.export_metrics", self.performance_tracker.export_metrics),
+                ("_run_parameter_optimization", self._run_parameter_optimization),
+                ("_generate_enhanced_reports", self._generate_enhanced_reports),
+            ]
             
-            # Cache warmup every 30 minutes
-            schedule.every(30).minutes.do(self.price_manager._warmup_cache)
-            
-            # Monitoring heartbeat if enabled
-            if self.monitoring_enabled:
-                schedule.every(self.heartbeat_interval).seconds.do(self._log_heartbeat)
-            
-            # Performance metrics export
-            schedule.every(60).minutes.do(self.performance_tracker.export_metrics)
-            
-            # Parameter optimization (if enabled)
-            schedule.every(24).hours.do(self._run_parameter_optimization)
-            
-            # Enhanced reporting (if enabled)
-            schedule.every(24).hours.do(self._generate_enhanced_reports)
+            for name, method in methods_to_check:
+                if not callable(method):
+                    log_event("schedule_method_not_callable", {"method": name, "type": str(type(method))})
+                    continue
+                
+                # Schedule the method
+                if name == "_refresh_history_tail":
+                    schedule.every(15).minutes.do(method)
+                elif name == "risk_manager.reset_stagger_cycle":
+                    schedule.every(5).minutes.do(method)
+                elif name == "portfolio_manager.save_portfolio_state":
+                    schedule.every(10).minutes.do(method)
+                elif name == "price_manager._warmup_cache":
+                    schedule.every(30).minutes.do(method)
+                elif name == "_log_heartbeat" and self.monitoring_enabled:
+                    schedule.every(self.heartbeat_interval).seconds.do(method)
+                elif name == "performance_tracker.export_metrics":
+                    schedule.every(60).minutes.do(method)
+                elif name == "_run_parameter_optimization":
+                    schedule.every(24).hours.do(method)
+                elif name == "_generate_enhanced_reports":
+                    schedule.every(24).hours.do(method)
 
         except Exception as ex:
-            log_event("schedule_setup_error", {"error": str(ex)})
+            log_event("schedule_setup_error", {"error": str(ex), "traceback": str(ex.__traceback__)})
 
     def _refresh_history_tail(self):
         """Refresh historical data tail for all coins in parallel."""
@@ -715,6 +963,42 @@ class CryptoTracker:
 
             # Make trading decisions for each coin
             decisions = {}  # Collect all decisions for batch display
+            
+            # Check if enhanced features are enabled
+            config_data = self.config_manager.load_full_config()
+            enhanced_features = config_data.get("enhanced_features", {})
+            social_enabled = enhanced_features.get("social_media", {}).get("enabled", False)
+            
+            # Check if LLM should be re-enabled
+            self._check_llm_reenable()
+            
+            llm_enabled = enhanced_features.get("llm", {}).get("enabled", False) and not self.llm_disabled
+            
+            # Check if LLM is available and not rate-limited
+            llm_available = False
+            if llm_enabled and hasattr(self, 'market_analyzer') and hasattr(self.market_analyzer, 'llm_client'):
+                llm_client = self.market_analyzer.llm_client
+                if (llm_client.config.api_key and 
+                    not llm_client.is_disabled() and 
+                    not llm_client.is_rate_limited()):
+                    llm_available = True
+                    
+                    # Update rate-limited manager with current LLM status
+                    llm_client.update_rate_limited_manager(self.rate_limited_manager)
+                else:
+                    # LLM not available - update rate-limited manager accordingly
+                    if not llm_client.config.api_key:
+                        self.rate_limited_manager.update_service_status('llm', 'disabled', 'No API key configured')
+                    elif llm_client.is_disabled():
+                        self.rate_limited_manager.update_service_status('llm', 'disabled', 'LLM disabled due to failures')
+                    elif llm_client.is_rate_limited():
+                        remaining = llm_client.get_remaining_backoff()
+                        self.rate_limited_manager.update_service_status('llm', 'rate_limited', f'LLM rate-limited for {remaining}s', remaining)
+            
+            # Prepare coins data for batch processing
+            coins_data = {}
+            enabled_coins = []
+            
             for coin_id, coin_config in self.config.tracked_coins.items():
                 if coin_config.disabled:
                     continue
@@ -727,38 +1011,85 @@ class CryptoTracker:
                     current_price = pdata.get("price")
                     if current_price is None:
                         continue
-
-                    # Make trading decision (enhanced if available)
+                    
+                    # Prepare coin data for batch analysis
+                    coins_data[coin_id] = {
+                        'current_price': current_price,
+                        'symbol': coin_config.symbol,
+                        'market_data': pdata
+                    }
+                    enabled_coins.append(coin_id)
+                    
+                except Exception as e:
+                    log_event("coin_data_preparation_error", {"coin": coin_id, "error": str(e)})
+                    continue
+            
+            # Make decisions using batched approach when possible
+            if (len(enabled_coins) > 1 and llm_available and 
+                not self.rate_limited_manager.should_halt_trading()):
+                try:
+                    # Use batched enhanced decisions
+                    batched_decisions = self._make_batched_enhanced_decisions_sync(coins_data)
+                    decisions.update(batched_decisions)
+                    
+                    # Log successful batch processing
+                    log_event("batched_decision_success", {
+                        "coin_count": len(batched_decisions),
+                        "method": "batched_enhanced"
+                    })
+                    
+                except Exception as e:
+                    log_event("batched_decision_error", {"error": str(e)})
+                    # Fall back to individual decisions
+                    for coin_id, coin_data in coins_data.items():
+                        try:
+                            current_price = coin_data['current_price']
+                            if llm_available:
+                                decision = self._make_enhanced_decision_sync(coin_id, current_price)
+                            else:
+                                decision = make_decision(self, coin_id)
+                            decisions[coin_id] = decision
+                        except Exception as individual_error:
+                            log_event("individual_decision_error", {"coin": coin_id, "error": str(individual_error)})
+                            decisions[coin_id] = make_decision(self, coin_id)
+            else:
+                # Use individual decisions (fallback or when batching not suitable)
+                for coin_id, coin_data in coins_data.items():
                     try:
-                        # Check if enhanced features are enabled
-                        config_data = self.config_manager.load_full_config()
-                        enhanced_features = config_data.get("enhanced_features", {})
-                        social_enabled = enhanced_features.get("social_media", {}).get("enabled", False)
+                        current_price = coin_data['current_price']
                         
-                        # Check if LLM should be re-enabled
-                        self._check_llm_reenable()
-                        
-                        llm_enabled = enhanced_features.get("llm", {}).get("enabled", False) and not self.llm_disabled
-                        
-                        if social_enabled or llm_enabled:
-                            # Use enhanced decision making (synchronous wrapper)
+                        # Check if we should halt trading due to service issues
+                        if self.rate_limited_manager.should_halt_trading():
+                            decision = self.rate_limited_manager.make_safe_decision(coin_id, current_price)
+                        elif llm_available:
+                            # Use enhanced decision making only if LLM is available
                             decision = self._make_enhanced_decision_sync(coin_id, current_price)
                         else:
-                            # Use standard decision making
+                            # Use standard decision making (basic technical analysis)
                             decision = make_decision(self, coin_id)
+                        
+                        decisions[coin_id] = decision
+                        
                     except Exception as e:
                         log_event("decision_making_error", {"coin": coin_id, "error": str(e)})
                         # Fallback to standard decision
-                        decision = make_decision(self, coin_id)
-
+                        decisions[coin_id] = make_decision(self, coin_id)
+            
+            # Log all decisions
+            for coin_id, decision in decisions.items():
+                if coin_id in coins_data:
+                    current_price = coins_data[coin_id]['current_price']
+                    
                     # Log decision
+                    # Handle both Decision (action_recommended) and TradingDecision (action) formats
+                    action = getattr(decision, 'action', None) or getattr(decision, 'action_recommended', 'Hold')
                     log_decision_csv(
                         {
                             "coin_id": coin_id,
                             "price": current_price,
                             "signal": decision.signal,
                             "confidence": decision.confidence,
-                            "action": decision.action_recommended,
+                            "action": action,
                             "reason": decision.reason,
                         }
                     )
@@ -775,7 +1106,10 @@ class CryptoTracker:
                     )
 
                     if should_execute:
-                        if decision.action_recommended == "Buy":
+                        # Handle both Decision (action_recommended) and TradingDecision (action) formats
+                        action = getattr(decision, 'action', None) or getattr(decision, 'action_recommended', 'Hold')
+                        
+                        if action == "BUY":
                             # Check confidence threshold
                             threshold = (
                                 self.auto_threshold_bear
@@ -787,7 +1121,7 @@ class CryptoTracker:
                                     symbol, coin_id, current_price, decision.confidence
                                 )
 
-                        elif decision.action_recommended == "Sell":
+                        elif action == "SELL":
                             # Execute sell if in position
                             position = self.portfolio_manager.get_position(symbol)
                             if position is not None:
@@ -796,19 +1130,24 @@ class CryptoTracker:
                                 )
 
                     # Collect decision for batch display
+                    # Handle both Decision (action_recommended) and TradingDecision (action) formats
+                    action = getattr(decision, 'action', None) or getattr(decision, 'action_recommended', 'Hold')
                     decisions[coin_id] = {
                         "signal": decision.signal,
                         "confidence": decision.confidence,
-                        "action": decision.action_recommended,
+                        "action": action,
                         "reason": decision.reason,
                     }
-
-                except Exception as ex:
-                    log_event("decision_error", {"coin": coin_id, "error": str(ex)})
 
             # Display all decisions together (supports both table and line-by-line formats)
             if decisions:
                 self.display_manager.display_decisions(decisions)
+            
+            # Update price feed service status
+            self.rate_limited_manager.update_price_feed_status(self.price_manager.aggregator)
+            
+            # Display service status if there are issues
+            self._display_service_status()
 
             # Manage position exits
             self.execution_manager.manage_exits(sym_to_price)

@@ -18,10 +18,10 @@ class OnChainDataProvider:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         
-        # API endpoints (placeholders - would use real APIs)
-        self.glassnode_api = self.config.get("glassnode_api", "https://api.glassnode.com/v1/metrics")
-        self.cryptoquant_api = self.config.get("cryptoquant_api", "https://api.cryptoquant.com/v1")
-        self.messari_api = self.config.get("messari_api", "https://data.messari.io/api/v1")
+        # Free API endpoints (no keys required)
+        self.etherscan_api = self.config.get("etherscan_api", "https://api.etherscan.io/api")
+        self.blockchair_api = self.config.get("blockchair_api", "https://api.blockchair.com")
+        self.mempool_api = self.config.get("mempool_api", "https://mempool.space/api")
         
         # Cache settings
         self.cache_ttl = self.config.get("cache_ttl", 3600)  # 1 hour
