@@ -245,6 +245,12 @@ class MonitoringConfig:
     """Configuration for monitoring and alerting"""
     enabled: bool = False
     
+    # Heartbeat configuration
+    heartbeat_interval_seconds: int = 300  # 5 minutes
+    max_restarts: int = 10  # Maximum number of restarts
+    performance_tracking: bool = True  # Enable performance tracking
+    error_recovery: bool = True  # Enable error recovery
+    
     # Dashboard configuration
     dashboard_enabled: bool = True
     dashboard_port: int = 8080

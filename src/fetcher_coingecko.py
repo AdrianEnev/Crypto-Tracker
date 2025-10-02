@@ -79,5 +79,7 @@ class CoingeckoFetcher:
                 out[cid] = float(price) if price is not None else None
             return out
         except requests.RequestException as e:
-            console.print(f"[red]Error fetching prices from Coingecko: {e}[/red]")
+            # Only log error if not in backoff period to reduce spam
+            if time.time() >= self.backoff_until_ts:
+                console.print(f"[red]Error fetching prices from Coingecko: {e}[/red]")
             return {cid: None for cid in ids}

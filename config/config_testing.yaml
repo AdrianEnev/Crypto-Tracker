@@ -1,0 +1,306 @@
+# =============================================================================
+# BASIC TESTING CONFIGURATION
+# =============================================================================
+# This configuration is optimized for testing the enhanced main algorithm
+# with all integrated features: monitoring, LLM analysis, performance tracking,
+# parameter optimization, and enhanced reporting.
+
+# =============================================================================
+# API Configuration (Required)
+# =============================================================================
+api:
+  base_url: "https://api.coingecko.com/api/v3"
+  timeout: 30
+  retries: 3
+
+# =============================================================================
+# Basic Trading Configuration
+# =============================================================================
+check_interval: 60  # Required field
+tracked_coins:
+  bitcoin:
+    name: "Bitcoin"
+    symbol: "BTC"
+    threshold: 45000.0
+    disabled: false
+    check_interval: 60
+    coingecko_id: "bitcoin"
+    market: "BTC/USDT"
+    strategy:
+      name: "mean_reversion"
+      params:
+        rsi_period: 14
+        ema_fast: 20
+        ema_slow: 50
+        sl_mult: 1.5
+        tp_mult: 2.0
+        risk_budget_pct: 0.01
+
+  ethereum:
+    name: "Ethereum"
+    symbol: "ETH"
+    threshold: 3000.0
+    disabled: false
+    check_interval: 60
+    coingecko_id: "ethereum"
+    market: "ETH/USDT"
+    strategy:
+      name: "mean_reversion"
+      params:
+        rsi_period: 14
+        ema_fast: 20
+        ema_slow: 50
+        sl_mult: 1.5
+        tp_mult: 2.0
+        risk_budget_pct: 0.01
+
+  solana:
+    name: "Solana"
+    symbol: "SOL"
+    threshold: 100.0
+    disabled: false
+    check_interval: 60
+    coingecko_id: "solana"
+    market: "SOL/USDT"
+    strategy:
+      name: "mean_reversion"
+      params:
+        rsi_period: 14
+        ema_fast: 20
+        ema_slow: 50
+        sl_mult: 1.5
+        tp_mult: 2.0
+        risk_budget_pct: 0.01
+
+  cardano:
+    name: "Cardano"
+    symbol: "ADA"
+    threshold: 0.5
+    disabled: false
+    check_interval: 60
+    coingecko_id: "cardano"
+    market: "ADA/USDT"
+    strategy:
+      name: "mean_reversion"
+      params:
+        rsi_period: 14
+        ema_fast: 20
+        ema_slow: 50
+        sl_mult: 1.5
+        tp_mult: 2.0
+        risk_budget_pct: 0.01
+
+  dogecoin:
+    name: "Dogecoin"
+    symbol: "DOGE"
+    threshold: 0.1
+    disabled: false
+    check_interval: 60
+    coingecko_id: "dogecoin"
+    market: "DOGE/USDT"
+    strategy:
+      name: "mean_reversion"
+      params:
+        rsi_period: 14
+        ema_fast: 20
+        ema_slow: 50
+        sl_mult: 1.5
+        tp_mult: 2.0
+        risk_budget_pct: 0.01
+
+  polkadot:
+    name: "Polkadot"
+    symbol: "DOT"
+    threshold: 6.0
+    disabled: false
+    check_interval: 60
+    coingecko_id: "polkadot"
+    market: "DOT/USDT"
+    strategy:
+      name: "mean_reversion"
+      params:
+        rsi_period: 14
+        ema_fast: 20
+        ema_slow: 50
+        sl_mult: 1.5
+        tp_mult: 2.0
+        risk_budget_pct: 0.01
+
+# =============================================================================
+# Data Configuration
+# =============================================================================
+data:
+  cache_dir: "./data_cache"
+  provider: "ccxt"  # Use CCXT for better data quality
+  refresh_interval_minutes: 15
+
+providers:
+  sources:
+    - "cmc"
+    - "coingecko" 
+    - "ccxt"
+    - "websocket"
+  agreement_max_diff_pct: 0.5
+  exchange: "binance"
+  api_key: ""  # Leave empty for public data only
+  secret: ""
+
+# =============================================================================
+# Trading Execution Configuration
+# =============================================================================
+auto_trade:
+  mode: "paper"  # SAFE: Paper trading for testing
+  enable: true
+  suggestion_threshold: 0.5
+  auto_threshold: 0.8
+
+# =============================================================================
+# Risk Management Configuration
+# =============================================================================
+risk:
+  max_exposure_pct: 20.0
+  daily_loss_limit_pct: 5.0
+  position_size_usd: 100.0
+  stop_loss_multiplier: 1.5
+  take_profit_multiplier: 2.0
+
+# =============================================================================
+# Strategy Configuration
+# =============================================================================
+strategy:
+  default_strategy: "mean_reversion"
+  use_regime_filter: true
+  vol_gate:
+    min_atr_pct: 1.0
+    max_atr_pct: 10.0
+
+# =============================================================================
+# Indicators Configuration
+# =============================================================================
+indicators:
+  rsi_period: 14
+  ema_fast: 20
+  ema_slow: 50
+  atr_period: 14
+
+# =============================================================================
+# Enhanced Features Configuration (NEW!)
+# =============================================================================
+enhanced_features:
+  # Social Media Integration
+  social_media:
+    enabled: true
+    sources: ["twitter", "reddit"]
+    weight: 0.3
+    confidence_boost: 0.1
+    
+  # LLM Integration  
+  llm:
+    enabled: true
+    provider: "openai"
+    model: "gpt-4"
+    weight: 0.2
+    confidence_boost: 0.15
+
+# =============================================================================
+# Monitoring and Error Recovery Configuration (NEW!)
+# =============================================================================
+monitoring:
+  enabled: true
+  heartbeat_interval_seconds: 300  # 5 minutes
+  max_restarts: 10
+  performance_tracking: true
+  error_recovery: true
+
+# =============================================================================
+# Performance Metrics Configuration (NEW!)
+# =============================================================================
+performance_metrics:
+  enabled: true
+  track_trades_per_hour: true
+  track_portfolio_performance: true
+  track_system_health: true
+  export_metrics: true
+  metrics_export_interval_minutes: 60
+
+# =============================================================================
+# Parameter Optimization Configuration (NEW!)
+# =============================================================================
+optimization:
+  enabled: false  # Disabled for basic testing (can enable for advanced testing)
+  optimization_interval_hours: 24
+  parameters_to_optimize:
+    - "rsi_period"
+    - "ema_fast"
+    - "ema_slow"
+    - "sl_mult"
+    - "tp_mult"
+    - "risk_budget_pct"
+  optimization_trials: 50  # Reduced for testing
+  backtest_days: 30
+
+# =============================================================================
+# Enhanced Reporting Configuration (NEW!)
+# =============================================================================
+reporting:
+  enabled: true
+  enhanced_reports: true
+  legacy_compatibility: true
+  csv_export: true
+  report_interval_hours: 24
+  export_directory: "./reports"
+
+# =============================================================================
+# Testing Configuration
+# =============================================================================
+testing:
+  enabled: true
+  global_price_offset_pct: 0.0  # No price manipulation for testing
+  per_coin_price_offset_pct: {}  # No per-coin manipulation
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+logging:
+  level: "INFO"
+  file_logging: true
+  log_file: "./logs/trading.log"
+  max_log_size_mb: 10
+  backup_count: 5
+
+# =============================================================================
+# Notification Configuration
+# =============================================================================
+notifications:
+  webhook_url: ""  # Leave empty for testing
+  slack_webhook_url: ""  # Leave empty for testing
+  alert_threshold_pct: 5.0
+
+# =============================================================================
+# Security Configuration
+# =============================================================================
+security:
+  api_key_rotation_days: 30
+  max_failed_attempts: 5
+  lockout_duration_minutes: 30
+  encryption_enabled: false  # Disabled for testing
+
+# =============================================================================
+# USAGE INSTRUCTIONS
+# =============================================================================
+# 1. This config enables ALL enhanced features for comprehensive testing
+# 2. Paper trading mode is enabled for safety
+# 3. Monitoring and error recovery are active
+# 4. Performance metrics are tracked and exported
+# 5. Enhanced reporting generates comprehensive analytics
+# 6. LLM and social media integration are enabled
+# 7. Parameter optimization is disabled by default (can be enabled)
+#
+# To test:
+# python src/entry.py config/config_testing.yaml
+#
+# To enable parameter optimization for advanced testing:
+# Set optimization.enabled: true
+#
+# To switch to live trading (ONLY after thorough testing):
+# Set auto_trade.mode: "live"

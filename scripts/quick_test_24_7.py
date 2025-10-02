@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 """
-Quick Test for 24/7 Paper Trading System
+DEPRECATED: Quick Test for 24/7 Paper Trading System
 
-Tests the system for 5 minutes to verify everything works before starting 2-week run.
+⚠️  WARNING: This script is DEPRECATED but preserved for safety.
+    Use auto_trade.mode: paper in config/config.yaml instead.
+
+This script tests the deprecated paper_trading_24_7.py script.
+The main system now supports paper trading with better performance and testing.
+
+PRESERVED FOR SAFETY: Contains quick testing patterns that could be useful.
+TODO: Integrate quick testing features into main system, then remove this script.
 """
 
 import asyncio

@@ -1,0 +1,81 @@
+# Test Configuration for Paper Trading
+# This config tests the improved confidence responsiveness system
+
+# Copy base config and modify for testing
+tracked_coins:
+  bitcoin:
+    symbol: btc
+    name: Bitcoin
+    threshold: 120000.0
+    check_interval: 300
+  ethereum:
+    symbol: eth
+    name: Ethereum
+    threshold: 5000.0
+    check_interval: 300
+  solana:
+    symbol: sol
+    name: Solana
+    threshold: 500.0
+    check_interval: 300
+    strategy:
+      name: 'mean_reversion'
+      params:
+        rsi_period: 14
+        buy_threshold: 30
+        sell_threshold: 70
+    risk:
+      atr:
+        period: 14
+        sl_mult: 1.5
+        tp_mult: 4.0
+    market: SOL/USDT
+
+# Data configuration with improved caching
+data:
+  provider: ccxt
+  cache_dir: ./data_cache
+  timeframe: 4h
+  days: 365
+
+# Enable paper trading mode
+auto_trade:
+  enable: true
+  mode: paper
+
+# Decision thresholds
+decision:
+  confidence_thresholds:
+    suggestion: 0.5
+    auto: 0.8
+    auto_bear: 0.95
+
+# Price settings with TTL
+price:
+  ttl_seconds: 15
+
+# Paper trading settings
+paper:
+  place_orders: true
+  exits_enable: true
+
+# Trade settings
+trade:
+  default_size_usd: 50.0
+
+# Risk management
+risk:
+  stop_loss_pct: 0.03
+  take_profit_pct: 0.06
+  trailing_stop_pct: 0.04
+  atr:
+    period: 14
+    sl_mult: 1.5
+    tp_mult: 3.0
+    trail_mult: 2.0
+
+# UI settings
+ui:
+  display_mode: detailed
+  show_confidence: true
+  show_reasoning: true
