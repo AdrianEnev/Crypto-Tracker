@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 # Third-party
 import ccxt  # type: ignore
@@ -16,6 +16,7 @@ def get_candles_ccxt(
     cache_dir: str | Path = "./data_cache",
     limit: int = 2000,
     use_cache: bool = True,
+    cache_ttl_seconds: Optional[int] = None,
 ) -> List[Candle]:
     """Fetch candles from a CCXT exchange for a given market/timeframe.
 
@@ -24,6 +25,9 @@ def get_candles_ccxt(
     - timeframe: "1h", "4h", "1d" (must be supported by the exchange)
     - limit: max number of candles to fetch (exchange-dependent)
     - Caches to JSONL keyed by exchange+market+timeframe+limit
+    
+    Args:
+        cache_ttl_seconds: Cache TTL in seconds. If None, uses default behavior.
     """
     cache_dir_p = Path(cache_dir)
     _ensure_dir(cache_dir_p)
@@ -32,8 +36,21 @@ def get_candles_ccxt(
 
     if use_cache and cache_file.exists():
         try:
-            rows = load_jsonl(cache_file)
-            return [Candle(**r) for r in rows]
+            # Check TTL if specified
+            if cache_ttl_seconds is not None:
+                import time
+                cache_age = time.time() - cache_file.stat().st_mtime
+                if cache_age > cache_ttl_seconds:
+                    # Cache expired, remove it
+                    cache_file.unlink()
+                else:
+                    # Cache still valid
+                    rows = load_jsonl(cache_file)
+                    return [Candle(**r) for r in rows]
+            else:
+                # No TTL check, use cache as-is
+                rows = load_jsonl(cache_file)
+                return [Candle(**r) for r in rows]
         except Exception:
             pass
 

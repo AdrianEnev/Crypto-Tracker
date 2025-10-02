@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """
-Cache Performance Test Script
+DEPRECATED: Cache Performance Test Script
 
-Tests the smart caching system performance and validates its effectiveness
-in reducing API calls and improving response times.
+⚠️  WARNING: This script is DEPRECATED but preserved for safety.
+    Cache performance is now integrated into the main system.
+
+This script tests cache performance in isolation.
+The main system now has integrated cache performance monitoring and statistics.
+
+PRESERVED FOR SAFETY: Contains cache testing patterns that could be useful.
+TODO: Integrate cache testing features into main system monitoring, then remove this script.
 """
 
 import asyncio

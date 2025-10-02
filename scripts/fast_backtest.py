@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
 """
-Fast Historical Backtest
+DEPRECATED: Fast Historical Backtest
 
-Uses your existing historical data to test strategies over realistic timeframes.
-This solves the "5-minute test" problem by replaying weeks/months of real data.
+⚠️  WARNING: This script is DEPRECATED but preserved for safety.
+    Use src/backtest/engine.py or src/backtest/simulation/simulator.py instead.
+
+This script duplicates functionality now available in the main backtest system:
+- Main system: src/backtest/engine.py (comprehensive backtesting)
+- Main system: src/backtest/simulation/simulator.py (modular simulation)
+- Main system: Gets all performance improvements and proper integration
+- This script: Uses old logic and may not get improvements
+
+PRESERVED FOR SAFETY: Contains historical replay features that could be useful.
+TODO: Integrate historical replay features into main backtest system, then remove this script.
 """
 
 import asyncio

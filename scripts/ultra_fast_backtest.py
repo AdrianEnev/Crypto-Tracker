@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
 """
-Ultra-Fast Backtest - No API Calls
+DEPRECATED: Ultra-Fast Backtest - No API Calls
 
-Completely bypasses live API calls and uses only historical data.
-This is the proper way to test crypto strategies over realistic timeframes.
+⚠️  WARNING: This script is DEPRECATED but preserved for safety.
+    Use src/backtest/engine.py or src/backtest/simulation/simulator.py instead.
+
+This script duplicates functionality now available in the main backtest system:
+- Main system: src/backtest/engine.py (comprehensive backtesting)
+- Main system: src/backtest/simulation/simulator.py (modular simulation)
+- Main system: Uses proper caching and data management
+- This script: Uses old logic and bypasses proper data handling
+
+PRESERVED FOR SAFETY: Contains ultra-fast testing concepts that could be useful.
+TODO: Integrate ultra-fast testing features into main backtest system, then remove this script.
 """
 
 import asyncio

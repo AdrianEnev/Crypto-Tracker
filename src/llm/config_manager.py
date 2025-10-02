@@ -98,6 +98,16 @@ class LLMConfigManager:
         """Get analysis configuration"""
         return self.llm_config.get("analysis", {})
     
+    def is_llm_disabled_due_to_credits(self) -> bool:
+        """Check if LLM should be disabled due to credit/billing issues"""
+        # This could be enhanced to track failed requests and disable after threshold
+        return False  # For now, always allow attempts
+    
+    def disable_llm_temporarily(self, reason: str):
+        """Temporarily disable LLM due to errors"""
+        # This could be enhanced to set a flag or update config
+        pass
+    
     def get_crisis_thresholds(self) -> Dict[str, float]:
         """Get crisis detection thresholds"""
         analysis_config = self.get_analysis_config()
