@@ -1,0 +1,117 @@
+{
+  "scan_timestamp": "2025-10-03T12:12:13.449616",
+  "total_insiders_found": 10,
+  "insiders": [
+    {
+      "wallet_address": "0x0x7D498449...insider1",
+      "buy_amount_usd": 150.0,
+      "sell_amount_usd": 25000.0,
+      "profit_multiplier": 166.67,
+      "buy_timestamp": "2025-10-01 12:12:09.372938",
+      "sell_timestamp": "2025-10-03 10:12:09.372968",
+      "confidence_score": 0.85,
+      "token_symbol": "GOLDEN",
+      "token_name": "Golden Inu"
+    },
+    {
+      "wallet_address": "0x0x28743c20...insider1",
+      "buy_amount_usd": 150.0,
+      "sell_amount_usd": 25000.0,
+      "profit_multiplier": 166.67,
+      "buy_timestamp": "2025-10-01 12:12:10.374109",
+      "sell_timestamp": "2025-10-03 10:12:10.374140",
+      "confidence_score": 0.85,
+      "token_symbol": "GDK",
+      "token_name": "Golden Donkey"
+    },
+    {
+      "wallet_address": "0x0x45787821...insider1",
+      "buy_amount_usd": 150.0,
+      "sell_amount_usd": 25000.0,
+      "profit_multiplier": 166.67,
+      "buy_timestamp": "2025-10-01 12:12:11.375361",
+      "sell_timestamp": "2025-10-03 10:12:11.375390",
+      "confidence_score": 0.85,
+      "token_symbol": "RATS",
+      "token_name": "GoldenRat"
+    },
+    {
+      "wallet_address": "0x0x4f7eA8F6...insider1",
+      "buy_amount_usd": 150.0,
+      "sell_amount_usd": 25000.0,
+      "profit_multiplier": 166.67,
+      "buy_timestamp": "2025-10-01 12:12:12.376495",
+      "sell_timestamp": "2025-10-03 10:12:12.376520",
+      "confidence_score": 0.85,
+      "token_symbol": "CATS",
+      "token_name": "GoldenCat"
+    },
+    {
+      "wallet_address": "0x0x82B0E1A2...insider1",
+      "buy_amount_usd": 150.0,
+      "sell_amount_usd": 25000.0,
+      "profit_multiplier": 166.67,
+      "buy_timestamp": "2025-10-01 12:12:13.377797",
+      "sell_timestamp": "2025-10-03 10:12:13.377827",
+      "confidence_score": 0.85,
+      "token_symbol": "PEGG",
+      "token_name": "PokPok Golden Egg"
+    },
+    {
+      "wallet_address": "0x0x7D498449...insider2",
+      "buy_amount_usd": 200.0,
+      "sell_amount_usd": 18000.0,
+      "profit_multiplier": 90.0,
+      "buy_timestamp": "2025-10-02 00:12:09.372984",
+      "sell_timestamp": "2025-10-03 11:12:09.372991",
+      "confidence_score": 0.78,
+      "token_symbol": "GOLDEN",
+      "token_name": "Golden Inu"
+    },
+    {
+      "wallet_address": "0x0x28743c20...insider2",
+      "buy_amount_usd": 200.0,
+      "sell_amount_usd": 18000.0,
+      "profit_multiplier": 90.0,
+      "buy_timestamp": "2025-10-02 00:12:10.374155",
+      "sell_timestamp": "2025-10-03 11:12:10.374162",
+      "confidence_score": 0.78,
+      "token_symbol": "GDK",
+      "token_name": "Golden Donkey"
+    },
+    {
+      "wallet_address": "0x0x45787821...insider2",
+      "buy_amount_usd": 200.0,
+      "sell_amount_usd": 18000.0,
+      "profit_multiplier": 90.0,
+      "buy_timestamp": "2025-10-02 00:12:11.375405",
+      "sell_timestamp": "2025-10-03 11:12:11.375412",
+      "confidence_score": 0.78,
+      "token_symbol": "RATS",
+      "token_name": "GoldenRat"
+    },
+    {
+      "wallet_address": "0x0x4f7eA8F6...insider2",
+      "buy_amount_usd": 200.0,
+      "sell_amount_usd": 18000.0,
+      "profit_multiplier": 90.0,
+      "buy_timestamp": "2025-10-02 00:12:12.376533",
+      "sell_timestamp": "2025-10-03 11:12:12.376540",
+      "confidence_score": 0.78,
+      "token_symbol": "CATS",
+      "token_name": "GoldenCat"
+    },
+    {
+      "wallet_address": "0x0x82B0E1A2...insider2",
+      "buy_amount_usd": 200.0,
+      "sell_amount_usd": 18000.0,
+      "profit_multiplier": 90.0,
+      "buy_timestamp": "2025-10-02 00:12:13.377842",
+      "sell_timestamp": "2025-10-03 11:12:13.377849",
+      "confidence_score": 0.78,
+      "token_symbol": "PEGG",
+      "token_name": "PokPok Golden Egg"
+    }
+  ],
+  "database_path": "/Users/adrian/Desktop/Code/Trading/tracker/data/insiders.db"
+}
