@@ -131,10 +131,26 @@ async def _get_llm_analysis(tracker, coin_id: str, current_price: float) -> Opti
         if not hasattr(tracker, 'market_analyzer') or not tracker.market_analyzer:
             return None
 
-        # Check if LLM client is disabled due to failures
-        if hasattr(tracker.market_analyzer, 'llm_client') and tracker.market_analyzer.llm_client.is_disabled():
-            logger.debug(f"LLM client is disabled, skipping analysis for {coin_id}")
-            return None
+        # Check if LLM client is disabled due to failures or rate limiting
+        if hasattr(tracker.market_analyzer, 'llm_client'):
+            llm_client = tracker.market_analyzer.llm_client
+            
+            # Check if API key is configured
+            if not llm_client.config.api_key:
+                logger.debug(f"LLM API key not configured, skipping analysis for {coin_id}")
+                return None
+            
+            if llm_client.is_disabled():
+                logger.debug(f"LLM client is disabled, skipping analysis for {coin_id}")
+                return None
+            
+            # Check if LLM is in backoff period
+            if hasattr(llm_client, 'backoff_until_ts') and llm_client.backoff_until_ts > 0:
+                import time
+                if time.time() < llm_client.backoff_until_ts:
+                    remaining = int(llm_client.backoff_until_ts - time.time())
+                    logger.debug(f"LLM is rate-limited, skipping analysis for {coin_id} (backoff: {remaining}s)")
+                    return None
 
         # Get coin config for symbol
         coin_config = tracker.config.tracked_coins.get(coin_id)
@@ -552,10 +568,26 @@ async def make_enhanced_decision(tracker, coin_id: str, current_price: float) ->
     # Enhance with LLM analysis
     llm_enabled = enhanced_features.get("llm", {}).get("enabled", False)
     if llm_enabled and hasattr(tracker, 'market_analyzer'):
-        # Check if LLM client is disabled before attempting analysis
-        if hasattr(tracker.market_analyzer, 'llm_client') and tracker.market_analyzer.llm_client.is_disabled():
-            logger.debug(f"LLM client is disabled, skipping LLM analysis for {coin_id}")
-        else:
+        # Check if LLM client is disabled or rate-limited before attempting analysis
+        llm_available = True
+        if hasattr(tracker.market_analyzer, 'llm_client'):
+            llm_client = tracker.market_analyzer.llm_client
+            
+            # Check if API key is configured
+            if not llm_client.config.api_key:
+                logger.debug(f"LLM API key not configured, skipping LLM analysis for {coin_id}")
+                llm_available = False
+            elif llm_client.is_disabled():
+                logger.debug(f"LLM client is disabled, skipping LLM analysis for {coin_id}")
+                llm_available = False
+            elif hasattr(llm_client, 'backoff_until_ts') and llm_client.backoff_until_ts > 0:
+                import time
+                if time.time() < llm_client.backoff_until_ts:
+                    remaining = int(llm_client.backoff_until_ts - time.time())
+                    logger.debug(f"LLM is rate-limited, skipping LLM analysis for {coin_id} (backoff: {remaining}s)")
+                    llm_available = False
+        
+        if llm_available:
             try:
                 llm_analysis = await _get_llm_analysis(tracker, coin_id, current_price)
                 if llm_analysis and not llm_analysis.get("error"):
@@ -567,3 +599,91 @@ async def make_enhanced_decision(tracker, coin_id: str, current_price: float) ->
                 logger.warning(f"Error enhancing with LLM: {e}")
     
     return enhanced_decision
+
+
+async def make_batched_enhanced_decisions(tracker, coins_data: Dict[str, Dict]) -> Dict[str, Decision]:
+    """
+    Make enhanced decisions for multiple coins using batched LLM analysis.
+    
+    Args:
+        tracker: The CryptoTracker instance
+        coins_data: Dict mapping coin_id -> {'current_price': float, 'market_data': dict}
+        
+    Returns:
+        Dict mapping coin_id -> Decision
+    """
+    from ..llm.batched_analyzer import BatchedLLMAnalyzer
+    
+    cfg_all = _load_full_config(tracker.config_path)
+    enhanced_features = cfg_all.get("enhanced_features", {})
+    
+    # Get base decisions for all coins
+    base_decisions = {}
+    for coin_id, coin_data in coins_data.items():
+        base_decisions[coin_id] = make_decision(tracker, coin_id)
+    
+    # Check if LLM is available for batching
+    llm_enabled = enhanced_features.get("llm", {}).get("enabled", False)
+    if not llm_enabled or not hasattr(tracker, 'market_analyzer'):
+        logger.debug("LLM not enabled or market analyzer not available")
+        return base_decisions
+    
+    # Initialize batched analyzer if not exists
+    if not hasattr(tracker, 'batched_llm_analyzer'):
+        try:
+            from ..llm.config_manager import LLMConfigManager
+            llm_config_manager = LLMConfigManager(
+                tracker.config_manager,
+                tracker.config_manager.secrets_manager if hasattr(tracker.config_manager, 'secrets_manager') else None
+            )
+            tracker.batched_llm_analyzer = BatchedLLMAnalyzer(
+                tracker.market_analyzer.llm_client,
+                llm_config_manager
+            )
+        except Exception as e:
+            logger.warning(f"Failed to initialize batched LLM analyzer: {e}")
+            return base_decisions
+    
+    # Prepare market data for batch analysis
+    batch_market_data = {}
+    for coin_id, coin_data in coins_data.items():
+        try:
+            # Get comprehensive market data
+            market_data = await _prepare_comprehensive_market_data(
+                tracker, coin_id, coin_data.get('symbol', coin_id.upper()), 
+                coin_data.get('current_price', 0.0)
+            )
+            if market_data:
+                batch_market_data[coin_id] = market_data
+        except Exception as e:
+            logger.warning(f"Failed to prepare market data for {coin_id}: {e}")
+    
+    if not batch_market_data:
+        logger.warning("No market data prepared for batch analysis")
+        return base_decisions
+    
+    # Perform batched LLM analysis
+    try:
+        batch_result = await tracker.batched_llm_analyzer.analyze_coins_batch(
+            batch_market_data, 
+            analysis_type="comprehensive"
+        )
+        
+        if batch_result.success and batch_result.coin_analyses:
+            # Enhance decisions with LLM analysis
+            enhanced_decisions = {}
+            for coin_id, base_decision in base_decisions.items():
+                if coin_id in batch_result.coin_analyses:
+                    llm_analysis = batch_result.coin_analyses[coin_id]
+                    enhanced_decision = _enhance_decision_with_llm_analysis(base_decision, llm_analysis)
+                    enhanced_decisions[coin_id] = enhanced_decision
+                else:
+                    enhanced_decisions[coin_id] = base_decision
+            return enhanced_decisions
+        else:
+            logger.warning(f"Batched LLM analysis failed: {batch_result.error}")
+            return base_decisions
+            
+    except Exception as e:
+        logger.error(f"Batched enhanced decision making failed: {e}")
+        return base_decisions

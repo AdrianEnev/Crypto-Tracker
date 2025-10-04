@@ -1,0 +1,215 @@
+{
+  "scan_timestamp": "2025-10-03T11:38:55.908042",
+  "total_found": 8,
+  "results": [
+    {
+      "symbol": "PEPE",
+      "name": "Pepe",
+      "price_usd": 9.892e-06,
+      "volume_24h": 14733381.08,
+      "liquidity_usd": 58945168.8,
+      "market_cap": 4093086704.0,
+      "price_change_24h": -1.72,
+      "passed_criteria": [
+        "liquidity",
+        "volume"
+      ],
+      "failed_criteria": [
+        "market_cap",
+        "price_change"
+      ],
+      "pass_rate": 0.5,
+      "potential_score": 0.8,
+      "scan_timestamp": "2025-10-03T11:38:54.220927",
+      "source_query": "pepe"
+    },
+    {
+      "symbol": "FLOKI",
+      "name": "FLOKI",
+      "price_usd": 8.59e-05,
+      "volume_24h": 704188.59,
+      "liquidity_usd": 20075508.91,
+      "market_cap": 353087533.0,
+      "price_change_24h": 0.38,
+      "passed_criteria": [
+        "liquidity",
+        "volume"
+      ],
+      "failed_criteria": [
+        "market_cap",
+        "price_change"
+      ],
+      "pass_rate": 0.5,
+      "potential_score": 0.574218859,
+      "scan_timestamp": "2025-10-03T11:38:54.287867",
+      "source_query": "floki"
+    },
+    {
+      "symbol": "CAT",
+      "name": "Simons Cat",
+      "price_usd": 7.681e-06,
+      "volume_24h": 233458.9,
+      "liquidity_usd": 1251601.92,
+      "market_cap": 62209842.0,
+      "price_change_24h": 0.0,
+      "passed_criteria": [
+        "liquidity",
+        "volume"
+      ],
+      "failed_criteria": [
+        "market_cap",
+        "price_change"
+      ],
+      "pass_rate": 0.5,
+      "potential_score": 0.52334589,
+      "scan_timestamp": "2025-10-03T11:38:55.066986",
+      "source_query": "cat"
+    },
+    {
+      "symbol": "MOON",
+      "name": "Moonflow",
+      "price_usd": 0.0005198,
+      "volume_24h": 232845.29,
+      "liquidity_usd": 645054.62,
+      "market_cap": 5197234.0,
+      "price_change_24h": -11.63,
+      "passed_criteria": [
+        "liquidity",
+        "volume"
+      ],
+      "failed_criteria": [
+        "market_cap",
+        "price_change"
+      ],
+      "pass_rate": 0.5,
+      "potential_score": 0.523284529,
+      "scan_timestamp": "2025-10-03T11:38:55.517324",
+      "source_query": "moon"
+    },
+    {
+      "symbol": "DOGE",
+      "name": "Dogecoin",
+      "price_usd": 0.2556,
+      "volume_24h": 395432.65,
+      "liquidity_usd": 160584.73,
+      "market_cap": 38601797145.0,
+      "price_change_24h": -0.64,
+      "passed_criteria": [
+        "liquidity",
+        "volume"
+      ],
+      "failed_criteria": [
+        "market_cap",
+        "price_change"
+      ],
+      "pass_rate": 0.5,
+      "potential_score": 0.400127995,
+      "scan_timestamp": "2025-10-03T11:38:53.083770",
+      "source_query": "dogecoin"
+    },
+    {
+      "symbol": "BONK",
+      "name": "Based Bonk",
+      "price_usd": 0.0001338,
+      "volume_24h": 18428.09,
+      "liquidity_usd": 51206.92,
+      "market_cap": 133799.0,
+      "price_change_24h": 19.75,
+      "passed_criteria": [
+        "liquidity",
+        "market_cap",
+        "price_change"
+      ],
+      "failed_criteria": [
+        "volume"
+      ],
+      "pass_rate": 0.75,
+      "potential_score": 0.263929629,
+      "scan_timestamp": "2025-10-03T11:38:54.558246",
+      "source_query": "bonk"
+    },
+    {
+      "symbol": "SHIBAAI",
+      "name": "SHIBAAI",
+      "price_usd": 2.224e-09,
+      "volume_24h": 12328.12,
+      "liquidity_usd": 158060.99,
+      "market_cap": 624324.0,
+      "price_change_24h": 1.86,
+      "passed_criteria": [
+        "liquidity",
+        "market_cap"
+      ],
+      "failed_criteria": [
+        "volume",
+        "price_change"
+      ],
+      "pass_rate": 0.5,
+      "potential_score": 0.240326202,
+      "scan_timestamp": "2025-10-03T11:38:53.739097",
+      "source_query": "shiba"
+    },
+    {
+      "symbol": "SHIBA",
+      "name": "Shiba Armstrong",
+      "price_usd": 3.568e-05,
+      "volume_24h": 37776.86,
+      "liquidity_usd": 109386.35,
+      "market_cap": 356827.0,
+      "price_change_24h": -54.03,
+      "passed_criteria": [
+        "liquidity",
+        "market_cap"
+      ],
+      "failed_criteria": [
+        "volume",
+        "price_change"
+      ],
+      "pass_rate": 0.5,
+      "potential_score": 0.148846736,
+      "scan_timestamp": "2025-10-03T11:38:53.739044",
+      "source_query": "shiba"
+    }
+  ],
+  "config_used": {
+    "min_liquidity_usd": 10000,
+    "min_volume_24h_usd": 100000,
+    "min_market_cap_usd": 100000,
+    "max_market_cap_usd": 1000000,
+    "min_price_change_24h_pct": 5.0,
+    "min_age_hours": 24,
+    "max_age_hours": 168,
+    "max_single_holder_pct": 3.5,
+    "meme_patterns": [
+      "DOGE",
+      "SHIB",
+      "PEPE",
+      "FLOKI",
+      "BONK",
+      "WIF",
+      "MEME",
+      "MOON",
+      "DOGE",
+      "CAT",
+      "FROG",
+      "INU",
+      "WOJAK",
+      "CHAD"
+    ],
+    "preferred_dexs": [
+      "uniswap",
+      "pancakeswap",
+      "raydium",
+      "orca",
+      "jupiter",
+      "sushiswap"
+    ],
+    "min_filter_pass_rate": 0.6,
+    "risk_thresholds": {
+      "high_risk_liquidity": 50000,
+      "high_risk_volume": 500000,
+      "high_volatility_threshold": 100,
+      "high_market_cap_threshold": 10000000
+    }
+  }
+}

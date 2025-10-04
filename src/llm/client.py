@@ -7,6 +7,7 @@ Handles API communication with various LLM providers using official client libra
 import asyncio
 import json
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
@@ -14,6 +15,7 @@ from datetime import datetime, timezone
 
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
+from rich.console import Console
 from ..security.secrets_manager import SecretsManager
 
 
@@ -53,6 +55,12 @@ class LLMClient:
         self.request_times: List[float] = []
         self.cache: Dict[str, Any] = {}
         
+        # Rate limiting with backoff (matching CoinMarketCap pattern)
+        self.backoff_until_ts = 0.0
+        self.backoff_seconds = 0
+        self.backoff_cap = 600  # 10 minutes cap
+        self.console = Console()
+        
         # Failure tracking
         self.failure_count = 0
         self.max_failures = 5
@@ -85,7 +93,21 @@ class LLMClient:
         """Track LLM failure and disable if threshold reached."""
         self.failure_count += 1
         
-        self.logger.warning(f"LLM failure #{self.failure_count}: {error_message}")
+        # Calculate backoff time (120s base, exponential backoff)
+        if self.failure_count == 1:
+            self.backoff_seconds = 120  # 2 minutes
+        else:
+            self.backoff_seconds = min(
+                self.backoff_seconds * 2,
+                self.backoff_cap
+            )
+        
+        self.backoff_until_ts = time.time() + self.backoff_seconds
+        
+        self.logger.warning(
+            f"LLM failure #{self.failure_count}: {error_message}. "
+            f"Backing off for {self.backoff_seconds}s"
+        )
         
         if self.failure_count >= self.max_failures and not self.disabled:
             self.disabled = True
@@ -96,7 +118,42 @@ class LLMClient:
         """Reset failure count on successful request."""
         if self.failure_count > 0:
             self.failure_count = 0
+            self.backoff_until_ts = 0.0
+            self.backoff_seconds = 0
             self.logger.info("LLM failure count reset due to successful request")
+    
+    def is_rate_limited(self) -> bool:
+        """Check if LLM is currently rate-limited."""
+        return self.backoff_until_ts > 0 and time.time() < self.backoff_until_ts
+    
+    def get_remaining_backoff(self) -> int:
+        """Get remaining backoff time in seconds."""
+        if self.backoff_until_ts <= 0:
+            return 0
+        return max(0, int(self.backoff_until_ts - time.time()))
+    
+    def update_rate_limited_manager(self, rate_limited_manager):
+        """Update the rate-limited decision manager when LLM status changes."""
+        try:
+            if hasattr(rate_limited_manager, 'update_service_status'):
+                if self.is_rate_limited():
+                    remaining = self.get_remaining_backoff()
+                    rate_limited_manager.update_service_status(
+                        'llm', 
+                        'rate_limited', 
+                        f"LLM rate-limited for {remaining}s",
+                        remaining
+                    )
+                elif self.disabled:
+                    rate_limited_manager.update_service_status(
+                        'llm', 
+                        'disabled', 
+                        f"LLM disabled after {self.failure_count} failures"
+                    )
+                else:
+                    rate_limited_manager.update_service_status('llm', 'available')
+        except Exception as e:
+            self.logger.warning(f"Failed to update rate-limited manager: {e}")
     
     def _initialize_clients(self):
         """Initialize official API clients"""
@@ -161,6 +218,10 @@ class LLMClient:
     async def _make_openai_request(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """Make request to OpenAI API using official client"""
         try:
+            # Remove duplicate parameters from kwargs
+            kwargs.pop('max_tokens', None)
+            kwargs.pop('temperature', None)
+            
             response = await self.openai_client.chat.completions.create(
                 model=self.config.model,
                 messages=[{"role": "user", "content": prompt}],
@@ -242,6 +303,14 @@ class LLMClient:
             if cached_response:
                 return cached_response
         
+        # Check if we're in backoff period
+        if time.time() < self.backoff_until_ts:
+            remaining = int(self.backoff_until_ts - time.time())
+            self.console.print(
+                f"[yellow]LLM rate-limited. Backing off for {remaining}s.[/yellow]"
+            )
+            raise Exception(f"LLM rate-limited. Backing off for {remaining}s.")
+        
         # Check rate limiting
         await self._check_rate_limit()
         
@@ -273,6 +342,19 @@ class LLMClient:
             except Exception as e:
                 last_exception = e
                 self.logger.warning(f"LLM request failed (attempt {attempt + 1}): {e}")
+                
+                # Check for rate limiting errors (matching CoinMarketCap pattern)
+                error_msg = str(e).lower()
+                if any(phrase in error_msg for phrase in ['rate limit', 'too many requests', '429', 'throttled', 'connection error', 'timeout']):
+                    # Exponential backoff starting at 120s
+                    self.backoff_seconds = min(
+                        max(120, self.backoff_seconds * 2 or 120), self.backoff_cap
+                    )
+                    self.backoff_until_ts = time.time() + self.backoff_seconds
+                    self.console.print(
+                        f"[yellow]LLM rate-limited. Backing off for {self.backoff_seconds}s.[/yellow]"
+                    )
+                    raise Exception(f"LLM rate-limited. Backing off for {self.backoff_seconds}s.")
                 
                 # Track failure
                 self._track_failure(str(e))

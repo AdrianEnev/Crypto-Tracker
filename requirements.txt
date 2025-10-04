@@ -16,6 +16,9 @@ google-cloud-secret-manager>=2.16.0  # GCP Secret Manager (optional)
 openai>=1.0.0  # OpenAI official client library
 anthropic>=0.7.0  # Anthropic Claude API client
 
+# Social Media Integration Dependencies
+asyncpraw>=7.0.0  # Async Reddit API client
+
 # CI/CD and Development Dependencies
 pytest-cov>=4.0.0  # Test coverage reporting
 pytest-xdist>=3.0.0  # Parallel test execution

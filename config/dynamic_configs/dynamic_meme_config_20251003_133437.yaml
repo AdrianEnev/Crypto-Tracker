@@ -1,0 +1,883 @@
+tracked_coins:
+  pepe:
+    symbol: PEPE
+    name: Pepe
+    threshold: 0.01
+    check_interval: 60
+    disabled: false
+    meme_mode: true
+    discovery_data:
+      potential_score: 0.8
+      risk_score: 0
+      pass_rate: 0.5
+      price_usd: 9.953e-06
+      volume_24h: 14645040.05
+      liquidity: 0
+      market_cap: 4118518096.0
+      price_change_24h: -0.43
+      dex_link: ''
+      discovered_at: '2025-10-03T13:34:37.101102'
+  floki:
+    symbol: FLOKI
+    name: FLOKI
+    threshold: 0.01
+    check_interval: 60
+    disabled: false
+    meme_mode: true
+    discovery_data:
+      potential_score: 0.584535179
+      risk_score: 0
+      pass_rate: 0.5
+      price_usd: 8.643e-05
+      volume_24h: 716351.79
+      liquidity: 0
+      market_cap: 355262493.0
+      price_change_24h: 1.29
+      dex_link: ''
+      discovered_at: '2025-10-03T13:34:37.101124'
+  cat:
+    symbol: CAT
+    name: Simons Cat
+    threshold: 0.01
+    check_interval: 60
+    disabled: false
+    meme_mode: true
+    discovery_data:
+      potential_score: 0.535095823
+      risk_score: 0
+      pass_rate: 0.5
+      price_usd: 7.748e-06
+      volume_24h: 256958.23
+      liquidity: 0
+      market_cap: 62750106.0
+      price_change_24h: 0.94
+      dex_link: ''
+      discovered_at: '2025-10-03T13:34:37.101132'
+  moon:
+    symbol: MOON
+    name: Moonflow
+    threshold: 0.01
+    check_interval: 60
+    disabled: false
+    meme_mode: true
+    discovery_data:
+      potential_score: 0.51942827
+      risk_score: 0
+      pass_rate: 0.5
+      price_usd: 0.0005258
+      volume_24h: 194282.7
+      liquidity: 0
+      market_cap: 5256678.0
+      price_change_24h: -6.63
+      dex_link: ''
+      discovered_at: '2025-10-03T13:34:37.101138'
+  doge:
+    symbol: DOGE
+    name: Dogecoin
+    threshold: 0.28292
+    check_interval: 60
+    disabled: false
+    meme_mode: true
+    discovery_data:
+      potential_score: 0.39923532700000003
+      risk_score: 0
+      pass_rate: 0.5
+      price_usd: 0.2572
+      volume_24h: 382264.07
+      liquidity: 0
+      market_cap: 38856254947.0
+      price_change_24h: -0.7
+      dex_link: ''
+      discovered_at: '2025-10-03T13:34:37.101143'
+api:
+  base_url: https://pro-api.coinmarketcap.com
+  timeout: 10
+data:
+  provider: ccxt
+  cache_dir: ./data_cache
+  timeframe: 4h
+  days: 365
+auto_trade:
+  enable: true
+  mode: paper
+decision:
+  confidence_thresholds:
+    suggestion: 0.5
+    auto: 0.8
+    auto_bear: 0.95
+price:
+  ttl_seconds: 15
+paper:
+  place_orders: true
+  exits_enable: true
+trade:
+  default_size_usd: 25.0
+  max_position_size_usd: 100.0
+liquidity:
+  spread_bps_default: 10
+risk:
+  stop_loss_pct: 0.045
+  take_profit_pct: 0.09
+  trailing_stop_pct: 0.04
+  atr:
+    period: 14
+    sl_mult: 1.5
+    tp_mult: 3.0
+    trail_mult: 2.0
+ui:
+  display_mode: standard
+  show_indicators: true
+  show_market_structure: false
+  show_mtf_confirmation: false
+  show_adaptive_baseline: false
+  show_oco_details: false
+  show_vol_gate_status: true
+  show_regime_filter: true
+  decision_display:
+    show_confidence: true
+    show_reasoning: true
+    show_strategy_details: false
+    max_reason_length: 100
+  table_display:
+    enabled: true
+    show_portfolio_summary: true
+    show_risk_summary: true
+    show_execution_status: true
+    compact_mode: false
+    show_pnl_details: true
+    table_format: standard
+  output:
+    log_level: info
+    show_timestamps: false
+    color_output: true
+    progress_bars: true
+  refresh:
+    status_table_interval: 60
+    decision_display_interval: 5
+    portfolio_summary_interval: 300
+  price_format:
+    thresholds:
+    - 1.0
+    - 0.1
+    - 0.01
+    precisions:
+    - 2
+    - 4
+    - 6
+    - 8
+indicators:
+  rsi_period: 14
+  ema_fast: 20
+  ema_slow: 50
+  atr_period: 14
+strategy:
+  default_strategy: mean_reversion
+  use_regime_filter: true
+  vol_gate:
+    min_atr_pct: 1.0
+    max_atr_pct: 10.0
+    min_reward_to_risk: 1.3
+    min_tp_edge_bps: 30
+  defaults:
+    mean_reversion:
+      rsi_period: 14
+      buy_threshold: 30
+      sell_threshold: 70
+      use_bollinger: false
+      bb_period: 20
+      bb_stddev: 2.0
+      require_confluence: true
+    momentum:
+      fast_ema_period: 12
+      slow_ema_period: 26
+      use_rsi: false
+      rsi_period: 14
+      rsi_max_buy: 70
+      rsi_min_sell: 30
+      use_macd: false
+      macd_fast: 12
+      macd_slow: 26
+      macd_signal: 9
+    breakout:
+      bb_period: 20
+      bb_stddev: 2.0
+      squeeze_window: 100
+      squeeze_pctile: 20.0
+      volume_window: 20
+      volume_mult: 1.5
+      confirm_closes: 1
+executor:
+  retry_count: 3
+  backoff_factor: 0.5
+execution:
+  max_open_positions: 5
+  per_coin_cooldown_seconds: 60
+  risk_budget_pct: 0.005
+  fee_bps: 10
+  tax_bps: 0
+providers:
+  sources:
+  - cmc
+  - coingecko
+  - ccxt
+  - websocket
+  agreement_max_diff_pct: 0.5
+  exchange: binance
+testing:
+  enabled: false
+  test_api_keys:
+    binance:
+      api_key: ''
+      secret: ''
+      testnet: true
+    coinbase:
+      api_key: ''
+      secret: ''
+      sandbox: true
+  security_tests:
+    test_withdrawal_enabled: false
+    test_no_ip_whitelist: false
+    test_full_access: false
+    test_secrets_storage: true
+    test_secrets_retrieval: true
+    test_secrets_rotation: false
+optimize:
+  folds: 3
+  use_price_as_threshold: true
+  disable_regime_filter: false
+  disable_vol_gate: false
+  skip_symbols:
+  - USDT
+  - USDC
+order_manager:
+  enabled: true
+  max_active_orders: 1000
+  order_timeout_minutes: 60
+  reconciliation:
+    enabled: true
+    interval_minutes: 5
+    auto_cancel_missing: false
+  routing:
+    enabled: true
+    preferred_exchanges:
+    - binance
+    - bybit
+    - coinbase
+    liquidity_threshold: 10000
+    max_slippage_bps: 50
+  twap:
+    min_slice_size_usd: 100
+    max_slices: 20
+    min_slice_interval_seconds: 30
+    max_slice_interval_seconds: 300
+    randomization_factor: 0.1
+  vwap:
+    participation_rate: 0.1
+    max_participation_rate: 0.2
+    min_slice_size_usd: 100
+    max_slice_size_usd: 10000
+    volume_lookback_hours: 24
+    slice_duration_minutes: 5
+    randomization_factor: 0.05
+  retry:
+    max_attempts: 3
+    base_delay_seconds: 1.0
+    max_delay_seconds: 30.0
+    backoff_multiplier: 2.0
+    jitter_range: 0.1
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    timeout_seconds: 60
+  risk:
+    max_order_size_usd: 10000
+    max_daily_orders: 100
+    position_size_limit_pct: 0.1
+robust_risk:
+  enabled: true
+  strict_mode: false
+  portfolio_limits:
+    max_exposure_per_coin_pct: 15.0
+    max_total_exposure_pct: 80.0
+    max_open_positions: 8
+    max_correlation_exposure_pct: 25.0
+  per_trade_limits:
+    max_loss_pct_equity: 2.0
+    max_position_size_pct: 10.0
+    min_risk_reward_ratio: 1.5
+  drawdown_limits:
+    daily_max_drawdown_pct: 5.0
+    weekly_max_drawdown_pct: 12.0
+    max_drawdown_pct: 20.0
+    kill_switch_drawdown_pct: 15.0
+  leverage_limits:
+    max_leverage: 3.0
+    margin_requirement_buffer: 1.2
+    max_margin_utilization_pct: 75.0
+  funding_rate_limits:
+    max_funding_rate_exposure: 0.01
+    funding_rate_cost_limit_daily: 0.005
+    perpetual_exposure_limit_pct: 50.0
+  monitoring:
+    risk_check_interval_seconds: 30
+    alert_thresholds:
+      exposure_warning_pct: 70.0
+      drawdown_warning_pct: 10.0
+      leverage_warning_pct: 80.0
+  correlation_matrix:
+    BTC:
+      ETH: 0.8
+      LTC: 0.7
+      BCH: 0.6
+    ETH:
+      BTC: 0.8
+      DOT: 0.5
+      LINK: 0.6
+    LTC:
+      BTC: 0.7
+      BCH: 0.8
+    BCH:
+      BTC: 0.6
+      LTC: 0.8
+    DOT:
+      ETH: 0.5
+      LINK: 0.4
+    LINK:
+      ETH: 0.6
+      DOT: 0.4
+security:
+  api_key_safety:
+    enabled: true
+    max_withdrawal_amount_usd: 1000.0
+    required_ip_whitelist: true
+    allowed_permission_levels:
+    - read_only
+    - trading_only
+    validation_interval_hours: 24
+    alert_on_withdrawal_enabled: true
+    alert_on_no_ip_whitelist: true
+    alert_on_full_access: true
+    exchange_settings:
+      binance:
+        require_subaccount: false
+        max_api_keys: 5
+      coinbase:
+        require_whitelist: true
+        max_api_keys: 3
+      kraken:
+        require_whitelist: true
+        max_api_keys: 2
+  withdrawal_controls:
+    enabled: true
+    max_daily_withdrawal_usd: 5000.0
+    require_manual_approval: true
+    whitelisted_addresses: []
+    blacklisted_addresses: []
+  monitoring:
+    log_all_api_calls: true
+    alert_on_permission_changes: true
+    alert_on_new_api_keys: true
+    security_report_interval_hours: 24
+secrets:
+  backend: local_encrypted
+  local_encrypted:
+    master_password_env: SECRETS_MASTER_PASSWORD
+    storage_path: ./secrets
+    encryption_algorithm: AES-256-GCM
+  vault:
+    url: ${VAULT_URL}
+    token: ${VAULT_TOKEN}
+    mount_point: secret
+    namespace: ''
+  aws_secrets_manager:
+    region: us-east-1
+    profile: default
+    prefix: crypto-tracker/
+  gcp_secret_manager:
+    project_id: ${GCP_PROJECT_ID}
+    credentials_path: ${GOOGLE_APPLICATION_CREDENTIALS}
+    prefix: crypto-tracker/
+  rotation:
+    enabled: true
+    interval_days: 30
+    auto_rotate: false
+    notify_before_days: 7
+  logging:
+    log_access: true
+    log_failed_access: true
+    retention_days: 90
+llm:
+  enabled: true
+  provider: openai
+  model: gpt-5-mini
+  base_url: ''
+  max_tokens: 4000
+  temperature: 0.1
+  timeout: 30
+  max_retries: 3
+  rate_limit_per_minute: 60
+  enable_caching: true
+  cache_ttl_seconds: 300
+  analysis:
+    default_mode: normal
+    crisis_thresholds:
+      government_crisis: 0.8
+      economic_crisis: 0.7
+      regulatory_crisis: 0.8
+      market_crisis: 0.9
+    analysis_interval_minutes: 15
+    crisis_check_interval_minutes: 5
+    integrate_with_decisions: true
+    fallback_to_technical: true
+  providers:
+    openai:
+      model_options:
+      - gpt-5
+      - gpt-5-mini
+      - gpt-4o-mini
+      - gpt-4o
+      - gpt-4-turbo
+      base_url: https://api.openai.com/v1
+    anthropic:
+      model_options:
+      - claude-3-5-sonnet-20241022
+      - claude-3-haiku-20240307
+      base_url: https://api.anthropic.com/v1
+    google:
+      model_options:
+      - gemini-pro
+      base_url: https://generativelanguage.googleapis.com/v1beta
+backtest:
+  initial_capital: 10000.0
+  commission: 0.001
+  slippage: 0.0005
+  start_date: '2023-01-01'
+  end_date: '2024-01-01'
+  strategy: rsi_ema
+  max_position_size: 0.1
+  stop_loss: 0.02
+  take_profit: 0.04
+enhanced_features:
+  social_media:
+    enabled: true
+    sources:
+    - twitter
+    - reddit
+    weight: 0.3
+    confidence_boost: 0.1
+  llm:
+    enabled: true
+    provider: openai
+    model: gpt-4
+    weight: 0.2
+meme_mode:
+  enabled: false
+  discovery:
+    auto_run: true
+    interval_hours: 2
+    max_coins: 20
+    min_potential_score: 0.3
+    update_existing_coins: true
+  trading:
+    default_threshold: 0.01
+    check_interval: 60
+    position_size_usd: 25.0
+    max_position_size_usd: 100.0
+    risk_multiplier: 1.5
+  insider_integration:
+    enabled: true
+    update_interval_minutes: 5
+    auto_add_new_coins: true
+    min_confidence_score: 0.7
+    max_new_coins_per_update: 5
+  config:
+    temp_config_dir: ./config/dynamic_configs
+    backup_original: true
+    cleanup_on_exit: true
+monitoring:
+  enabled: true
+  heartbeat_interval_seconds: 300
+  max_restarts: 10
+  performance_tracking: true
+  error_recovery: true
+performance_metrics:
+  enabled: true
+  track_trades_per_hour: true
+  track_portfolio_performance: true
+  track_system_health: true
+  export_metrics: true
+  metrics_export_interval_minutes: 60
+optimization:
+  enabled: false
+  optimization_interval_hours: 24
+  parameters_to_optimize:
+  - rsi_period
+  - ema_fast
+  - ema_slow
+  - sl_mult
+  - tp_mult
+  - risk_budget_pct
+  optimization_trials: 100
+  backtest_days: 30
+intelligence:
+  enabled: true
+  use_4_tier_system: true
+  fallback_to_llm: true
+  fallback_to_standard: true
+  timeout_seconds: 30
+  tier1_macro:
+    enabled: true
+    crisis_detector:
+      enabled: true
+      llm_analysis: true
+      confidence_threshold: 0.7
+      halt_trading_threshold: 0.8
+      cache_ttl_seconds: 300
+  tier2_market:
+    enabled: true
+    market_analyzer:
+      enabled: true
+      regime_classification: true
+      social_sentiment_weight: 0.3
+      onchain_weight: 0.2
+      technical_weight: 0.5
+      cache_ttl_seconds: 300
+      min_confidence_threshold: 0.2
+    social_media:
+      twitter:
+        enabled: true
+        api_key: ${TWITTER_API_KEY}
+        cache_ttl_seconds: 300
+        max_results: 100
+        rate_limit_pause_minutes: 15
+      reddit:
+        enabled: true
+        credentials:
+          client_id: ${REDDIT_CLIENT_ID}
+          client_secret: ${REDDIT_CLIENT_SECRET}
+          user_agent: CryptoBot/2.0
+        cache_ttl_seconds: 600
+        subreddits:
+        - cryptocurrency
+        - cryptomarkets
+        - bitcoin
+        - ethereum
+        max_results_per_sub: 25
+      twitter_weight: 0.6
+      reddit_weight: 0.4
+      use_llm_analysis: true
+      llm_weight: 0.7
+      llm_analysis:
+        temperature: 0.3
+        max_tokens: 800
+        cache_ttl_seconds: 300
+        trend_detection: true
+        sarcasm_detection: true
+        news_impact_assessment: true
+        context_analysis: true
+    onchain:
+      enabled: true
+      provider: free_apis
+      use_llm_analysis: true
+      cache_ttl_seconds: 300
+      free_apis:
+        etherscan: https://api.etherscan.io/v2/api
+        blockchair: https://api.blockchair.com
+        mempool_space: https://mempool.space/api
+      rate_limits:
+        etherscan: 5
+        blockchair: 30
+        mempool: 60
+    orderbook:
+      enabled: true
+      depth_levels: 20
+      cache_ttl_seconds: 60
+  tier3_tactical:
+    enabled: true
+    tactical_analyzer:
+      enabled: true
+      strategy_selection: true
+      ml_enhancement: true
+      fallback_strategies: true
+      cache_ttl_seconds: 300
+  tier4_execution:
+    enabled: true
+    execution_optimizer:
+      enabled: true
+      position_sizing: true
+      order_type_selection: true
+      slippage_prediction: true
+      execution_timing: true
+      cache_ttl_seconds: 60
+  llm:
+    enabled: true
+    provider: openai
+    model: gpt-4
+    max_tokens: 1000
+    temperature: 0.3
+    timeout_seconds: 30
+    retry_attempts: 3
+    cache_ttl_seconds: 300
+intelligence_monitoring:
+  enabled: true
+  real_time_tracking: true
+  alert_system: true
+  metrics_retention_days: 30
+  alert_thresholds:
+    error_rate: 0.1
+    decision_time: 5.0
+    confidence: 0.1
+performance:
+  enabled: true
+  connection_pooling: true
+  advanced_caching: true
+  rate_limiting: true
+  connection_pool:
+    enabled: true
+    max_connections: 100
+    max_connections_per_host: 30
+    keepalive_timeout: 30
+    enable_cleanup_closed: true
+    max_retries: 3
+    retry_delay: 1.0
+    retry_backoff_factor: 2.0
+    requests_per_second: 10
+    burst_size: 20
+  cache:
+    enabled: true
+    enable_l1: true
+    enable_l2: false
+    enable_l3: true
+    l1:
+      max_size: 1000
+      ttl_seconds: 300
+      cleanup_interval: 60
+    l3:
+      cache_dir: cache/advanced
+      max_size_mb: 100
+      ttl_seconds: 3600
+      cleanup_interval: 300
+      compression: true
+ml_training:
+  enabled: false
+  standalone: true
+  manual_execution_only: true
+reporting:
+  enabled: true
+  enhanced_reports: true
+  legacy_compatibility: true
+  csv_export: true
+  report_interval_hours: 24
+  export_directory: ./reports
+meme_coin_discovery:
+  enabled: true
+  meme_coin_filters:
+    min_liquidity_usd: 10000
+    min_volume_24h_usd: 100000
+    min_market_cap_usd: 100000
+    max_market_cap_usd: 1000000
+    min_price_change_24h_pct: 5.0
+    min_age_hours: 24
+    max_age_hours: 168
+    max_single_holder_pct: 3.5
+    meme_patterns:
+    - DOGE
+    - SHIB
+    - PEPE
+    - FLOKI
+    - BONK
+    - WIF
+    - MEME
+    - MOON
+    - DOGE
+    - CAT
+    - FROG
+    - INU
+    - WOJAK
+    - CHAD
+    preferred_dexs:
+    - uniswap
+    - pancakeswap
+    - raydium
+    - orca
+    - jupiter
+    - sushiswap
+    min_filter_pass_rate: 0.6
+    risk_thresholds:
+      high_risk_liquidity: 50000
+      high_risk_volume: 500000
+      high_volatility_threshold: 100
+      high_market_cap_threshold: 10000000
+  scanning:
+    latest_tokens_limit: 200
+    trending_tokens_limit: 100
+    scan_interval_minutes: 60
+    max_concurrent_requests: 5
+  output:
+    export_results: true
+    export_directory: ./reports
+    print_detailed_report: true
+    max_results_display: 20
+  integration:
+    add_to_watchlist: false
+    send_alerts: false
+    alert_threshold_potential: 0.7
+insider_discovery:
+  golden_ticket_filters:
+    search_terms:
+    - golden
+    - ticket
+    - boost
+    - premium
+    - vip
+    - exclusive
+    - early
+    - presale
+    - whitelist
+    - alpha
+    - beta
+    - moon
+    - pump
+    - rally
+    - surge
+    - rocket
+    - diamond
+    - trending
+    - hot
+    - new
+    min_volume_24h_usd: 100000
+    min_liquidity_usd: 50000
+    max_age_hours: 168
+  insider_criteria:
+    min_buy_amount_usd: 50
+    max_buy_amount_usd: 300
+    min_sell_amount_usd: 10000
+    min_profit_multiplier: 20
+    min_confidence_score: 0.7
+  tracking:
+    scan_interval_minutes: 0.5
+    max_wallets_per_batch: 25
+    alert_threshold_profit: 500
+    alert_cooldown_seconds: 60
+  database:
+    path: ./data/insiders.db
+    backup_interval_hours: 24
+  alerts:
+    enabled: true
+    methods:
+    - console
+    - log_file
+    min_profit_for_alert: 1000
+    min_confidence_for_alert: 0.8
+insider_tracking:
+  tracked_wallets:
+  - wallet_address: 0x0x7D498449...insider1
+    nickname: Insider 0x0x7D49...
+    confidence_score: 0.85
+    total_profits_usd: 24850.0
+    successful_trades: 1
+    avg_profit_multiplier: 166.67
+    added_by: discovery_script
+    added_at: '2025-10-03T12:10:59.853972'
+    is_active: true
+  - wallet_address: 0x0x28743c20...insider1
+    nickname: Insider 0x0x2874...
+    confidence_score: 0.85
+    total_profits_usd: 24850.0
+    successful_trades: 1
+    avg_profit_multiplier: 166.67
+    added_by: discovery_script
+    added_at: '2025-10-03T12:10:59.853985'
+    is_active: true
+  - wallet_address: 0x0x45787821...insider1
+    nickname: Insider 0x0x4578...
+    confidence_score: 0.85
+    total_profits_usd: 24850.0
+    successful_trades: 1
+    avg_profit_multiplier: 166.67
+    added_by: discovery_script
+    added_at: '2025-10-03T12:10:59.853988'
+    is_active: true
+  - wallet_address: 0x0x4f7eA8F6...insider1
+    nickname: Insider 0x0x4f7e...
+    confidence_score: 0.85
+    total_profits_usd: 24850.0
+    successful_trades: 1
+    avg_profit_multiplier: 166.67
+    added_by: discovery_script
+    added_at: '2025-10-03T12:10:59.853989'
+    is_active: true
+  - wallet_address: 0x0x82B0E1A2...insider1
+    nickname: Insider 0x0x82B0...
+    confidence_score: 0.85
+    total_profits_usd: 24850.0
+    successful_trades: 1
+    avg_profit_multiplier: 166.67
+    added_by: discovery_script
+    added_at: '2025-10-03T12:10:59.853991'
+    is_active: true
+  - wallet_address: 0x0x7D498449...insider2
+    nickname: Insider 0x0x7D49...
+    confidence_score: 0.78
+    total_profits_usd: 17800.0
+    successful_trades: 1
+    avg_profit_multiplier: 90.0
+    added_by: discovery_script
+    added_at: '2025-10-03T12:10:59.853993'
+    is_active: true
+  - wallet_address: 0x0x28743c20...insider2
+    nickname: Insider 0x0x2874...
+    confidence_score: 0.78
+    total_profits_usd: 17800.0
+    successful_trades: 1
+    avg_profit_multiplier: 90.0
+    added_by: discovery_script
+    added_at: '2025-10-03T12:10:59.853994'
+    is_active: true
+  - wallet_address: 0x0x45787821...insider2
+    nickname: Insider 0x0x4578...
+    confidence_score: 0.78
+    total_profits_usd: 17800.0
+    successful_trades: 1
+    avg_profit_multiplier: 90.0
+    added_by: discovery_script
+    added_at: '2025-10-03T12:10:59.853996'
+    is_active: true
+  - wallet_address: 0x0x4f7eA8F6...insider2
+    nickname: Insider 0x0x4f7e...
+    confidence_score: 0.78
+    total_profits_usd: 17800.0
+    successful_trades: 1
+    avg_profit_multiplier: 90.0
+    added_by: discovery_script
+    added_at: '2025-10-03T12:10:59.853997'
+    is_active: true
+  - wallet_address: 0x0x82B0E1A2...insider2
+    nickname: Insider 0x0x82B0...
+    confidence_score: 0.78
+    total_profits_usd: 17800.0
+    successful_trades: 1
+    avg_profit_multiplier: 90.0
+    added_by: discovery_script
+    added_at: '2025-10-03T12:10:59.853998'
+    is_active: true
+  settings:
+    scan_interval_minutes: 0.5
+    max_concurrent_requests: 15
+    alert_threshold_profit: 500
+    alert_cooldown_seconds: 60
+    auto_discovery_enabled: true
+    discovery_interval_hours: 2
+  manual_wallets:
+  - wallet_address: '0x1234567890abcdef1234567890abcdef12345678'
+    nickname: Test Insider
+    confidence_score: 0.9
+    total_profits_usd: 0
+    successful_trades: 0
+    avg_profit_multiplier: 0
+    added_by: manual
+    added_at: '2025-10-03T12:04:37.220596'
+    is_active: true
+meme_mode_active: true
+meme_mode_generated_at: '2025-10-03T13:34:37.101157'
+meme_mode_source: discovery_script

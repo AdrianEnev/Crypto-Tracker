@@ -1,0 +1,97 @@
+{
+  "scan_timestamp": "2025-10-03T11:55:21.327966",
+  "total_insiders_found": 10,
+  "insiders": [
+    {
+      "wallet_address": "0x0x7D498449...insider1",
+      "buy_amount_usd": 150.0,
+      "sell_amount_usd": 25000.0,
+      "profit_multiplier": 166.67,
+      "buy_timestamp": "2025-10-01 11:55:17.323097",
+      "sell_timestamp": "2025-10-03 09:55:17.323128",
+      "confidence_score": 0.85
+    },
+    {
+      "wallet_address": "0xGjqpHLGPUt...insider1",
+      "buy_amount_usd": 150.0,
+      "sell_amount_usd": 25000.0,
+      "profit_multiplier": 166.67,
+      "buy_timestamp": "2025-10-01 11:55:18.324163",
+      "sell_timestamp": "2025-10-03 09:55:18.324182",
+      "confidence_score": 0.85
+    },
+    {
+      "wallet_address": "0x0x352B1Cb4...insider1",
+      "buy_amount_usd": 150.0,
+      "sell_amount_usd": 25000.0,
+      "profit_multiplier": 166.67,
+      "buy_timestamp": "2025-10-01 11:55:19.324322",
+      "sell_timestamp": "2025-10-03 09:55:19.324335",
+      "confidence_score": 0.85
+    },
+    {
+      "wallet_address": "0x3SCCH4tsFo...insider1",
+      "buy_amount_usd": 150.0,
+      "sell_amount_usd": 25000.0,
+      "profit_multiplier": 166.67,
+      "buy_timestamp": "2025-10-01 11:55:20.325500",
+      "sell_timestamp": "2025-10-03 09:55:20.325516",
+      "confidence_score": 0.85
+    },
+    {
+      "wallet_address": "0xA694h4Ptv2...insider1",
+      "buy_amount_usd": 150.0,
+      "sell_amount_usd": 25000.0,
+      "profit_multiplier": 166.67,
+      "buy_timestamp": "2025-10-01 11:55:21.326701",
+      "sell_timestamp": "2025-10-03 09:55:21.326733",
+      "confidence_score": 0.85
+    },
+    {
+      "wallet_address": "0x0x7D498449...insider2",
+      "buy_amount_usd": 200.0,
+      "sell_amount_usd": 18000.0,
+      "profit_multiplier": 90.0,
+      "buy_timestamp": "2025-10-01 23:55:17.323134",
+      "sell_timestamp": "2025-10-03 10:55:17.323137",
+      "confidence_score": 0.78
+    },
+    {
+      "wallet_address": "0xGjqpHLGPUt...insider2",
+      "buy_amount_usd": 200.0,
+      "sell_amount_usd": 18000.0,
+      "profit_multiplier": 90.0,
+      "buy_timestamp": "2025-10-01 23:55:18.324188",
+      "sell_timestamp": "2025-10-03 10:55:18.324191",
+      "confidence_score": 0.78
+    },
+    {
+      "wallet_address": "0x0x352B1Cb4...insider2",
+      "buy_amount_usd": 200.0,
+      "sell_amount_usd": 18000.0,
+      "profit_multiplier": 90.0,
+      "buy_timestamp": "2025-10-01 23:55:19.324340",
+      "sell_timestamp": "2025-10-03 10:55:19.324342",
+      "confidence_score": 0.78
+    },
+    {
+      "wallet_address": "0x3SCCH4tsFo...insider2",
+      "buy_amount_usd": 200.0,
+      "sell_amount_usd": 18000.0,
+      "profit_multiplier": 90.0,
+      "buy_timestamp": "2025-10-01 23:55:20.325521",
+      "sell_timestamp": "2025-10-03 10:55:20.325523",
+      "confidence_score": 0.78
+    },
+    {
+      "wallet_address": "0xA694h4Ptv2...insider2",
+      "buy_amount_usd": 200.0,
+      "sell_amount_usd": 18000.0,
+      "profit_multiplier": 90.0,
+      "buy_timestamp": "2025-10-01 23:55:21.326738",
+      "sell_timestamp": "2025-10-03 10:55:21.326740",
+      "confidence_score": 0.78
+    }
+  ],
+  "database_path": "/Users/adrian/Desktop/Code/Trading/tracker/data/insiders.db"
+}

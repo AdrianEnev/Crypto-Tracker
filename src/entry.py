@@ -1,4 +1,6 @@
 import sys
+import argparse
+import asyncio
 from pathlib import Path
 
 import yaml
@@ -9,37 +11,127 @@ sys.path.insert(0, str(project_root))
 
 from src.config.validator import validate_config
 from src.tracker.core import CryptoTracker
+from src.meme_config_generator import MemeConfigGenerator
+from src.meme_dynamic_updater import MemeCoinDynamicUpdater
 
 
-def main():
-    # Get config path from command line arguments or use default
-    if len(sys.argv) > 1:
-        config_path = Path(sys.argv[1])
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Crypto Tracker - Advanced cryptocurrency monitoring and trading system",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python src/entry.py                           # Run with default config
+  python src/entry.py config/my_config.yaml     # Run with custom config
+  python src/entry.py --meme                    # Run meme mode (generates fresh config)
+  python src/entry.py --meme config/base.yaml   # Run meme mode using base config for settings
+        """
+    )
+    
+    parser.add_argument(
+        'config', 
+        nargs='?', 
+        default='config/config.yaml',
+        help='Path to configuration file (default: config/config.yaml)'
+    )
+    
+    parser.add_argument(
+        '--meme', 
+        action='store_true',
+        help='Enable meme coin mode - generates fresh config with discovered meme coins (ignores default tracked_coins)'
+    )
+    
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Enable verbose logging'
+    )
+    
+    return parser.parse_args()
+
+
+async def main():
+    """Main entry point for the crypto tracker."""
+    args = parse_arguments()
+    
+    # Determine config path
+    if args.config:
+        config_path = Path(args.config)
         if not config_path.is_absolute():
             config_path = project_root / config_path
     else:
-        # Default config path
         config_path = project_root / "config" / "config.yaml"
+    
+    # For meme mode, always use the base config to generate meme-specific config
+    base_config_path = config_path
 
-    # Load and validate configuration before starting the app
-    try:
-        with open(config_path, "r") as f:
-            cfg = yaml.safe_load(f) or {}
-        errors = validate_config(cfg)
-        if errors:
-            print("Configuration validation failed:")
-            for e in errors:
-                print(f"  - {e}")
+    # Handle meme mode
+    meme_updater = None
+    if args.meme:
+        print("🚀 Starting in MEME COIN MODE")
+        print("=" * 50)
+        
+        try:
+            # Always generate fresh meme-specific configuration (never use default config)
+            print("🔍 Generating fresh meme coin configuration...")
+            meme_generator = MemeConfigGenerator(str(base_config_path))
+            meme_config_path = await meme_generator.generate_meme_config()
+            
+            print(f"✅ Fresh meme configuration generated")
+            print(f"📁 Using meme-specific config: {meme_config_path}")
+            print("⚠️  Note: Using dynamically generated config, not default config")
+            
+            # Load and validate meme config
+            with open(meme_config_path, "r") as f:
+                cfg = yaml.safe_load(f) or {}
+            
+            errors = validate_config(cfg)
+            if errors:
+                print("Meme configuration validation failed:")
+                for e in errors:
+                    print(f"  - {e}")
+                sys.exit(1)
+            
+            # Start tracker with meme config (not the original config)
+            tracker = CryptoTracker(meme_config_path)
+            
+            # Initialize dynamic updater for meme mode (use base config for settings)
+            meme_updater = MemeCoinDynamicUpdater(str(base_config_path), tracker)
+            
+            # Extract current meme coin symbols for tracking
+            with open(meme_config_path, "r") as f:
+                meme_cfg = yaml.safe_load(f) or {}
+            current_coins = [coin.get('symbol', '') for coin in meme_cfg.get('tracked_coins', {}).values()]
+            meme_updater.update_current_coins(current_coins)
+            
+            print(f"🔄 Dynamic updater initialized for {len(current_coins)} meme coins")
+            
+        except Exception as ex:
+            print(f"❌ Error setting up meme mode: {ex}")
+            print("🔄 Falling back to regular mode...")
+            args.meme = False  # Disable meme mode for fallback
+    
+    if not args.meme:
+        # Regular mode - load and validate configuration
+        try:
+            with open(config_path, "r") as f:
+                cfg = yaml.safe_load(f) or {}
+            errors = validate_config(cfg)
+            if errors:
+                print("Configuration validation failed:")
+                for e in errors:
+                    print(f"  - {e}")
+                sys.exit(1)
+        except FileNotFoundError:
+            print(f"Config not found at {config_path}")
             sys.exit(1)
-    except FileNotFoundError:
-        print(f"Config not found at {config_path}")
-        sys.exit(1)
-    except Exception as ex:
-        print(f"Could not load/validate config: {ex}")
-        sys.exit(1)
+        except Exception as ex:
+            print(f"Could not load/validate config: {ex}")
+            sys.exit(1)
 
-    # Start tracker
-    tracker = CryptoTracker(str(config_path))
+        # Start tracker
+        tracker = CryptoTracker(str(config_path))
     # Bind helper modules (no direct edits to tracker.py required)
     try:
         from .modules.banner import render_banner
@@ -263,8 +355,52 @@ def main():
         schedule.every(5).minutes.do(_position_snapshot_job)
     except Exception:
         pass
-    tracker.run()
+    
+    # Start the tracker and dynamic updater concurrently
+    async def run_tracker_with_updater():
+        """Run tracker and updater concurrently."""
+        tasks = []
+        
+        # Start tracker in background
+        tracker_task = asyncio.create_task(asyncio.to_thread(tracker.run))
+        tasks.append(tracker_task)
+        
+        # Start dynamic updater if in meme mode
+        if meme_updater:
+            print("🔄 Starting meme coin dynamic updater...")
+            print("📊 Insider monitoring will run concurrently with tracker")
+            updater_task = asyncio.create_task(meme_updater.start_monitoring())
+            tasks.append(updater_task)
+        
+        # Show startup status
+        if meme_updater:
+            print("✅ Both tracker and insider monitoring are now running concurrently")
+        else:
+            print("✅ Tracker is now running")
+        
+        # Wait for any task to complete (usually tracker will run indefinitely)
+        try:
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            
+            # Cancel remaining tasks
+            for task in pending:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                    
+        except KeyboardInterrupt:
+            print("\n🛑 Shutdown signal received...")
+            # Cancel all tasks
+            for task in tasks:
+                task.cancel()
+            # Wait for tasks to complete cancellation
+            await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Run the concurrent tasks
+    await run_tracker_with_updater()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
