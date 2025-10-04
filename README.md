@@ -10,10 +10,23 @@ A sophisticated, enterprise-grade cryptocurrency trading platform that combines 
 - **Machine Learning Enhancement**: ML-powered parameter optimization, regime detection, and signal enhancement
 - **Portfolio Optimization**: Multi-asset allocation with volatility targeting and Kelly sizing
 
+### **4-Tier Intelligence System**
+- **Tier 1 (Macro/Crisis)**: LLM-powered crisis detection and political risk analysis
+- **Tier 2 (Market Intelligence)**: Social sentiment, orderbook analysis, and market regime detection
+- **Tier 3 (Tactical)**: ML-enhanced signal generation and strategy selection
+- **Tier 4 (Execution)**: Optimal position sizing and execution planning
+
+### **Social Media & Alternative Data**
+- **Multi-Platform Integration**: Twitter, Reddit, Google Trends, and news sentiment analysis
+- **Crypto Discovery Scanner**: AI-powered identification of trending cryptocurrencies
+- **Social Momentum Scoring**: Weighted combination of social signals and volume velocity
+- **Manipulation Detection**: Real-time detection of coordinated campaigns and bot activity
+
 ### **Advanced Execution & Risk Management**
 - **Smart Order Routing**: Multi-venue execution with latency optimization and liquidity aggregation
 - **Execution Algorithms**: TWAP/VWAP execution with market impact modeling
 - **Comprehensive Risk Controls**: 10-category risk assessment with real-time monitoring
+- **Automated Kill Switch**: Emergency trading halt with configurable trigger conditions
 - **Regulatory Compliance**: GDPR, CCPA, AI Act, and other framework compliance monitoring
 
 ### **Enterprise ML Infrastructure**
@@ -21,6 +34,18 @@ A sophisticated, enterprise-grade cryptocurrency trading platform that combines 
 - **Model Management**: Automated training, deployment, and monitoring with drift detection
 - **Hyperparameter Optimization**: Bayesian optimization with multi-objective Pareto optimization
 - **Production Deployment**: Auto-scaling model serving with load balancing and health monitoring
+
+### **Advanced Backtesting & Optimization**
+- **Walk-Forward Validation**: Time-series aware cross-validation with multiple folds
+- **Crisis Simulation**: Historical crisis period analysis and stress testing
+- **Parameter Optimization**: Grid search and Bayesian optimization with Optuna
+- **Monte Carlo Analysis**: Statistical significance testing and robustness validation
+
+### **Security & Secrets Management**
+- **Multi-Backend Support**: HashiCorp Vault, AWS Secrets Manager, GCP Secret Manager
+- **API Key Validation**: Automated safety checks and permission level verification
+- **Credential Rotation**: Automated API key rotation and security monitoring
+- **Security Scanning**: Bandit, Safety, and Semgrep integration for vulnerability detection
 
 ### **Observability & Governance**
 - **Real-time Dashboards**: Customizable widgets with live metrics and alerting
@@ -85,13 +110,24 @@ cd tracker
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
+# Install core dependencies
 pip install -r requirements.txt
+
+# Install intelligence system dependencies (optional)
+pip install -r requirements_intelligence.txt
+
+# Install social media dependencies (optional)
+pip install -r requirements_social_media.txt
 
 # Configure environment
 cp config/config.yaml.example config/config.yaml
 # Edit config/config.yaml with your settings
 ```
+
+### **Dependency Packages**
+- **`requirements.txt`** - Core trading system dependencies
+- **`requirements_intelligence.txt`** - 4-tier intelligence system dependencies
+- **`requirements_social_media.txt`** - Social media integration dependencies
 
 ### Basic Usage
 
@@ -119,33 +155,70 @@ python src/entry.py --strategy ml_enhanced --model-version 1.0.0
 python demos/demo_ml_monitoring.py
 ```
 
+### Utility Scripts & Tools
+
+```bash
+# AI-powered configuration generator
+python scripts/llm_config_generator.py
+
+# Crypto discovery scanner
+python scripts/crypto_discovery_scanner.py
+
+# Fast backtesting
+python scripts/fast_backtest.py
+
+# Security management
+python scripts/security_manager.py validate binance --api-key YOUR_KEY --secret YOUR_SECRET
+
+# Parameter optimization
+python src/backtest/optimizer_new.py --coin bitcoin --walk-forward
+```
+
 ## 📁 Project Structure
 
 ```
 tracker/
 ├── src/                    # Core application code
-│   ├── strategies/         # Trading strategies
+│   ├── intelligence/       # 4-tier intelligence system
+│   ├── llm/               # LLM integration and analysis
+│   ├── social_media/      # Social media data integration
+│   ├── strategies/        # Trading strategies
 │   ├── ml/                # Machine learning platform
 │   ├── risk/              # Risk management system
 │   ├── execution/         # Order execution engine
 │   ├── backtest/          # Backtesting framework
-│   └── portfolio/         # Portfolio management
+│   ├── portfolio/         # Portfolio management
+│   ├── security/          # Security and secrets management
+│   └── order_manager/     # Advanced order management
 ├── config/                # Configuration files
+│   ├── config.yaml        # Main configuration
+│   ├── intelligence_config.yaml  # Intelligence system config
+│   └── test/              # Test configurations
+├── scripts/               # Utility scripts and tools
+│   ├── llm_config_generator.py    # AI config generator
+│   ├── crypto_discovery_scanner.py # Discovery scanner
+│   ├── security_manager.py        # Security management
+│   └── fast_backtest.py           # Fast backtesting
 ├── docs/                  # Detailed documentation
 ├── demos/                 # Demonstration scripts
 ├── tests/                 # Test suite
-└── scripts/               # Utility scripts
+├── data_cache/            # Cached market data
+└── requirements*.txt      # Dependencies
 ```
 
 ## 📚 Documentation
 
 - **[Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)** - Complete feature overview
+- **[Social Media Integration](docs/SOCIAL_MEDIA_INTEGRATION.md)** - Social sentiment and alternative data
+- **[LLM Configuration Generator](docs/LLM_CONFIG_GENERATOR.md)** - AI-powered config optimization
+- **[Crypto Discovery Guide](docs/CRYPTO_DISCOVERY_GUIDE.md)** - Finding trending cryptocurrencies
+- **[ML Platform Overview](docs/ML_PLATFORM_OVERVIEW.md)** - Machine learning capabilities
 - **[Enhanced Backtesting](docs/ENHANCED_BACKTESTING.md)** - Advanced backtesting capabilities
 - **[Order Management](docs/ORDER_MANAGEMENT_README.md)** - Order execution system
 - **[Risk Management](docs/ROBUST_RISK_MANAGER.md)** - Risk controls and monitoring
 - **[Security Implementation](docs/SECURITY_IMPLEMENTATION.md)** - Security features
-- **[Display Modes](docs/DISPLAY_MODES.md)** - UI and reporting options
-- **[CI/CD Pipeline](docs/CI_CD_PIPELINE.md)** - Deployment and automation
+- **[Configuration Guide](docs/CONFIGURATION_GUIDE.md)** - System configuration
+- **[Testing Guide](docs/TESTING_GUIDE.md)** - Testing and validation
 
 ## 🧪 Testing & Validation
 
@@ -164,14 +237,62 @@ python scripts/performance_test.py
 python scripts/security_audit.py
 ```
 
+## 🛠️ Development Tools
+
+### Makefile Commands
+```bash
+# Setup and installation
+make install          # Install dependencies
+make install-dev      # Install development dependencies
+
+# Code quality
+make lint            # Run linting checks
+make format          # Format code with black and isort
+make type-check      # Run type checking with mypy
+make security        # Run security scans
+
+# Testing
+make test            # Run all tests with coverage
+make test-unit       # Run unit tests only
+make test-integration # Run integration tests
+make test-coverage   # Generate coverage report
+
+# Backtesting
+make backtest        # Run backtests
+make backtest-optimize # Run optimization backtests
+
+# Security management
+make security-validate # Validate API keys
+make security-list    # List stored secrets
+
+# Production readiness
+make prod-check      # Run production readiness checks
+make ci-local        # Run local CI/CD pipeline
+```
+
 ## 🔧 Configuration
 
 The system uses YAML configuration files in the `config/` directory:
 
-- **`config.yaml`** - Main configuration with trading parameters
-- **`config_detailed.yaml`** - Comprehensive parameter documentation
-- **`config_per_coin.yaml`** - Coin-specific strategy parameters
-- **`backtest_advanced.yaml`** - Advanced backtesting configuration
+### **Main Configuration Files**
+- **`config.yaml`** - Main production configuration with all features
+- **`config_testing.yaml`** - Enhanced testing configuration with paper trading
+- **`intelligence_config.yaml`** - 4-tier intelligence system configuration
+- **`llm_optimized_config.yaml`** - LLM-optimized trading parameters
+
+### **Feature-Specific Configurations**
+- **Social Media Integration** - Twitter, Reddit, and sentiment analysis settings
+- **LLM Configuration** - OpenAI, Anthropic, and other LLM provider settings
+- **Risk Management** - Portfolio limits, drawdown controls, and kill switch settings
+- **ML Platform** - Model training, deployment, and monitoring configurations
+
+### **Configuration Features**
+- ✅ **Social Media Integration** - Real-time sentiment analysis
+- ✅ **LLM Analysis** - AI-powered market analysis and decision enhancement
+- ✅ **24/7 Monitoring** - Heartbeat logging and error recovery
+- ✅ **Performance Metrics** - Real-time tracking and analytics
+- ✅ **Parameter Optimization** - Automated hyperparameter tuning
+- ✅ **Enhanced Reporting** - Advanced analytics and comprehensive reports
 
 ## 📈 Monitoring & Alerts
 
