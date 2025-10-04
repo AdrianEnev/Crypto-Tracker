@@ -49,6 +49,7 @@ All scripts use `config/config.yaml` for configuration:
 - **Meme Coin Discovery**: `meme_coin_discovery` section
 - **Insider Discovery**: `insider_discovery` section  
 - **Insider Tracking**: `insider_tracking` section
+- **Dynamic Configs**: Stored in `config/dynamic_configs/` directory
 
 ## 🚀 Quick Start
 
