@@ -1,0 +1,17 @@
+{
+  "session_id": "2025-10-05_session_017",
+  "date": "2025-10-05",
+  "session_number": 17,
+  "start_time": "2025-10-05T19:17:32.469796+00:00",
+  "end_time": "2025-10-05T19:19:24.100228+00:00",
+  "status": "completed",
+  "trades": [],
+  "metrics": {
+    "total_trades": 0,
+    "profitable_trades": 0,
+    "total_profit_loss_usd": 0.0,
+    "max_drawdown_usd": 0.0,
+    "max_balance_usd": 0.0
+  },
+  "duration_seconds": 111.630432
+}

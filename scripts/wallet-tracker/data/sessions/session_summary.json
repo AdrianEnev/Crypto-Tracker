@@ -1,0 +1,16 @@
+{
+  "total_sessions": 20,
+  "total_trades": 0,
+  "total_profit_loss_usd": 0.0,
+  "best_session": {
+    "session_id": "2025-10-05_session_001",
+    "date": "2025-10-05",
+    "profit_loss_usd": 0.0
+  },
+  "worst_session": {
+    "session_id": "2025-10-05_session_001",
+    "date": "2025-10-05",
+    "profit_loss_usd": 0.0
+  },
+  "last_updated": "2025-10-05T19:26:26.685050+00:00"
+}

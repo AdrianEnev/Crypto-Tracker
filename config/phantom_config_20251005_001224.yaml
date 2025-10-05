@@ -1,147 +1,3 @@
-tracked_coins:
-  bitcoin:
-    symbol: btc
-    name: Bitcoin
-    threshold: 120000.0
-    check_interval: 300
-  ethereum:
-    symbol: eth
-    name: Ethereum
-    threshold: 5000.0
-    check_interval: 300
-  tether:
-    symbol: usdt
-    name: Tether
-    threshold: 1.0
-    check_interval: 300
-  usd-coin:
-    symbol: usdc
-    name: USD Coin
-    threshold: 1.0
-    check_interval: 300
-  binance-coin:
-    symbol: bnb
-    name: Binance Coin
-    threshold: 500.0
-    check_interval: 300
-    coingecko_id: binancecoin
-  xrp:
-    symbol: xrp
-    name: XRP
-    threshold: 1.0
-    check_interval: 300
-    coingecko_id: ripple
-  solana:
-    symbol: sol
-    name: Solana
-    threshold: 500.0
-    check_interval: 300
-    strategy:
-      name: mean_reversion
-      params:
-        rsi_period: 14
-        buy_threshold: 30
-        sell_threshold: 70
-    risk:
-      atr:
-        period: 14
-        sl_mult: 1.5
-        tp_mult: 4.0
-    market: SOL/USDT
-  cardano:
-    symbol: ada
-    name: Cardano
-    threshold: 1.0
-    check_interval: 300
-  dogecoin:
-    symbol: doge
-    name: Dogecoin
-    threshold: 0.1
-    check_interval: 300
-  polkadot:
-    symbol: dot
-    name: Polkadot
-    threshold: 10.0
-    check_interval: 300
-    strategy:
-      name: mean_reversion
-      params:
-        rsi_period: 14
-        buy_threshold: 35
-        sell_threshold: 75
-    risk:
-      atr:
-        period: 14
-        sl_mult: 1.5
-        tp_mult: 2.0
-    market: DOT/USDT
-  tron:
-    symbol: trx
-    name: Tron
-    threshold: 0.1
-    check_interval: 300
-  avalanche:
-    symbol: avax
-    name: Avalanche
-    threshold: 50.0
-    check_interval: 300
-    coingecko_id: avalanche-2
-  shiba-inu:
-    symbol: shib
-    name: Shiba Inu
-    threshold: 0.001
-    check_interval: 300
-  litecoin:
-    symbol: ltc
-    name: Litecoin
-    threshold: 100.0
-    check_interval: 300
-  chainlink:
-    symbol: link
-    name: Chainlink
-    threshold: 20.0
-    check_interval: 300
-  bitcoin-cash:
-    symbol: bch
-    name: Bitcoin Cash
-    threshold: 500.0
-    check_interval: 300
-  uniswap:
-    symbol: uni
-    name: Uniswap
-    threshold: 5.0
-    check_interval: 300
-  aptos:
-    symbol: apt
-    name: Aptos
-    threshold: 1.0
-    check_interval: 300
-  sui:
-    symbol: sui
-    name: Sui
-    threshold: 1.0
-    check_interval: 300
-  near-protocol:
-    symbol: near
-    name: NEAR Protocol
-    threshold: 1.0
-    check_interval: 300
-    coingecko_id: near
-  cosmos:
-    symbol: atom
-    name: Cosmos
-    threshold: 1.0
-    check_interval: 300
-  stellar:
-    symbol: xlm
-    name: Stellar
-    threshold: 0.1
-    check_interval: 300
-  internet-computer:
-    symbol: icp
-    name: Internet Computer
-    threshold: 1.0
-    check_interval: 300
 api:
   base_url: https://pro-api.coinmarketcap.com
   timeout: 10
@@ -948,15 +804,214 @@ insider_tracking:
     added_by: manual
     added_at: '2025-10-03T12:04:37.220596'
     is_active: true
-
-# Phantom Memecoin Monitor Configuration
 phantom_monitor:
-  check_interval: 30  # seconds between checks
-  alert_threshold: 1  # minimum number of changes to trigger alert
-  max_history: 100    # maximum change history entries to keep
+  check_interval: 30
+  alert_threshold: 1
+  max_history: 100
   enable_notifications: true
   log_changes: true
-  user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+  user_agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML,
+    like Gecko) Chrome/120.0.0.0 Safari/537.36
   timeout: 30
   retry_attempts: 3
   retry_delay: 5
+phantom_mode:
+  enabled: true
+  max_lifecycle_hours: 20
+  check_interval: 10
+  volatile_strategy: true
+  no_historical_data: true
+  aggressive_entry: true
+  fast_exit: true
+  position_sizing: dynamic
+  risk_multiplier: 2.0
+  generated_at: '2025-10-05T00:12:24.567725'
+  source: phantom_trending
+tracked_coins:
+  explore-the-ecosystem:
+    symbol: Explore the ecosystem
+    name: Explore the ecosystem
+    threshold: 0.001
+    check_interval: 10
+    phantom_mode: true
+    discovered_at: '2025-10-05T00:12:24.567766'
+    trending_rank: 1
+    initial_price: null
+    initial_change: null
+    strategy:
+      name: volatile_memecoin
+      params:
+        volatility_threshold: 0.05
+        momentum_window: 5
+        entry_aggression: 0.8
+        exit_speed: 0.9
+        max_position_size: 0.1
+        stop_loss_pct: 0.3
+        take_profit_pct: 2.0
+        trailing_stop: true
+        trailing_distance: 0.15
+    risk:
+      max_position_pct: 0.05
+      max_daily_loss_pct: 0.1
+      volatility_multiplier: 2.0
+      liquidity_check: true
+      min_liquidity: 1000
+    market: Explore the ecosystem/SOL
+    exchange: raydium
+    chain: solana
+    historical_analysis: false
+    backtest_period: 0
+    technical_indicators:
+      enabled: false
+      rsi: false
+      macd: false
+      bollinger_bands: false
+    volatility_indicators:
+      enabled: true
+      price_velocity: true
+      volume_spike: true
+      momentum_shift: true
+      trending_strength: true
+    execution:
+      priority_fee: high
+      slippage_tolerance: 0.05
+      max_gas_price: 0.001
+      retry_attempts: 3
+      timeout_seconds: 30
+    notifications:
+      entry: true
+      exit: true
+      stop_loss: true
+      take_profit: true
+      trending_change: true
+      volume_spike: true
+    disabled: false
+    added_by: phantom_generator
+    added_at: '2025-10-05T00:12:24.567814'
+  search:
+    symbol: Search
+    name: Search
+    threshold: 0.001
+    check_interval: 10
+    phantom_mode: true
+    discovered_at: '2025-10-05T00:12:24.567822'
+    trending_rank: 2
+    initial_price: null
+    initial_change: null
+    strategy:
+      name: volatile_memecoin
+      params:
+        volatility_threshold: 0.05
+        momentum_window: 5
+        entry_aggression: 0.8
+        exit_speed: 0.9
+        max_position_size: 0.1
+        stop_loss_pct: 0.3
+        take_profit_pct: 2.0
+        trailing_stop: true
+        trailing_distance: 0.15
+    risk:
+      max_position_pct: 0.05
+      max_daily_loss_pct: 0.1
+      volatility_multiplier: 2.0
+      liquidity_check: true
+      min_liquidity: 1000
+    market: Search/SOL
+    exchange: raydium
+    chain: solana
+    historical_analysis: false
+    backtest_period: 0
+    technical_indicators:
+      enabled: false
+      rsi: false
+      macd: false
+      bollinger_bands: false
+    volatility_indicators:
+      enabled: true
+      price_velocity: true
+      volume_spike: true
+      momentum_shift: true
+      trending_strength: true
+    execution:
+      priority_fee: high
+      slippage_tolerance: 0.05
+      max_gas_price: 0.001
+      retry_attempts: 3
+      timeout_seconds: 30
+    notifications:
+      entry: true
+      exit: true
+      stop_loss: true
+      take_profit: true
+      trending_change: true
+      volume_spike: true
+    disabled: false
+    added_by: phantom_generator
+    added_at: '2025-10-05T00:12:24.567824'
+  clear:
+    symbol: Clear
+    name: Clear
+    threshold: 0.001
+    check_interval: 10
+    phantom_mode: true
+    discovered_at: '2025-10-05T00:12:24.567834'
+    trending_rank: 3
+    initial_price: null
+    initial_change: null
+    strategy:
+      name: volatile_memecoin
+      params:
+        volatility_threshold: 0.05
+        momentum_window: 5
+        entry_aggression: 0.8
+        exit_speed: 0.9
+        max_position_size: 0.1
+        stop_loss_pct: 0.3
+        take_profit_pct: 2.0
+        trailing_stop: true
+        trailing_distance: 0.15
+    risk:
+      max_position_pct: 0.05
+      max_daily_loss_pct: 0.1
+      volatility_multiplier: 2.0
+      liquidity_check: true
+      min_liquidity: 1000
+    market: Clear/SOL
+    exchange: raydium
+    chain: solana
+    historical_analysis: false
+    backtest_period: 0
+    technical_indicators:
+      enabled: false
+      rsi: false
+      macd: false
+      bollinger_bands: false
+    volatility_indicators:
+      enabled: true
+      price_velocity: true
+      volume_spike: true
+      momentum_shift: true
+      trending_strength: true
+    execution:
+      priority_fee: high
+      slippage_tolerance: 0.05
+      max_gas_price: 0.001
+      retry_attempts: 3
+      timeout_seconds: 30
+    notifications:
+      entry: true
+      exit: true
+      stop_loss: true
+      take_profit: true
+      trending_change: true
+      volume_spike: true
+    disabled: false
+    added_by: phantom_generator
+    added_at: '2025-10-05T00:12:24.567836'
+global_settings:
+  phantom_mode: true
+  max_concurrent_positions: 5
+  portfolio_allocation: 0.2
+  daily_loss_limit: 0.15
+  position_size_base: 0.05
+  volatility_scaling: true

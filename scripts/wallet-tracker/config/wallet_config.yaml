@@ -1,0 +1,186 @@
+# Wallet Tracker Configuration
+# Configuration for tracking the famous trader's Solana wallet
+
+# API Keys are now loaded from environment variables (.env file)
+# HELIUS_API_KEY and QUICKNODE_API_KEY are loaded from the main tracker .env file
+
+wallet_tracking:
+  # Target wallet and trader name are now loaded from environment variables
+  # TARGET_WALLET_ADDRESS and TRADER_NAME in the main tracker .env file
+  confidence_score: 0.9
+  
+  paper_trading:
+    enabled: false  # Disable paper trading to enable Phantom integration
+    initial_balance_usd: 1000  # Starting portfolio balance
+    execution_delay_ms: 3000  # 3 second simulation delay
+    position_size_pct: 0.1  # 10% of max_position_size_usd per trade
+    alerts_enabled: true  # Show buy/sell alerts
+    
+  copy_trading:
+    enabled: false  # Start with monitoring only
+    max_position_size_usd: 1000 # Determines what part of the wallet's position size to copy
+    buy_percentage_pct: 0.1  # 10% of tracked wallet's position size to buy
+    delay_ms: 2000  # 2 second delay
+    risk_management:
+      max_drawdown_pct: 0.05
+      stop_loss_pct: 0.1
+      take_profit_pct: 0.5
+      
+  session_tracking:
+    enabled: true
+    save_directory: "sessions"  # Relative to wallet-tracker directory
+    daily_summary: true  # Show today's P&L on shutdown
+    graceful_shutdown: true  # Handle Ctrl+C properly
+  
+  monitoring:
+    enabled: true
+    check_interval_ms: 100  # 100ms polling for fast detection
+    websocket_enabled: true
+    max_concurrent_requests: 10
+    
+  alerts:
+    enabled: true
+    min_trade_size_usd: 100
+    min_profit_potential_usd: 500
+    alert_methods: ["console", "discord", "webhook"]
+    
+  copy_trading:
+    enabled: false  # Start with monitoring only
+    max_position_size_usd: 1000
+    delay_ms: 2000  # 2 second delay to avoid front-running
+    risk_management:
+      max_drawdown_pct: 0.05
+      stop_loss_pct: 0.1
+      take_profit_pct: 0.5
+
+# RPC Endpoints (priority order)
+rpc_endpoints:
+  primary:
+    url: "https://api.mainnet-beta.solana.com"
+    priority: 1
+    websocket: false
+    description: "Public Solana RPC"
+  
+  # Add premium endpoints here when available
+  # helius:
+  #   url: "https://mainnet.helius-rpc.com/?api-key=YOUR_KEY"
+  #   priority: 1
+  #   websocket: true
+  #   description: "Helius Premium RPC"
+  
+  # alchemy:
+  #   url: "https://solana-mainnet.g.alchemy.com/v2/YOUR_KEY"
+  #   priority: 2
+  #   websocket: true
+  #   description: "Alchemy Premium RPC"
+
+# DEX Program IDs
+dex_programs:
+  raydium:
+    program_id: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
+    enabled: true
+    description: "Raydium DEX"
+  
+  jupiter:
+    program_id: "JUP4Fb2cqiRUcaTHdrPC8h2gNsA2ETXiPDD33WcGuJB"
+    enabled: true
+    description: "Jupiter Aggregator"
+  
+  orca:
+    program_id: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+    enabled: true
+    description: "Orca DEX"
+  
+  serum:
+    program_id: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin"
+    enabled: true
+    description: "Serum DEX"
+
+# Known Token Addresses
+known_tokens:
+  SOL:
+    mint: "So11111111111111111111111111111111111111112"
+    symbol: "SOL"
+    name: "Solana"
+    decimals: 9
+  
+  USDC:
+    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    symbol: "USDC"
+    name: "USD Coin"
+    decimals: 6
+  
+  USDT:
+    mint: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+    symbol: "USDT"
+    name: "Tether USD"
+    decimals: 6
+
+# Performance Settings
+performance:
+  max_detection_latency_ms: 1000  # Target: sub-second detection
+  max_concurrent_transactions: 50
+  batch_size: 10
+  cache_ttl_seconds: 300
+
+# Risk Management
+risk_management:
+  max_position_size_usd: 1000
+  max_daily_trades: 100
+  stop_loss_pct: 0.1
+  take_profit_pct: 0.5
+  max_drawdown_pct: 0.05
+  
+  # Copy trading limits
+  copy_trading:
+    enabled: false
+    max_copy_amount_usd: 500
+    min_confidence_score: 0.8
+    delay_seconds: 2
+    max_slippage_pct: 0.05
+
+# Alert Settings
+alerts:
+  console:
+    enabled: true
+    show_detailed_info: true
+  
+  discord:
+    enabled: false
+    webhook_url: "YOUR_DISCORD_WEBHOOK_URL"
+    mention_role: "@everyone"
+  
+  webhook:
+    enabled: false
+    url: "YOUR_WEBHOOK_URL"
+    timeout_seconds: 10
+  
+  email:
+    enabled: false
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    username: "your_email@gmail.com"
+    password: "your_app_password"
+    to_addresses: ["alert@example.com"]
+
+# Database Settings
+database:
+  path: "./data/wallet_trades.db"
+  backup_interval_hours: 24
+  max_backups: 7
+  vacuum_interval_hours: 168  # Weekly
+
+# Logging Settings
+logging:
+  level: "INFO"
+  file_path: "./logs/wallet_tracker.log"
+  max_file_size_mb: 100
+  backup_count: 5
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Development Settings
+development:
+  simulate_trades: true  # For testing without real transactions
+  demo_mode: true
+  verbose_logging: true
+  performance_monitoring: true

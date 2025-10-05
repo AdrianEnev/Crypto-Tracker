@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phantom Wallet Integration</title>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .transaction-card {
+            background: #fff;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .transaction-card.active {
+            display: block;
+            border-color: #007bff;
+        }
+        
+        .trade-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .trade-info h3 {
+            margin: 0 0 10px 0;
+            color: #007bff;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #6c757d;
+        }
+        
+        .info-value {
+            color: #333;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .wallet-info {
+            background: #e7f3ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            border: 1px solid #b3d9ff;
+        }
+        
+        .wallet-address {
+            font-family: monospace;
+            font-size: 14px;
+            word-break: break-all;
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Phantom Wallet Integration</h1>
+            <p>Real-time copy trading with secure wallet signing</p>
+        </div>
+        
+        <div class="content">
+            <!-- Wallet Status -->
+            <div class="status-card" id="wallet-status">
+                <h3>🔗 Wallet Connection</h3>
+                <div id="connection-status">Ready to connect</div>
+                <div class="wallet-info" id="wallet-info" style="display: none;">
+                    <strong>Connected Wallet:</strong>
+                    <div class="wallet-address" id="wallet-address"></div>
+                </div>
+                <div class="button-group" id="wallet-buttons">
+                    <button class="btn btn-primary" id="connect-button" onclick="connectPhantom()">
+                        🔗 Connect Phantom Wallet
+                    </button>
+                    <button class="btn btn-danger" id="disconnect-button" onclick="disconnectPhantom()" style="display: none;">
+                        ❌ Disconnect
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Transaction Card -->
+            <div class="transaction-card" id="transaction-card">
+                <h3>📊 New Trade Detected</h3>
+                <div class="trade-info">
+                    <div class="info-row">
+                        <span class="info-label">Trade Type:</span>
+                        <span class="info-value" id="trade-type"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Token:</span>
+                        <span class="info-value" id="token-symbol"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Amount:</span>
+                        <span class="info-value" id="amount-usd"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Price per Token:</span>
+                        <span class="info-value" id="price-per-token"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Transaction ID:</span>
+                        <span class="info-value" id="tx-id"></span>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn btn-primary" id="sign-button" onclick="signTransaction()">
+                        ✅ Sign Transaction
+                    </button>
+                    <button class="btn btn-danger" id="reject-button" onclick="rejectTransaction()">
+                        ❌ Reject
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Loading State -->
+            <div class="loading" id="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Processing transaction...</p>
+            </div>
+            
+            <!-- Status Messages -->
+            <div id="status-messages"></div>
+            
+            <!-- Debug Section -->
+            <div class="status-card" id="debug-section">
+                <h3>🔧 Debug Information</h3>
+                <div id="debug-info">
+                    <p><strong>WebSocket Status:</strong> <span id="ws-status">Not connected</span></p>
+                    <p><strong>Phantom Status:</strong> <span id="phantom-status">Not detected</span></p>
+                    <p><strong>Last Error:</strong> <span id="last-error">None</span></p>
+                </div>
+                <button class="btn btn-primary" onclick="runDiagnostics()" style="margin-top: 10px;">
+                    🔍 Run Diagnostics
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let phantom = null;
+        let walletConnected = false;
+        let currentTransaction = null;
+        let websocket = null;
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            connectWebSocket();
+            updateWalletStatus('ready');
+        });
+        
+        // Manual Phantom wallet connection
+        async function connectPhantom() {
+            try {
+                updateWalletStatus('connecting');
+                document.getElementById('connect-button').disabled = true;
+                document.getElementById('connect-button').textContent = '🔄 Connecting...';
+                
+                // Check if Phantom is installed
+                if (window.phantom && window.phantom.solana && window.phantom.solana.isPhantom) {
+                    phantom = window.phantom.solana;
+                    
+                    // Try to connect
+                    const response = await phantom.connect();
+                    
+                    if (response.publicKey) {
+                        walletConnected = true;
+                        walletAddress = response.publicKey.toString();
+                        updateWalletStatus('connected', walletAddress);
+                        showMessage('success', '✅ Successfully connected to Phantom wallet!');
+                        
+                        // Update button states
+                        document.getElementById('connect-button').style.display = 'none';
+                        document.getElementById('disconnect-button').style.display = 'block';
+                        
+                        // Notify backend of connection
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({
+                                type: 'phantom_connected',
+                                wallet_address: walletAddress
+                            }));
+                            console.log('✅ Notified backend of Phantom connection');
+                        }
+                        
+                    } else {
+                        throw new Error('Connection failed - no public key returned');
+                    }
+                } else {
+                    updateWalletStatus('not-installed');
+                    showMessage('error', '❌ Phantom wallet not detected. Please install Phantom wallet extension.');
+                }
+            } catch (error) {
+                console.error('Phantom connection error:', error);
+                updateWalletStatus('error', error.message);
+                showMessage('error', `❌ Failed to connect to Phantom: ${error.message}`);
+                
+                // Reset button
+                document.getElementById('connect-button').disabled = false;
+                document.getElementById('connect-button').textContent = '🔗 Connect Phantom Wallet';
+            }
+        }
+        
+        // Disconnect Phantom wallet
+        async function disconnectPhantom() {
+            try {
+                if (phantom && walletConnected) {
+                    await phantom.disconnect();
+                    walletConnected = false;
+                    phantom = null;
+                    walletAddress = null;
+                    
+                    updateWalletStatus('ready');
+                    showMessage('success', '✅ Disconnected from Phantom wallet');
+                    
+                    // Notify backend of disconnection
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: 'phantom_disconnected'
+                        }));
+                        console.log('✅ Notified backend of Phantom disconnection');
+                    }
+                    
+                    // Update button states
+                    document.getElementById('connect-button').style.display = 'block';
+                    document.getElementById('disconnect-button').style.display = 'none';
+                    document.getElementById('connect-button').disabled = false;
+                    document.getElementById('connect-button').textContent = '🔗 Connect Phantom Wallet';
+                }
+            } catch (error) {
+                console.error('Disconnect error:', error);
+                showMessage('error', `❌ Failed to disconnect: ${error.message}`);
+            }
+        }
+        
+        // Update wallet status display
+        function updateWalletStatus(status, address = null) {
+            const statusDiv = document.getElementById('connection-status');
+            const walletInfo = document.getElementById('wallet-info');
+            const walletAddress = document.getElementById('wallet-address');
+            
+            switch (status) {
+                case 'ready':
+                    statusDiv.textContent = '🔗 Ready to connect to Phantom wallet';
+                    walletInfo.style.display = 'none';
+                    break;
+                case 'connecting':
+                    statusDiv.textContent = '🔄 Connecting to Phantom wallet...';
+                    walletInfo.style.display = 'none';
+                    break;
+                case 'connected':
+                    statusDiv.textContent = '✅ Connected to Phantom wallet';
+                    walletInfo.style.display = 'block';
+                    walletAddress.textContent = address;
+                    break;
+                case 'not-installed':
+                    statusDiv.textContent = '❌ Phantom wallet not installed';
+                    walletInfo.style.display = 'none';
+                    break;
+                case 'error':
+                    statusDiv.textContent = `❌ Connection error: ${address}`;
+                    walletInfo.style.display = 'none';
+                    break;
+                default:
+                    statusDiv.textContent = '🔗 Ready to connect to Phantom wallet';
+                    walletInfo.style.display = 'none';
+            }
+        }
+        
+        // Connect to WebSocket server
+        function connectWebSocket() {
+            try {
+                console.log('Attempting to connect to WebSocket at ws://localhost:5001');
+                websocket = new WebSocket('ws://localhost:5001');
+                
+                websocket.onopen = function() {
+                    console.log('✅ WebSocket connected to wallet tracker');
+                    showMessage('success', '🔗 Connected to wallet tracker');
+                    updateDebugStatus('ws-status', 'Connected');
+                };
+                
+                websocket.onmessage = function(event) {
+                    try {
+                        console.log('📨 WebSocket message received:', event.data);
+                        const data = JSON.parse(event.data);
+                        handleWebSocketMessage(data);
+                    } catch (error) {
+                        console.error('❌ WebSocket message parsing error:', error);
+                        showMessage('error', '❌ Invalid message from wallet tracker');
+                    }
+                };
+                
+                websocket.onclose = function(event) {
+                    console.log('🔌 WebSocket disconnected:', event.code, event.reason);
+                    showMessage('error', `❌ Disconnected from wallet tracker (${event.code})`);
+                    updateDebugStatus('ws-status', `Disconnected (${event.code})`);
+                    
+                    // Try to reconnect after 5 seconds
+                    setTimeout(() => {
+                        console.log('🔄 Attempting to reconnect WebSocket...');
+                        connectWebSocket();
+                    }, 5000);
+                };
+                
+                websocket.onerror = function(error) {
+                    console.error('❌ WebSocket error:', error);
+                    showMessage('error', '❌ WebSocket connection error - is the wallet tracker running?');
+                    updateDebugStatus('ws-status', 'Error');
+                    updateDebugStatus('last-error', 'WebSocket connection failed');
+                };
+                
+            } catch (error) {
+                console.error('❌ Failed to create WebSocket:', error);
+                showMessage('error', '❌ Failed to connect to wallet tracker');
+            }
+        }
+        
+        // Handle WebSocket messages
+        function handleWebSocketMessage(data) {
+            console.log('Received message:', data);
+            
+            switch (data.type) {
+                case 'sign_transaction':
+                    showTransaction(data);
+                    break;
+                case 'transaction_broadcast':
+                    handleBroadcastResult(data);
+                    break;
+                case 'transaction_rejected':
+                    handleRejectionAcknowledgment(data);
+                    break;
+                default:
+                    console.log('Unknown message type:', data.type);
+            }
+        }
+        
+        // Show transaction for signing
+        function showTransaction(data) {
+            currentTransaction = data;
+            
+            // Update UI with transaction details
+            document.getElementById('trade-type').textContent = data.trade_info.trade_type.toUpperCase();
+            document.getElementById('token-symbol').textContent = data.trade_info.token_symbol;
+            document.getElementById('amount-usd').textContent = `$${data.trade_info.amount_usd.toFixed(2)}`;
+            document.getElementById('price-per-token').textContent = `$${data.trade_info.price_per_token.toFixed(8)}`;
+            document.getElementById('tx-id').textContent = data.tx_id;
+            
+            // Show transaction card
+            document.getElementById('transaction-card').classList.add('active');
+            
+            showMessage('success', `📊 New ${data.trade_info.trade_type} trade detected for ${data.trade_info.token_symbol}`);
+        }
+        
+        // Sign transaction with Phantom
+        async function signTransaction() {
+            if (!walletConnected || !currentTransaction) {
+                showMessage('error', '❌ Wallet not connected or no transaction available');
+                return;
+            }
+            
+            try {
+                showLoading(true);
+                
+                // For now, simulate signing since we don't have actual Solana transaction
+                // In production, this would be:
+                // const transaction = Transaction.from(Buffer.from(currentTransaction.transaction, 'base64'));
+                // const signedTransaction = await phantom.signTransaction(transaction);
+                
+                // Simulate signing delay
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Send signed transaction back
+                const response = {
+                    type: 'transaction_signed',
+                    tx_id: currentTransaction.tx_id,
+                    signed_transaction: 'simulated_signed_transaction_base64'
+                };
+                
+                websocket.send(JSON.stringify(response));
+                
+                showMessage('success', '✅ Transaction signed successfully!');
+                
+            } catch (error) {
+                console.error('Signing error:', error);
+                showMessage('error', `❌ Failed to sign transaction: ${error.message}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        // Reject transaction
+        function rejectTransaction() {
+            if (!currentTransaction) {
+                showMessage('error', '❌ No transaction to reject');
+                return;
+            }
+            
+            const response = {
+                type: 'transaction_rejected',
+                tx_id: currentTransaction.tx_id
+            };
+            
+            websocket.send(JSON.stringify(response));
+            
+            showMessage('error', '❌ Transaction rejected');
+            hideTransaction();
+        }
+        
+        // Handle broadcast result
+        function handleBroadcastResult(data) {
+            if (data.status === 'success') {
+                showMessage('success', `✅ Transaction broadcasted successfully! Signature: ${data.signature}`);
+            } else {
+                showMessage('error', '❌ Failed to broadcast transaction');
+            }
+            
+            hideTransaction();
+        }
+        
+        // Handle rejection acknowledgment
+        function handleRejectionAcknowledgment(data) {
+            showMessage('error', '❌ Transaction rejection acknowledged');
+            hideTransaction();
+        }
+        
+        // Hide transaction card
+        function hideTransaction() {
+            document.getElementById('transaction-card').classList.remove('active');
+            currentTransaction = null;
+        }
+        
+        // Show/hide loading state
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            document.getElementById('sign-button').disabled = show;
+            document.getElementById('reject-button').disabled = show;
+        }
+        
+        // Show status messages
+        function showMessage(type, message) {
+            const messagesDiv = document.getElementById('status-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type;
+            messageDiv.textContent = message;
+            
+            messagesDiv.appendChild(messageDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 5000);
+        }
+        
+        // Debug functions
+        function updateDebugStatus(elementId, status) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = status;
+            }
+        }
+        
+        function runDiagnostics() {
+            console.log('🔍 Running diagnostics...');
+            
+            // Check Phantom
+            if (window.phantom && window.phantom.solana) {
+                updateDebugStatus('phantom-status', 'Detected');
+                console.log('✅ Phantom wallet detected');
+            } else {
+                updateDebugStatus('phantom-status', 'Not detected');
+                console.log('❌ Phantom wallet not detected');
+            }
+            
+            // Check WebSocket
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                updateDebugStatus('ws-status', 'Connected');
+                console.log('✅ WebSocket connected');
+            } else if (websocket) {
+                updateDebugStatus('ws-status', `State: ${websocket.readyState}`);
+                console.log('⚠️ WebSocket state:', websocket.readyState);
+            } else {
+                updateDebugStatus('ws-status', 'Not initialized');
+                console.log('❌ WebSocket not initialized');
+            }
+            
+            // Test WebSocket connection
+            console.log('🔄 Testing WebSocket connection...');
+            try {
+                const testWs = new WebSocket('ws://localhost:5001');
+                testWs.onopen = function() {
+                    console.log('✅ WebSocket test connection successful');
+                    updateDebugStatus('last-error', 'WebSocket test: OK');
+                    testWs.close();
+                };
+                testWs.onerror = function(error) {
+                    console.log('❌ WebSocket test connection failed');
+                    updateDebugStatus('last-error', 'WebSocket test: Failed');
+                };
+            } catch (error) {
+                console.log('❌ WebSocket test error:', error);
+                updateDebugStatus('last-error', `WebSocket test error: ${error.message}`);
+            }
+        }
+        
+        // Handle page unload
+        window.addEventListener('beforeunload', function() {
+            if (websocket) {
+                websocket.close();
+            }
+        });
+    </script>
+</body>
+</html>
