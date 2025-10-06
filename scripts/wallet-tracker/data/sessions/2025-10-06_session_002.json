@@ -1,0 +1,16 @@
+{
+  "session_id": "2025-10-06_session_002",
+  "date": "2025-10-06",
+  "session_number": 2,
+  "start_time": "2025-10-06T14:16:45.241411+00:00",
+  "end_time": null,
+  "status": "active",
+  "trades": [],
+  "metrics": {
+    "total_trades": 0,
+    "profitable_trades": 0,
+    "total_profit_loss_usd": 0.0,
+    "max_drawdown_usd": 0.0,
+    "max_balance_usd": 0.0
+  }
+}

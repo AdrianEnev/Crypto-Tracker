@@ -1123,10 +1123,76 @@ class RealWalletTracker:
                 self.logger.info("✅ Flask server stopped")
             
             # Give servers time to fully shutdown
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1.0)
+            
+            # Force cleanup of any remaining processes
+            await self._force_cleanup_ports()
             
         except Exception as e:
             self.logger.error(f"Failed to stop Phantom servers: {e}")
+    
+    async def _force_cleanup_ports(self):
+        """Force cleanup of ports if they're still bound"""
+        try:
+            import subprocess
+            import socket
+            
+            def is_port_in_use(port):
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                result = sock.connect_ex(('localhost', port))
+                sock.close()
+                return result == 0
+            
+            # Check if ports are still in use
+            phantom_port = int(os.getenv('PHANTOM_FRONTEND_PORT', '5002'))
+            websocket_port = int(os.getenv('PHANTOM_WEBSOCKET_PORT', '5001'))
+            
+            ports_to_cleanup = []
+            if is_port_in_use(phantom_port):
+                ports_to_cleanup.append(phantom_port)
+            if is_port_in_use(websocket_port):
+                ports_to_cleanup.append(websocket_port)
+            
+            if ports_to_cleanup:
+                self.logger.warning(f"Ports still in use: {ports_to_cleanup}")
+                self.logger.info("Attempting to cleanup ports...")
+                
+                # Try to kill processes using these ports
+                for port in ports_to_cleanup:
+                    try:
+                        result = subprocess.run(
+                            ['lsof', '-ti', f':{port}'], 
+                            capture_output=True, 
+                            text=True, 
+                            timeout=5
+                        )
+                        if result.stdout.strip():
+                            pids = result.stdout.strip().split('\n')
+                            for pid in pids:
+                                if pid.strip():
+                                    subprocess.run(['kill', '-9', pid.strip()], timeout=5)
+                                    self.logger.info(f"Killed process {pid} using port {port}")
+                    except Exception as e:
+                        self.logger.warning(f"Could not cleanup port {port}: {e}")
+                
+                # Wait a moment for cleanup
+                await asyncio.sleep(0.5)
+                
+                # Verify cleanup
+                still_in_use = []
+                for port in ports_to_cleanup:
+                    if is_port_in_use(port):
+                        still_in_use.append(port)
+                
+                if still_in_use:
+                    self.logger.warning(f"Ports still in use after cleanup: {still_in_use}")
+                else:
+                    self.logger.info("✅ Port cleanup successful")
+            else:
+                self.logger.info("✅ All ports cleaned up successfully")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to cleanup ports: {e}")
 
 
 async def main():

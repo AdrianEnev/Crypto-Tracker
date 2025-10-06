@@ -512,14 +512,21 @@ class PhantomServer:
     async def stop_server(self):
         """Stop the Phantom server"""
         try:
-            if self.server_task:
+            if self.server_task and not self.server_task.done():
+                self.logger.info("Stopping WebSocket server...")
                 self.server_task.cancel()
                 try:
-                    await self.server_task
+                    await asyncio.wait_for(self.server_task, timeout=2.0)
                 except asyncio.CancelledError:
-                    pass
+                    self.logger.info("WebSocket server cancelled")
+                except asyncio.TimeoutError:
+                    self.logger.warning("WebSocket server did not stop within timeout")
+                except Exception as e:
+                    self.logger.error(f"Error stopping WebSocket server: {e}")
             
-            self.logger.info("Phantom server stopped")
+            # Clear the server task
+            self.server_task = None
+            self.logger.info("✅ Phantom server stopped")
             
         except Exception as e:
             self.logger.error(f"Failed to stop Phantom server: {e}")
