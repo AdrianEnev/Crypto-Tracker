@@ -1,0 +1,213 @@
+# Trading Automation Configuration
+# Configure automated trading strategies with risk management
+
+# Global Trading Settings
+trading:
+  enabled: true                    # Master switch - set to true to enable trading
+  paper_trading: true               # If true, simulates trades without real execution
+  
+  # Trading mode
+  mode: strategy                    # strategy, manual, hybrid
+  
+  # Order execution preferences
+  execution:
+    default_order_type: limit       # limit, market
+    limit_order_offset_pct: 0.1     # Place limit orders 0.1% from current price
+    timeout_seconds: 300            # Cancel unfilled limit orders after 5 minutes
+    retry_failed_orders: true
+    max_retries: 3
+  
+  # Trailing stop configuration
+  trailing_stop:
+    enabled: true
+    trail_percent: 2.0              # Trail 2% below peak for longs, above for shorts
+    activate_after_profit_pct: 1.0  # Only activate after 1% profit
+  
+  # Position management
+  partial_exits:
+    enabled: true
+    take_profit_levels:
+      - percent: 1.5                # Take 30% profit at 1.5% gain
+        size_pct: 30.0
+      - percent: 3.0                # Take another 30% at 3% gain
+        size_pct: 30.0
+      # Remaining 40% rides with trailing stop
+
+# Risk Management
+risk:
+  max_position_size_usd: 200.0      # Maximum USD value per position
+  max_loss_per_trade_pct: 2.0       # Risk max 2% of account per trade
+  max_open_positions: 5             # Maximum concurrent positions
+  max_daily_loss_usd: 50.0          # Stop trading if daily loss exceeds this
+  max_weekly_loss_usd: 150.0        # Stop trading if weekly loss exceeds this
+  
+  # Position sizing
+  position_sizing:
+    method: risk_based               # risk_based, fixed_usd, fixed_percent
+    risk_per_trade_usd: 20.0        # For risk_based: USD to risk per trade
+    fixed_position_size_usd: 100.0  # For fixed_usd
+    account_percent: 10.0            # For fixed_percent
+
+# Paper Trading Settings
+paper_trading:
+  balances:
+    USDT: 1000.0                    # Starting balance
+    USDC: 0.0
+    ASTER: 0.0
+    BTC: 0.0
+    ETH: 0.0
+  
+  fees:
+    maker_fee_pct: 0.1              # 0.1% maker fee
+    taker_fee_pct: 0.1              # 0.1% taker fee
+  
+  slippage:
+    enabled: true
+    market_order_slippage_pct: 0.2  # 0.2% slippage for market orders
+    limit_order_fill_rate: 0.8      # 80% of limit orders get filled
+
+# Trading Strategies
+strategies:
+  # Strategy 1: Breakout Trading
+  - id: aster_breakout
+    name: "ASTER Breakout Strategy"
+    enabled: false
+    
+    trigger:
+      type: price_breakout
+      symbol: ASTERUSDC               # Using USDC as requested
+      breakout_price: 1.50            # Enter when price breaks above this
+      confirmation_candles: 2          # Wait for 2 candles above breakout
+    
+    entry:
+      side: BUY
+      order_type: limit
+      limit_offset_pct: 0.1           # Place limit 0.1% below current price
+      position_size_method: risk_based
+      max_position_usd: 200.0
+    
+    exit:
+      stop_loss_pct: 2.0              # Stop loss 2% below entry
+      take_profit_pct: 5.0            # Take profit at 5% gain
+      trailing_stop: true
+      trailing_stop_pct: 1.5
+      
+      # Time-based exit
+      max_hold_time_hours: 72         # Exit after 72 hours regardless
+  
+  # Strategy 2: DCA (Dollar Cost Averaging)
+  - id: btc_dca
+    name: "Bitcoin DCA Strategy"
+    enabled: false
+    
+    trigger:
+      type: time_based
+      interval_hours: 24              # Buy every 24 hours
+      # or use: type: price_dip, dip_percent: 3.0
+    
+    entry:
+      side: BUY
+      symbol: BTCUSDC
+      order_type: limit
+      fixed_usd_amount: 50.0          # Buy $50 worth each time
+    
+    exit:
+      # DCA typically holds long-term
+      take_profit_pct: 20.0           # Only exit at 20% profit
+      stop_loss_pct: 10.0             # Or 10% loss
+  
+  # Strategy 3: Grid Trading
+  - id: aster_grid
+    name: "ASTER Grid Trading"
+    enabled: false
+    
+    trigger:
+      type: grid
+      symbol: ASTERUSDC
+      grid_levels: 10                 # Number of buy/sell levels
+      price_range_low: 1.30           # Lower bound
+      price_range_high: 1.70          # Upper bound
+      grid_spacing_pct: 2.0           # 2% between levels
+    
+    entry:
+      order_type: limit
+      position_size_per_grid: 20.0    # $20 per grid level
+    
+    exit:
+      take_profit_per_grid_pct: 2.0   # Take profit 2% above buy level
+      no_stop_loss: true              # Grid trading typically doesn't use SL
+  
+  # Strategy 4: Manual Trigger with Automation
+  - id: aster_manual
+    name: "ASTER Manual Entry + Auto Exit"
+    enabled: true
+    
+    trigger:
+      type: alert                     # Triggered by price alert
+      symbol: ASTERUSDC
+      alert_id: alert_001             # Links to alert in alert_config.yaml
+    
+    entry:
+      side: BUY
+      order_type: limit
+      limit_offset_pct: 0.1
+      position_size_usd: 150.0
+    
+    exit:
+      stop_loss_pct: 3.0              # Auto stop-loss 3% below entry
+      take_profit_pct: 7.0            # Auto take-profit at 7% gain
+      trailing_stop: true
+      trailing_stop_pct: 2.0
+      
+      # Partial exits
+      partial_exits:
+        - profit_pct: 3.0             # At 3% profit, sell 40%
+          position_pct: 40.0
+        - profit_pct: 5.0             # At 5% profit, sell another 30%
+          position_pct: 30.0
+        # Remaining 30% trails with stop
+
+# Alert-Based Trading Rules
+alert_trading:
+  # When a price alert triggers, optionally execute a trade
+  rules:
+    - alert_id: alert_001             # ASTER >= 1.50
+      action: BUY
+      strategy_id: aster_manual       # Use this strategy
+      
+    - alert_id: alert_002             # BTC <= 90000
+      action: BUY
+      strategy_id: btc_dca
+
+# Safety Checks
+safety:
+  require_confirmation: false         # If true, requires user confirmation before trades
+  max_slippage_pct: 1.0              # Cancel if slippage exceeds this
+  min_liquidity_usd: 100000          # Only trade pairs with >$100k liquidity
+  
+  # Circuit breaker
+  circuit_breaker:
+    enabled: true
+    trigger_loss_pct: 5.0            # Stop all trading if portfolio drops 5%
+    cooldown_minutes: 60             # Wait 60 min before resuming
+  
+  # Blacklist times (don't trade during these hours)
+  blacklist_hours:
+    enabled: false
+    hours: [0, 1, 2, 3, 4, 5]        # Don't trade 12 AM - 6 AM UTC
+
+# Notifications
+notifications:
+  trade_executed: true               # Notify on every trade
+  position_opened: true
+  position_closed: true
+  stop_loss_hit: true
+  take_profit_hit: true
+  risk_limit_reached: true
+
+# Logging
+logging:
+  log_all_trades: true
+  log_positions: true
+  log_pnl: true
+  markdown_updates: true

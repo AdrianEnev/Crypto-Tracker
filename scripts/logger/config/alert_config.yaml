@@ -1,0 +1,34 @@
+global:
+  check_interval_seconds: 30.5
+  alert_cooldown_minutes: 3
+  max_retries: 3
+  retry_backoff_seconds: 5
+  email_recipient: enevadrian@gmail.com
+
+exchange:
+  name: binance
+  enable_rate_limit: true
+  max_requests_per_minute: 60
+
+# Trading configuration
+trading:
+  enabled: false                    # Set to true to enable automated trading
+  paper_trading: true               # IMPORTANT: Start with paper trading!
+
+alerts:
+  - id: alert_001
+    name: ASTER Price Target
+    cryptocurrency: ASTER
+    symbol: ASTER/USDC              # Using USDC as requested
+    condition: '>='
+    target_price: 1.5
+    enabled: true
+    auto_increment: true
+    increment_amount: 0.05
+
+logging:
+  console_level: warning
+  file_level: info
+  log_api_calls: false
+  markdown_updates: true
+  heartbeat_interval_minutes: 5

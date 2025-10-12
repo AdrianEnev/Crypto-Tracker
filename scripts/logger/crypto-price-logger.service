@@ -1,0 +1,38 @@
+[Unit]
+Description=Crypto Price Logger - 24/7 Cryptocurrency Price Monitoring
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=adrian
+Group=adrian
+WorkingDirectory=/Users/adrian/Desktop/Code/Trading/tracker/scripts/logger
+Environment="PATH=/Users/adrian/Desktop/Code/Trading/tracker/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/Users/adrian/Desktop/Code/Trading/tracker/.env
+ExecStart=/Users/adrian/Desktop/Code/Trading/tracker/.venv/bin/python3 /Users/adrian/Desktop/Code/Trading/tracker/scripts/logger/crypto_price_logger.py --config config/alert_config.yaml
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=200
+StartLimitBurst=5
+
+# Resource limits
+MemoryLimit=256M
+CPUQuota=10%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=crypto-price-logger
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/Users/adrian/Desktop/Code/Trading/tracker/scripts/logger/markdown_logs
+
+[Install]
+WantedBy=multi-user.target
