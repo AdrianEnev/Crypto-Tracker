@@ -969,6 +969,9 @@ class CryptoTracker:
             enhanced_features = config_data.get("enhanced_features", {})
             social_enabled = enhanced_features.get("social_media", {}).get("enabled", False)
             
+            # Check if we're in Phantom mode
+            phantom_mode = config_data.get("phantom_mode", {}).get("enabled", False)
+            
             # Check if LLM should be re-enabled
             self._check_llm_reenable()
             
@@ -1024,8 +1027,55 @@ class CryptoTracker:
                     log_event("coin_data_preparation_error", {"coin": coin_id, "error": str(e)})
                     continue
             
-            # Make decisions using batched approach when possible
-            if (len(enabled_coins) > 1 and llm_available and 
+            # Make decisions using Phantom strategy if in Phantom mode
+            if phantom_mode:
+                try:
+                    # Use Phantom volatile strategy for all coins
+                    for coin_id, coin_data in coins_data.items():
+                        try:
+                            current_price = coin_data['current_price']
+                            symbol = coin_data['symbol']
+                            
+                            # Get Phantom strategy for this coin
+                            coin_config = config_data.get("tracked_coins", {}).get(coin_id, {})
+                            strategy_config = coin_config.get("strategy", {}).get("params", {})
+                            
+                            # Import Phantom strategy
+                            from src.phantom_volatile_strategy import PhantomTradingEngine
+                            
+                            # Create engine for this coin
+                            phantom_engine = PhantomTradingEngine({
+                                'strategy': {'params': strategy_config},
+                                'risk': coin_config.get('risk', {})
+                            })
+                            
+                            # Process price update and get decision
+                            result = phantom_engine.process_price_update_sync(symbol, current_price)
+                            
+                            # Convert Phantom result to standard decision format
+                            from src.decision import Decision
+                            decision = Decision(
+                                signal=result.get('reason', 'phantom_signal'),
+                                confidence=result.get('confidence', 0.0),
+                                action_recommended=result.get('action', 'Hold').upper(),
+                                reason=f"Phantom: {result.get('reason', 'volatile_analysis')}"
+                            )
+                            
+                            decisions[coin_id] = decision
+                            
+                        except Exception as e:
+                            log_event("phantom_decision_error", {"coin": coin_id, "error": str(e)})
+                            # Fallback to standard decision
+                            decisions[coin_id] = make_decision(self, coin_id)
+                            
+                except Exception as e:
+                    log_event("phantom_mode_error", {"error": str(e)})
+                    # Fallback to standard decision making
+                    for coin_id, coin_data in coins_data.items():
+                        decisions[coin_id] = make_decision(self, coin_id)
+            
+            # Make decisions using batched approach when possible (non-Phantom mode)
+            elif (len(enabled_coins) > 1 and llm_available and 
                 not self.rate_limited_manager.should_halt_trading()):
                 try:
                     # Use batched enhanced decisions

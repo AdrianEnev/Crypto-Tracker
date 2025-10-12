@@ -43,6 +43,12 @@ Examples:
     )
     
     parser.add_argument(
+        '--phantom', 
+        action='store_true',
+        help='Enable Phantom wallet mode - trades top 3 trending memecoins from Phantom with volatile-based strategy'
+    )
+    
+    parser.add_argument(
         '--verbose', '-v',
         action='store_true',
         help='Enable verbose logging'
@@ -54,6 +60,12 @@ Examples:
 async def main():
     """Main entry point for the crypto tracker."""
     args = parse_arguments()
+    
+    # Validate that only one mode is selected
+    if args.meme and args.phantom:
+        print("❌ Error: Cannot use both --meme and --phantom modes simultaneously")
+        print("Please choose either --meme OR --phantom")
+        sys.exit(1)
     
     # Determine config path
     if args.config:
@@ -112,7 +124,61 @@ async def main():
             print("🔄 Falling back to regular mode...")
             args.meme = False  # Disable meme mode for fallback
     
-    if not args.meme:
+    # Handle Phantom mode
+    phantom_updater = None
+    if args.phantom:
+        print("🔥 Starting in PHANTOM WALLET MODE")
+        print("=" * 50)
+        print("⚡ Ultra-fast volatile trading for trending memecoins")
+        print("🎯 Target: Top 3 trending memecoins with dynamic expansion")
+        print("⏱️  Lifecycle: Maximum 20 hours per memecoin")
+        
+        try:
+            # Import Phantom-specific modules
+            from src.phantom_config_generator import PhantomConfigGenerator
+            from src.phantom_dynamic_updater import PhantomMemecoinDynamicUpdater
+            
+            # Generate Phantom-specific configuration
+            print("🔍 Generating Phantom memecoin configuration...")
+            phantom_generator = PhantomConfigGenerator(str(base_config_path))
+            phantom_config_path = await phantom_generator.generate_phantom_config()
+            
+            print(f"✅ Phantom configuration generated")
+            print(f"📁 Using Phantom-specific config: {phantom_config_path}")
+            print("⚡ Configured for ultra-fast volatile trading")
+            
+            # Load and validate Phantom config
+            with open(phantom_config_path, "r") as f:
+                cfg = yaml.safe_load(f) or {}
+            
+            errors = validate_config(cfg)
+            if errors:
+                print("Phantom configuration validation failed:")
+                for e in errors:
+                    print(f"  - {e}")
+                sys.exit(1)
+            
+            # Start tracker with Phantom config
+            tracker = CryptoTracker(phantom_config_path)
+            
+            # Initialize Phantom dynamic updater
+            phantom_updater = PhantomMemecoinDynamicUpdater(str(base_config_path), tracker)
+            
+            # Extract current memecoin symbols for tracking
+            with open(phantom_config_path, "r") as f:
+                phantom_cfg = yaml.safe_load(f) or {}
+            current_coins = [coin.get('symbol', '') for coin in phantom_cfg.get('tracked_coins', {}).values()]
+            phantom_updater.update_current_coins(current_coins)
+            
+            print(f"🔄 Phantom dynamic updater initialized for {len(current_coins)} memecoins")
+            print("⚡ High-frequency monitoring enabled (every 10-30 seconds)")
+            
+        except Exception as ex:
+            print(f"❌ Error setting up Phantom mode: {ex}")
+            print("🔄 Falling back to regular mode...")
+            args.phantom = False  # Disable Phantom mode for fallback
+    
+    if not args.meme and not args.phantom:
         # Regular mode - load and validate configuration
         try:
             with open(config_path, "r") as f:
@@ -372,9 +438,18 @@ async def main():
             updater_task = asyncio.create_task(meme_updater.start_monitoring())
             tasks.append(updater_task)
         
+        # Start Phantom updater if in Phantom mode
+        if phantom_updater:
+            print("🔥 Starting Phantom memecoin dynamic updater...")
+            print("⚡ High-frequency trending monitoring will run concurrently with tracker")
+            phantom_task = asyncio.create_task(phantom_updater.start_monitoring())
+            tasks.append(phantom_task)
+        
         # Show startup status
         if meme_updater:
             print("✅ Both tracker and insider monitoring are now running concurrently")
+        elif phantom_updater:
+            print("✅ Both tracker and Phantom memecoin monitoring are now running concurrently")
         else:
             print("✅ Tracker is now running")
         

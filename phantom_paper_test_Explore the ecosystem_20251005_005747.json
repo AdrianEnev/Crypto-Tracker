@@ -1,0 +1,222 @@
+{
+  "price_updates": [
+    {
+      "timestamp": "2025-10-05 00:27:43.637468",
+      "price": 0.001,
+      "action": "wait",
+      "reason": "insufficient_data",
+      "confidence": 0.0
+    },
+    {
+      "timestamp": "2025-10-05 00:28:19.670160",
+      "price": 0.001,
+      "action": "wait",
+      "reason": "insufficient_data",
+      "confidence": 0.0
+    },
+    {
+      "timestamp": "2025-10-05 00:28:55.769323",
+      "price": 0.001,
+      "action": "wait",
+      "reason": "insufficient_data",
+      "confidence": 0.0
+    },
+    {
+      "timestamp": "2025-10-05 00:29:31.919800",
+      "price": 0.001,
+      "action": "wait",
+      "reason": "insufficient_data",
+      "confidence": 0.0
+    },
+    {
+      "timestamp": "2025-10-05 00:30:07.953619",
+      "price": 0.001,
+      "action": "wait",
+      "reason": "insufficient_data",
+      "confidence": 0.0
+    },
+    {
+      "timestamp": "2025-10-05 00:30:43.856282",
+      "price": 0.001,
+      "action": "wait",
+      "reason": "insufficient_data",
+      "confidence": 0.0
+    },
+    {
+      "timestamp": "2025-10-05 00:31:19.883915",
+      "price": 0.001,
+      "action": "wait",
+      "reason": "insufficient_data",
+      "confidence": 0.0
+    },
+    {
+      "timestamp": "2025-10-05 00:31:58.093229",
+      "price": 0.001,
+      "action": "wait",
+      "reason": "insufficient_data",
+      "confidence": 0.0
+    },
+    {
+      "timestamp": "2025-10-05 00:32:40.949365",
+      "price": 0.001,
+      "action": "wait",
+      "reason": "insufficient_data",
+      "confidence": 0.0
+    },
+    {
+      "timestamp": "2025-10-05 00:33:17.016392",
+      "price": 0.001,
+      "action": "enter",
+      "reason": "phantom_micro_entry: volume_confirmation",
+      "confidence": 0.6400000000000001
+    },
+    {
+      "timestamp": "2025-10-05 00:33:53.110076",
+      "price": 0.001,
+      "action": "exit",
+      "reason": "phantom_exit: volatility_drop",
+      "confidence": 0.7200000000000001
+    },
+    {
+      "timestamp": "2025-10-05 00:34:29.327393",
+      "price": 0.001,
+      "action": "enter",
+      "reason": "phantom_micro_entry: volume_confirmation",
+      "confidence": 0.6400000000000001
+    },
+    {
+      "timestamp": "2025-10-05 00:35:05.429923",
+      "price": 0.001,
+      "action": "exit",
+      "reason": "phantom_exit: volatility_drop",
+      "confidence": 0.7200000000000001
+    },
+    {
+      "timestamp": "2025-10-05 00:35:41.539648",
+      "price": 0.001,
+      "action": "enter",
+      "reason": "phantom_micro_entry: volume_confirmation",
+      "confidence": 0.6400000000000001
+    },
+    {
+      "timestamp": "2025-10-05 00:36:17.854111",
+      "price": 0.001,
+      "action": "exit",
+      "reason": "phantom_exit: volatility_drop",
+      "confidence": 0.7200000000000001
+    },
+    {
+      "timestamp": "2025-10-05 00:36:54.191711",
+      "price": 0.001,
+      "action": "enter",
+      "reason": "phantom_micro_entry: volume_confirmation",
+      "confidence": 0.6400000000000001
+    },
+    {
+      "timestamp": "2025-10-05 00:37:30.230312",
+      "price": 0.001,
+      "action": "exit",
+      "reason": "phantom_exit: volatility_drop",
+      "confidence": 0.7200000000000001
+    }
+  ],
+  "trade_history": [
+    {
+      "timestamp": "2025-10-05 00:33:17.016403",
+      "action": "BUY",
+      "memecoin": "Explore the ecosystem",
+      "price": 0.001,
+      "amount_sol": 0.1,
+      "amount_memecoin": 100.0,
+      "balance_sol": 0.9,
+      "balance_memecoin": 100.0
+    },
+    {
+      "timestamp": "2025-10-05 00:33:53.110136",
+      "action": "SELL",
+      "memecoin": "Explore the ecosystem",
+      "price": 0.001,
+      "amount_sol": 0.1,
+      "amount_memecoin": 0.0,
+      "pnl_sol": 0.0,
+      "pnl_pct": 0.0,
+      "balance_sol": 1.0,
+      "balance_memecoin": 0
+    },
+    {
+      "timestamp": "2025-10-05 00:34:29.327430",
+      "action": "BUY",
+      "memecoin": "Explore the ecosystem",
+      "price": 0.001,
+      "amount_sol": 0.1,
+      "amount_memecoin": 100.0,
+      "balance_sol": 0.9,
+      "balance_memecoin": 100.0
+    },
+    {
+      "timestamp": "2025-10-05 00:35:05.429938",
+      "action": "SELL",
+      "memecoin": "Explore the ecosystem",
+      "price": 0.001,
+      "amount_sol": 0.1,
+      "amount_memecoin": 0.0,
+      "pnl_sol": 0.0,
+      "pnl_pct": 0.0,
+      "balance_sol": 1.0,
+      "balance_memecoin": 0
+    },
+    {
+      "timestamp": "2025-10-05 00:35:41.539664",
+      "action": "BUY",
+      "memecoin": "Explore the ecosystem",
+      "price": 0.001,
+      "amount_sol": 0.1,
+      "amount_memecoin": 100.0,
+      "balance_sol": 0.9,
+      "balance_memecoin": 100.0
+    },
+    {
+      "timestamp": "2025-10-05 00:36:17.854128",
+      "action": "SELL",
+      "memecoin": "Explore the ecosystem",
+      "price": 0.001,
+      "amount_sol": 0.1,
+      "amount_memecoin": 0.0,
+      "pnl_sol": 0.0,
+      "pnl_pct": 0.0,
+      "balance_sol": 1.0,
+      "balance_memecoin": 0
+    },
+    {
+      "timestamp": "2025-10-05 00:36:54.191722",
+      "action": "BUY",
+      "memecoin": "Explore the ecosystem",
+      "price": 0.001,
+      "amount_sol": 0.1,
+      "amount_memecoin": 100.0,
+      "balance_sol": 0.9,
+      "balance_memecoin": 100.0
+    },
+    {
+      "timestamp": "2025-10-05 00:37:30.230327",
+      "action": "SELL",
+      "memecoin": "Explore the ecosystem",
+      "price": 0.001,
+      "amount_sol": 0.1,
+      "amount_memecoin": 0.0,
+      "pnl_sol": 0.0,
+      "pnl_pct": 0.0,
+      "balance_sol": 1.0,
+      "balance_memecoin": 0
+    }
+  ],
+  "performance_metrics": {
+    "total_trades": 4,
+    "winning_trades": 0,
+    "losing_trades": 4,
+    "total_pnl_sol": 0.0,
+    "max_drawdown": 0.0,
+    "peak_equity": 1.0,
+    "current_equity": 1.0
+  }
+}
